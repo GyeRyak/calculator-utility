@@ -6,10 +6,19 @@ on:
   pull_request:
     branches: [ main ]
 
+# 동시성 제어: 동일한 브랜치에 대한 새로운 push가 있을 때 진행 중인 워크플로우를 취소합니다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+    # GITHUB_TOKEN에 필요한 권한을 명시적으로 설정하여 보안을 강화합니다.
+    permissions:
+      contents: read
+      pages: write
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -23,14 +32,18 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Build and Export
+    - name: Build
+      # GitHub Pages는 하위 경로로 배포되므로, 빌드 시 경로를 설정해줘야 합니다.
+      # 프로젝트의 빌드 설정(예: next.config.js)에서 이 환경 변수를 사용해야 합니다.
       run: npm run build
       env:
-        NODE_ENV: production
+        # 레포지토리 이름을 동적으로 가져와 BASE_PATH로 설정합니다.
+        BASE_PATH: /${{ github.event.repository.name }}
 
     - name: Deploy to GitHub Pages
-      if: github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
+      # main 브랜치에 'push' 이벤트가 발생했을 때만 배포를 실행합니다.
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: peaceiris/actions-gh-pages@v4 # 보안 및 기능 개선을 위해 v4로 업데이트
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./out 
+        publish_dir: ./out
