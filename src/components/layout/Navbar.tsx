@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Calculator } from 'lucide-react'
+import { Menu, X, Calculator, Settings } from 'lucide-react'
+import CookieSettings from '@/components/ui/CookieSettings'
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showCookieSettings, setShowCookieSettings] = useState(false)
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
 
@@ -30,6 +32,14 @@ export function Navbar() {
             <Link href="/about" className="text-foreground hover:text-primary transition-colors">
               소개
             </Link>
+            <button
+              onClick={() => setShowCookieSettings(true)}
+              className="text-foreground hover:text-primary transition-colors flex items-center gap-1"
+              title="쿠키 설정"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="text-sm">쿠키 설정</span>
+            </button>
           </div>
 
           {/* 모바일 메뉴 버튼 */}
@@ -67,9 +77,25 @@ export function Navbar() {
               >
                 소개
               </Link>
+              <button
+                onClick={() => {
+                  setShowCookieSettings(true)
+                  setIsMenuOpen(false)
+                }}
+                className="text-foreground hover:text-primary transition-colors px-2 py-1 flex items-center gap-2 text-left"
+              >
+                <Settings className="w-4 h-4" />
+                쿠키 설정
+              </button>
             </div>
           </div>
         )}
+        
+        {/* 쿠키 셈정 모달 */}
+        <CookieSettings 
+          isOpen={showCookieSettings}
+          onClose={() => setShowCookieSettings(false)}
+        />
       </div>
     </nav>
   )

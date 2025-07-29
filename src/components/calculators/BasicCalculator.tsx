@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Save, RotateCcw, AlertCircle } from 'lucide-react'
 import { calculateDropData, getMesoCalculationDetails, getSolErdaCalculationDetails, type DropCalculationParams } from '../../utils/dropCalculations'
+import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 
 
@@ -60,6 +62,11 @@ interface CalculationInputs {
 }
 
 export function BasicCalculator() {
+  // 설정 저장/복원 상태
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
+  const [showSaveError, setShowSaveError] = useState(false)
+  
   // 입력 상태
   const [mobLevel, setMobLevel] = useState<number>(275)
   const [mesoBonus, setMesoBonus] = useState<number>(40)
@@ -122,6 +129,130 @@ export function BasicCalculator() {
   // 계산된 결과 및 계산 시점의 입력값
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [calculatedInputs, setCalculatedInputs] = useState<CalculationInputs | null>(null)
+  
+  // 설정 저장/복원 함수
+  const saveSettings = () => {
+    if (!canUseFunctionalCookies()) {
+      setShowSaveError(true)
+      setTimeout(() => setShowSaveError(false), 3000)
+      return
+    }
+    
+    const settings = {
+      mobLevel,
+      mesoBonus,
+      itemDropBonus,
+      mesoInputMode,
+      itemDropInputMode,
+      mesoUnionBuff,
+      mesoPotentialMode,
+      mesoPotentialLines,
+      mesoPotentialDirect,
+      mesoAbility,
+      globalBuffMode,
+      mesoArtifactLevel,
+      mesoArtifactMode,
+      mesoArtifactLevelInput,
+      mesoArtifactPercentInput,
+      itemUnionBuff,
+      itemPotentialMode,
+      itemPotentialLines,
+      itemPotentialDirect,
+      itemAbility,
+      itemArtifactLevel,
+      itemArtifactMode,
+      itemArtifactLevelInput,
+      itemArtifactPercentInput,
+      holySymbol,
+      usefulHolySymbol,
+      usefulHolySymbolLevel,
+      wealthPotion,
+      changeDetection,
+      changeDetectionLevel,
+      huntTime,
+      isCustomHuntTime,
+      huntTimeUnit,
+      customHuntTimeValue,
+      mobCount,
+      resultTime,
+      isCustomResultTime,
+      resultTimeUnit,
+      customResultTimeValue,
+      solErdaPrice,
+      feeRate,
+      showWealthPotionCost,
+      wealthPotionPrice,
+      autoCalculate
+    }
+    
+    if (saveCalculatorSettings(settings)) {
+      setShowSaveSuccess(true)
+      setTimeout(() => setShowSaveSuccess(false), 3000)
+    } else {
+      setShowSaveError(true)
+      setTimeout(() => setShowSaveError(false), 3000)
+    }
+  }
+  
+  const loadSettings = () => {
+    if (!canUseFunctionalCookies()) return
+    
+    const settings = loadCalculatorSettings()
+    if (!settings) return
+    
+    // 설정값 복원
+    if (settings.mobLevel !== undefined) setMobLevel(settings.mobLevel)
+    if (settings.mesoBonus !== undefined) setMesoBonus(settings.mesoBonus)
+    if (settings.itemDropBonus !== undefined) setItemDropBonus(settings.itemDropBonus)
+    if (settings.mesoInputMode !== undefined) setMesoInputMode(settings.mesoInputMode)
+    if (settings.itemDropInputMode !== undefined) setItemDropInputMode(settings.itemDropInputMode)
+    if (settings.mesoUnionBuff !== undefined) setMesoUnionBuff(settings.mesoUnionBuff)
+    if (settings.mesoPotentialMode !== undefined) setMesoPotentialMode(settings.mesoPotentialMode)
+    if (settings.mesoPotentialLines !== undefined) setMesoPotentialLines(settings.mesoPotentialLines)
+    if (settings.mesoPotentialDirect !== undefined) setMesoPotentialDirect(settings.mesoPotentialDirect)
+    if (settings.mesoAbility !== undefined) setMesoAbility(settings.mesoAbility)
+    if (settings.globalBuffMode !== undefined) setGlobalBuffMode(settings.globalBuffMode)
+    if (settings.mesoArtifactLevel !== undefined) setMesoArtifactLevel(settings.mesoArtifactLevel)
+    if (settings.mesoArtifactMode !== undefined) setMesoArtifactMode(settings.mesoArtifactMode)
+    if (settings.mesoArtifactLevelInput !== undefined) setMesoArtifactLevelInput(settings.mesoArtifactLevelInput)
+    if (settings.mesoArtifactPercentInput !== undefined) setMesoArtifactPercentInput(settings.mesoArtifactPercentInput)
+    if (settings.itemUnionBuff !== undefined) setItemUnionBuff(settings.itemUnionBuff)
+    if (settings.itemPotentialMode !== undefined) setItemPotentialMode(settings.itemPotentialMode)
+    if (settings.itemPotentialLines !== undefined) setItemPotentialLines(settings.itemPotentialLines)
+    if (settings.itemPotentialDirect !== undefined) setItemPotentialDirect(settings.itemPotentialDirect)
+    if (settings.itemAbility !== undefined) setItemAbility(settings.itemAbility)
+    if (settings.itemArtifactLevel !== undefined) setItemArtifactLevel(settings.itemArtifactLevel)
+    if (settings.itemArtifactMode !== undefined) setItemArtifactMode(settings.itemArtifactMode)
+    if (settings.itemArtifactLevelInput !== undefined) setItemArtifactLevelInput(settings.itemArtifactLevelInput)
+    if (settings.itemArtifactPercentInput !== undefined) setItemArtifactPercentInput(settings.itemArtifactPercentInput)
+    if (settings.holySymbol !== undefined) setHolySymbol(settings.holySymbol)
+    if (settings.usefulHolySymbol !== undefined) setUsefulHolySymbol(settings.usefulHolySymbol)
+    if (settings.usefulHolySymbolLevel !== undefined) setUsefulHolySymbolLevel(settings.usefulHolySymbolLevel)
+    if (settings.wealthPotion !== undefined) setWealthPotion(settings.wealthPotion)
+    if (settings.changeDetection !== undefined) setChangeDetection(settings.changeDetection)
+    if (settings.changeDetectionLevel !== undefined) setChangeDetectionLevel(settings.changeDetectionLevel)
+    if (settings.huntTime !== undefined) setHuntTime(settings.huntTime)
+    if (settings.isCustomHuntTime !== undefined) setIsCustomHuntTime(settings.isCustomHuntTime)
+    if (settings.huntTimeUnit !== undefined) setHuntTimeUnit(settings.huntTimeUnit)
+    if (settings.customHuntTimeValue !== undefined) setCustomHuntTimeValue(settings.customHuntTimeValue)
+    if (settings.mobCount !== undefined) setMobCount(settings.mobCount)
+    if (settings.resultTime !== undefined) setResultTime(settings.resultTime)
+    if (settings.isCustomResultTime !== undefined) setIsCustomResultTime(settings.isCustomResultTime)
+    if (settings.resultTimeUnit !== undefined) setResultTimeUnit(settings.resultTimeUnit)
+    if (settings.customResultTimeValue !== undefined) setCustomResultTimeValue(settings.customResultTimeValue)
+    if (settings.solErdaPrice !== undefined) setSolErdaPrice(settings.solErdaPrice)
+    if (settings.feeRate !== undefined) setFeeRate(settings.feeRate)
+    if (settings.showWealthPotionCost !== undefined) setShowWealthPotionCost(settings.showWealthPotionCost)
+    if (settings.wealthPotionPrice !== undefined) setWealthPotionPrice(settings.wealthPotionPrice)
+    if (settings.autoCalculate !== undefined) setAutoCalculate(settings.autoCalculate)
+    
+    setSettingsLoaded(true)
+  }
+  
+  // 컴포넌트 마운트 시 설정 로드
+  useEffect(() => {
+    loadSettings()
+  }, [])
 
   // 현재 입력값들을 객체로 반환
   const getCurrentInputs = (): CalculationInputs => ({
@@ -472,7 +603,50 @@ export function BasicCalculator() {
 
 
   return (
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
+      {/* 설정 저장/복원 버튼 */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={saveSettings}
+            className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            설정 저장
+          </button>
+          <button
+            onClick={loadSettings}
+            className="px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            설정 복원
+          </button>
+        </div>
+        
+        {/* 상태 메시지 */}
+        <div className="flex items-center gap-2">
+          {showSaveSuccess && (
+            <div className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              설정이 저장되었습니다
+            </div>
+          )}
+          {showSaveError && (
+            <div className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded flex items-center gap-1">
+              <AlertCircle className="w-4 h-4" />
+              기능성 쿠키가 비활성화되어 있습니다
+            </div>
+          )}
+          {settingsLoaded && canUseFunctionalCookies() && (
+            <div className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded flex items-center gap-1">
+              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              저장된 설정 복원됨
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
           {/* 사냥 정보 */}
           <div className="lg:col-span-3 space-y-4">
@@ -1645,6 +1819,7 @@ export function BasicCalculator() {
           </div>
         )}
         </div>
+      </div>
       </div>
     </div>
   )

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
+import CookieProvider from '@/components/providers/CookieProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={`${inter.className} min-h-screen bg-background`}>
-        <Navbar />
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
+        <CookieProvider>
+          <Navbar />
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
+        </CookieProvider>
       </body>
     </html>
   )
