@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     # GITHUB_TOKEN에 필요한 권한을 명시적으로 설정하여 보안을 강화합니다.
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
 
@@ -40,6 +40,17 @@ jobs:
       env:
         # 레포지토리 이름을 동적으로 가져와 BASE_PATH로 설정합니다.
         BASE_PATH: /${{ github.event.repository.name }}
+
+    - name: Check build output
+      run: |
+        echo "Checking build output..."
+        ls -la
+        if [ -d "out" ]; then
+          echo "out directory exists"
+          ls -la out/
+        else
+          echo "out directory does not exist"
+        fi
 
     - name: Deploy to GitHub Pages
       # main 브랜치에 'push' 이벤트가 발생했을 때만 배포를 실행합니다.
