@@ -42,22 +42,31 @@ interface CalculationInputs {
   mesoInputMode: string
   dropRateInputMode: string
   mesoUnionBuff: boolean
+  phantomUnionMeso: number
   mesoPotentialMode: string
   mesoPotentialLines: number
   mesoPotentialDirect: number
   mesoAbility: number
   globalBuffMode: string
   mesoArtifactLevel: number
+  mesoArtifactMode: string
+  mesoArtifactLevelInput: number
+  mesoArtifactPercentInput: number
   dropRateUnionBuff: boolean
   dropRatePotentialMode: string
   dropRatePotentialLines: number
   dropRatePotentialDirect: number
   dropRateAbility: number
   dropRateArtifactLevel: number
+  dropRateArtifactMode: string
+  dropRateArtifactLevelInput: number
+  dropRateArtifactPercentInput: number
   holySymbol: boolean
   usefulHolySymbol: boolean
   usefulHolySymbolLevel: number
   wealthAcquisitionPotion: boolean
+  showWealthPotionCost: boolean
+  wealthAcquisitionPotionPrice: number
   spottingSmallChange: boolean
   spottingSmallChangeLevel: number
 }
@@ -104,11 +113,12 @@ export function BasicCalculator() {
   
   // 메소 획득량 상세 옵션
   const [mesoUnionBuff, setMesoUnionBuff] = useState<boolean>(false) // 유니온의 부
+  const [phantomUnionMeso, setPhantomUnionMeso] = useState<number>(4) // 팬텀 유니온 (0~5%, 기본 4%)
   const [mesoPotentialMode, setMesoPotentialMode] = useState<'lines' | 'direct'>('lines')
   const [mesoPotentialLines, setMesoPotentialLines] = useState<number>(0)
   const [mesoPotentialDirect, setMesoPotentialDirect] = useState<number>(0)
   const [mesoAbility, setMesoAbility] = useState<number>(20)
-  const [globalBuffMode, setGlobalBuffMode] = useState<'none' | 'challenger' | 'artifact'>('artifact')
+  const [globalBuffMode, setGlobalBuffMode] = useState<'none' | 'challenger' | 'union'>('union')
   const [mesoArtifactLevel, setMesoArtifactLevel] = useState<number>(10)
   const [mesoArtifactMode, setMesoArtifactMode] = useState<'level' | 'direct'>('level')
   const [mesoArtifactLevelInput, setMesoArtifactLevelInput] = useState<number>(10)
@@ -171,6 +181,7 @@ export function BasicCalculator() {
       mesoInputMode,
       dropRateInputMode,
       mesoUnionBuff,
+      phantomUnionMeso,
       mesoPotentialMode,
       mesoPotentialLines,
       mesoPotentialDirect,
@@ -237,6 +248,7 @@ export function BasicCalculator() {
         mesoInputMode: settings.mesoInputMode,
         dropRateInputMode: settings.dropRateInputMode,
         mesoUnionBuff: settings.mesoUnionBuff,
+        phantomUnionMeso: settings.phantomUnionMeso,
         mesoPotentialMode: settings.mesoPotentialMode,
         mesoPotentialLines: settings.mesoPotentialLines,
         mesoPotentialDirect: settings.mesoPotentialDirect,
@@ -301,11 +313,12 @@ export function BasicCalculator() {
       setMesoInputMode('detail')
       setDropRateInputMode('detail')
       setMesoUnionBuff(false)
+      setPhantomUnionMeso(4)
       setMesoPotentialMode('lines')
       setMesoPotentialLines(0)
       setMesoPotentialDirect(0)
       setMesoAbility(20)
-      setGlobalBuffMode('artifact')
+      setGlobalBuffMode('union')
       setMesoArtifactLevel(10)
       setMesoArtifactMode('level')
       setMesoArtifactLevelInput(10)
@@ -359,28 +372,29 @@ export function BasicCalculator() {
         mesoInputMode: 'detail',
         dropRateInputMode: 'detail',
         mesoUnionBuff: false,
+        phantomUnionMeso: 4,
         mesoPotentialMode: 'lines',
         mesoPotentialLines: 0,
         mesoPotentialDirect: 0,
         mesoAbility: 0,
-        globalBuffMode: 'artifact',
+        globalBuffMode: 'union',
         mesoArtifactLevel: 0,
+        mesoArtifactMode: 'level',
+        mesoArtifactLevelInput: 0,
+        mesoArtifactPercentInput: 0,
         dropRateUnionBuff: false,
         dropRatePotentialMode: 'lines',
         dropRatePotentialLines: 0,
         dropRatePotentialDirect: 0,
         dropRateAbility: 0,
         dropRateArtifactLevel: 0,
+        dropRateArtifactMode: 'level',
+        dropRateArtifactLevelInput: 0,
+        dropRateArtifactPercentInput: 0,
         holySymbol: false,
         usefulHolySymbol: false,
         usefulHolySymbolLevel: 1,
         wealthAcquisitionPotion: false,
-        mesoArtifactMode: 'level',
-        mesoArtifactLevelInput: 0,
-        mesoArtifactPercentInput: 0,
-        dropRateArtifactMode: 'level',
-        dropRateArtifactLevelInput: 0,
-        dropRateArtifactPercentInput: 0,
         showWealthPotionCost: true,
         wealthAcquisitionPotionPrice: 300,
         spottingSmallChange: false,
@@ -418,6 +432,7 @@ export function BasicCalculator() {
     if (settings.mesoInputMode !== undefined) setMesoInputMode(settings.mesoInputMode)
     if (settings.dropRateInputMode !== undefined) setDropRateInputMode(settings.dropRateInputMode)
     if (settings.mesoUnionBuff !== undefined) setMesoUnionBuff(settings.mesoUnionBuff)
+    if (settings.phantomUnionMeso !== undefined) setPhantomUnionMeso(settings.phantomUnionMeso)
     if (settings.mesoPotentialMode !== undefined) setMesoPotentialMode(settings.mesoPotentialMode)
     if (settings.mesoPotentialLines !== undefined) setMesoPotentialLines(settings.mesoPotentialLines)
     if (settings.mesoPotentialDirect !== undefined) setMesoPotentialDirect(settings.mesoPotentialDirect)
@@ -484,28 +499,29 @@ export function BasicCalculator() {
       mesoInputMode: settings.mesoInputMode ?? 'detail',
       dropRateInputMode: settings.dropRateInputMode ?? settings.itemDropInputMode ?? 'detail',
       mesoUnionBuff: settings.mesoUnionBuff ?? false,
+      phantomUnionMeso: settings.phantomUnionMeso ?? 4,
       mesoPotentialMode: settings.mesoPotentialMode ?? 'lines',
       mesoPotentialLines: settings.mesoPotentialLines ?? 0,
       mesoPotentialDirect: settings.mesoPotentialDirect ?? 0,
       mesoAbility: settings.mesoAbility ?? 0,
-      globalBuffMode: settings.globalBuffMode ?? 'artifact',
+      globalBuffMode: settings.globalBuffMode ?? 'union',
       mesoArtifactLevel: settings.mesoArtifactLevel ?? 0,
+      mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
+      mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
+      mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
       dropRateUnionBuff: settings.dropRateUnionBuff ?? false,
       dropRatePotentialMode: settings.dropRatePotentialMode ?? 'lines',
       dropRatePotentialLines: settings.dropRatePotentialLines ?? 0,
       dropRatePotentialDirect: settings.dropRatePotentialDirect ?? 0,
       dropRateAbility: settings.dropRateAbility ?? 0,
       dropRateArtifactLevel: settings.dropRateArtifactLevel ?? 0,
+      dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
+      dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
+      dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
       holySymbol: settings.holySymbol ?? false,
       usefulHolySymbol: settings.usefulHolySymbol ?? false,
       usefulHolySymbolLevel: settings.usefulHolySymbolLevel ?? 1,
       wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
-      mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
-      mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
-      mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
-      dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
-      dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
-      dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
       showWealthPotionCost: settings.showWealthPotionCost ?? true,
       wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
       spottingSmallChange: settings.spottingSmallChange ?? false,
@@ -576,28 +592,29 @@ export function BasicCalculator() {
             mesoInputMode: settings.mesoInputMode ?? 'detail',
             dropRateInputMode: settings.dropRateInputMode ?? settings.itemDropInputMode ?? 'detail',
             mesoUnionBuff: settings.mesoUnionBuff ?? false,
+            phantomUnionMeso: settings.phantomUnionMeso ?? 4,
             mesoPotentialMode: settings.mesoPotentialMode ?? 'lines',
             mesoPotentialLines: settings.mesoPotentialLines ?? 0,
             mesoPotentialDirect: settings.mesoPotentialDirect ?? 0,
             mesoAbility: settings.mesoAbility ?? 0,
-            globalBuffMode: settings.globalBuffMode ?? 'artifact',
+            globalBuffMode: settings.globalBuffMode ?? 'union',
             mesoArtifactLevel: settings.mesoArtifactLevel ?? 0,
+            mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
+            mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
+            mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
             dropRateUnionBuff: settings.dropRateUnionBuff ?? false,
             dropRatePotentialMode: settings.dropRatePotentialMode ?? 'lines',
             dropRatePotentialLines: settings.dropRatePotentialLines ?? 0,
             dropRatePotentialDirect: settings.dropRatePotentialDirect ?? 0,
             dropRateAbility: settings.dropRateAbility ?? 0,
             dropRateArtifactLevel: settings.dropRateArtifactLevel ?? 0,
+            dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
+            dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
+            dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
             holySymbol: settings.holySymbol ?? false,
             usefulHolySymbol: settings.usefulHolySymbol ?? false,
             usefulHolySymbolLevel: settings.usefulHolySymbolLevel ?? 1,
             wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
-            mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
-            mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
-            mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
-            dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
-            dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
-            dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
             showWealthPotionCost: settings.showWealthPotionCost ?? true,
             wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
             spottingSmallChange: settings.spottingSmallChange ?? false,
@@ -651,22 +668,31 @@ export function BasicCalculator() {
     mesoInputMode,
     dropRateInputMode,
     mesoUnionBuff,
+    phantomUnionMeso,
     mesoPotentialMode,
     mesoPotentialLines,
     mesoPotentialDirect,
     mesoAbility,
     globalBuffMode,
     mesoArtifactLevel,
+    mesoArtifactMode,
+    mesoArtifactLevelInput,
+    mesoArtifactPercentInput,
     dropRateUnionBuff,
     dropRatePotentialMode,
     dropRatePotentialLines,
     dropRatePotentialDirect,
     dropRateAbility,
     dropRateArtifactLevel,
+    dropRateArtifactMode,
+    dropRateArtifactLevelInput,
+    dropRateArtifactPercentInput,
     holySymbol,
     usefulHolySymbol,
     usefulHolySymbolLevel,
     wealthAcquisitionPotion,
+    showWealthPotionCost,
+    wealthAcquisitionPotionPrice,
     spottingSmallChange,
     spottingSmallChangeLevel
   })
@@ -697,7 +723,7 @@ export function BasicCalculator() {
     })
     
     return nameChanged || valuesChanged
-  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
+  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
 
   // 슬롯 전환 처리 함수
   const handleSlotChange = (slotNumber: number) => {
@@ -770,6 +796,11 @@ export function BasicCalculator() {
     // 유니온의 부
     if (globalBuffMode !== 'challenger' && mesoUnionBuff) total += 50;
     
+    // 팬텀 유니온 (일반 월드에서만)
+    if (globalBuffMode === 'union') {
+      total += phantomUnionMeso
+    }
+    
     // 잠재능력
     const mesoPotential = mesoPotentialMode === 'lines' ? mesoPotentialLines * 20 : mesoPotentialDirect
     total += mesoPotential
@@ -780,7 +811,7 @@ export function BasicCalculator() {
     // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
     if (globalBuffMode === 'challenger') {
       total += 20
-    } else if (globalBuffMode === 'artifact') {
+    } else if (globalBuffMode === 'union') {
       total += calculateArtifactBonus(
         mesoArtifactMode === 'level' ? mesoArtifactLevelInput : 0,
         mesoArtifactMode,
@@ -817,7 +848,7 @@ export function BasicCalculator() {
     // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
     if (globalBuffMode === 'challenger') {
       total += 20
-    } else if (globalBuffMode === 'artifact') {
+    } else if (globalBuffMode === 'union') {
       total += calculateArtifactBonus(
         dropRateArtifactMode === 'level' ? dropRateArtifactLevelInput : 0,
         dropRateArtifactMode,
@@ -949,7 +980,7 @@ export function BasicCalculator() {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ko-KR').format(Math.floor(num))
@@ -1491,11 +1522,11 @@ export function BasicCalculator() {
             <RadioGroup
               options={[
                 { value: 'challenger', label: '챌린저스: 다이아 버프 (20%)' },
-                { value: 'artifact', label: '일반 월드: 유니온 (0~12%)' },
+                { value: 'union', label: '일반 월드: 유니온 (0~12%)' },
                 { value: 'none', label: '해당 없음' }
               ]}
               value={globalBuffMode}
-              onChange={(value) => setGlobalBuffMode(value as 'none' | 'challenger' | 'artifact')}
+              onChange={(value) => setGlobalBuffMode(value as 'none' | 'challenger' | 'union')}
               name="globalBuff"
             />
           </div>
@@ -1693,7 +1724,7 @@ export function BasicCalculator() {
               </div>
 
               {/* 유니온 아티팩트(드랍) 레벨 */}
-              {globalBuffMode === 'artifact' && (
+              {globalBuffMode === 'union' && (
   <div className="flex items-center justify-between">
     <label className="text-sm text-gray-700">유니온 아티팩트</label>
     <div className="flex items-center space-x-2">
@@ -1799,53 +1830,6 @@ export function BasicCalculator() {
                   orientation="horizontal"
                 />
               </div>
-
-              {/* 잔돈이 눈에 띄네 */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">잔돈이 눈에 띄네</label>
-                  <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                    {spottingSmallChange ? `+${spottingSmallChangeLevel * 2}메소/드랍` : '사용 안함'}
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-1">
-                    <input
-                      type="checkbox"
-                      id="change-detection"
-                      checked={spottingSmallChange}
-                      onChange={(e) => {
-                        setSpottingSmallChange(e.target.checked)
-                        if (mesoInputMode === 'direct') {
-                          setMesoInputMode('detail')
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <label htmlFor="change-detection" className="text-sm text-gray-700">사용</label>
-                  </div>
-                  {spottingSmallChange && (
-                    <div className="flex items-center space-x-1">
-                      <NumberInput
-                        value={spottingSmallChangeLevel}
-                        onChange={(value) => {
-                          const level = Math.min(4, Math.max(0, value))
-                          setSpottingSmallChangeLevel(level)
-                          if (mesoInputMode === 'direct') {
-                            setMesoInputMode('detail')
-                          }
-                        }}
-                        min={0}
-                        max={4}
-                        size="md"
-                        className="w-20"
-                        placeholder="4"
-                      />
-                      <span className="text-sm text-gray-500">레벨</span>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1916,6 +1900,31 @@ export function BasicCalculator() {
                   </div>
                 </div>
               )}
+              
+              {/* 팬텀 유니온 (일반 월드에서만) */}
+              {globalBuffMode === 'union' && (
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-700">팬텀 유니온</label>
+                  <div className="flex items-center space-x-2">
+                    <NumberInput
+                      value={phantomUnionMeso}
+                      onChange={(value) => {
+                        setPhantomUnionMeso(value)
+                        if (mesoInputMode === 'direct') {
+                          setMesoInputMode('detail')
+                        }
+                      }}
+                      min={0}
+                      max={5}
+                      step={1}
+                      size="sm"
+                      className="w-20"
+                    />
+                    <span className="text-sm text-gray-500">%</span>
+                  </div>
+                </div>
+              )}
+              
               {/* 잠재능력 */}
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">잠재능력</label>
@@ -1989,7 +1998,7 @@ export function BasicCalculator() {
               </div>
 
               {/* 유니온 아티팩트(메소) 레벨 */}
-              {globalBuffMode === 'artifact' && (
+              {globalBuffMode === 'union' && (
   <div className="flex items-center justify-between">
     <label className="text-sm text-gray-700">유니온 아티팩트</label>
     <div className="flex items-center space-x-2">
@@ -2033,6 +2042,53 @@ export function BasicCalculator() {
     </div>
   </div>
 )}
+              
+              {/* 잔돈이 눈에 띄네 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm text-gray-700">잔돈이 눈에 띄네</label>
+                  <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
+                    {spottingSmallChange ? `+${spottingSmallChangeLevel * 2}메소/드랍` : '사용 안함'}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      id="change-detection"
+                      checked={spottingSmallChange}
+                      onChange={(e) => {
+                        setSpottingSmallChange(e.target.checked)
+                        if (mesoInputMode === 'direct') {
+                          setMesoInputMode('detail')
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <label htmlFor="change-detection" className="text-sm text-gray-700">사용</label>
+                  </div>
+                  {spottingSmallChange && (
+                    <div className="flex items-center space-x-1">
+                      <NumberInput
+                        value={spottingSmallChangeLevel}
+                        onChange={(value) => {
+                          const level = Math.min(4, Math.max(0, value))
+                          setSpottingSmallChangeLevel(level)
+                          if (mesoInputMode === 'direct') {
+                            setMesoInputMode('detail')
+                          }
+                        }}
+                        min={0}
+                        max={4}
+                        size="md"
+                        className="w-20"
+                        placeholder="4"
+                      />
+                      <span className="text-sm text-gray-500">레벨</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
