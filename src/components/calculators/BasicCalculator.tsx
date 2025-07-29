@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, RotateCcw, AlertCircle } from 'lucide-react'
+import { Save, RotateCcw, AlertCircle, Trash2 } from 'lucide-react'
 import { calculateDropData, getMesoCalculationDetails, getSolErdaCalculationDetails, type DropCalculationParams } from '../../utils/dropCalculations'
-import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies } from '../../utils/cookies'
+import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
+import { ToggleButton, RadioGroup, RadioGroupWithInput } from '../ui'
 
 
 
@@ -66,6 +67,19 @@ export function BasicCalculator() {
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [showSaveSuccess, setShowSaveSuccess] = useState(false)
   const [showSaveError, setShowSaveError] = useState(false)
+  const [currentSlot, setCurrentSlot] = useState(1)
+  const [slotNames, setSlotNames] = useState<{[key: number]: string}>({
+    1: '슬롯 1',
+    2: '슬롯 2', 
+    3: '슬롯 3'
+  })
+  const [tempSlotName, setTempSlotName] = useState<string>('') // 임시 슬롯 이름
+  const [slotHasData, setSlotHasData] = useState<{[key: number]: boolean}>({
+    1: false,
+    2: false,
+    3: false
+  })
+  const [mounted, setMounted] = useState(false)
   
   // 입력 상태
   const [mobLevel, setMobLevel] = useState<number>(275)
@@ -131,7 +145,7 @@ export function BasicCalculator() {
   const [calculatedInputs, setCalculatedInputs] = useState<CalculationInputs | null>(null)
   
   // 설정 저장/복원 함수
-  const saveSettings = () => {
+  const saveSettings = (slotNumber: number = currentSlot) => {
     if (!canUseFunctionalCookies()) {
       setShowSaveError(true)
       setTimeout(() => setShowSaveError(false), 3000)
@@ -182,10 +196,15 @@ export function BasicCalculator() {
       feeRate,
       showWealthPotionCost,
       wealthPotionPrice,
-      autoCalculate
+      autoCalculate,
+      slotName: slotNames[slotNumber]
     }
     
-    if (saveCalculatorSettings(settings)) {
+    if (saveCalculatorSettings(settings, slotNumber)) {
+      setSlotHasData(prev => ({
+        ...prev,
+        [slotNumber]: true
+      }))
       setShowSaveSuccess(true)
       setTimeout(() => setShowSaveSuccess(false), 3000)
     } else {
@@ -194,11 +213,74 @@ export function BasicCalculator() {
     }
   }
   
-  const loadSettings = () => {
-    if (!canUseFunctionalCookies()) return
+  const loadSettings = (slotNumber: number = currentSlot) => {
+    if (!canUseFunctionalCookies()) {
+      return
+    }
     
-    const settings = loadCalculatorSettings()
-    if (!settings) return
+    const settings = loadCalculatorSettings(slotNumber)
+    
+    if (!settings) {
+      // 슬롯이 비어있으면 기본값으로 초기화
+      setCurrentSlot(slotNumber)
+      setTempSlotName(slotNames[slotNumber] || `슬롯 ${slotNumber}`)
+      
+      // 기본값으로 초기화
+      setMobLevel(275)
+      setMesoBonus(40)
+      setItemDropBonus(60)
+      setMesoInputMode('detail')
+      setItemDropInputMode('detail')
+      setMesoUnionBuff(false)
+      setMesoPotentialMode('lines')
+      setMesoPotentialLines(0)
+      setMesoPotentialDirect(0)
+      setMesoAbility(20)
+      setGlobalBuffMode('artifact')
+      setMesoArtifactLevel(10)
+      setMesoArtifactMode('level')
+      setMesoArtifactLevelInput(10)
+      setMesoArtifactPercentInput(12)
+      setItemUnionBuff(false)
+      setItemPotentialMode('lines')
+      setItemPotentialLines(0)
+      setItemPotentialDirect(0)
+      setItemAbility(15)
+      setItemArtifactLevel(10)
+      setItemArtifactMode('level')
+      setItemArtifactLevelInput(10)
+      setItemArtifactPercentInput(12)
+      setHolySymbol(false)
+      setUsefulHolySymbol(true)
+      setUsefulHolySymbolLevel(30)
+      setWealthPotion(true)
+      setChangeDetection(true)
+      setChangeDetectionLevel(4)
+      setHuntTime(0.125)
+      setIsCustomHuntTime(false)
+      setHuntTimeUnit('gen')
+      setCustomHuntTimeValue(1)
+      setMobCount(39)
+      setResultTime(30)
+      setIsCustomResultTime(false)
+      setResultTimeUnit('minutes')
+      setCustomResultTimeValue(30)
+      setSolErdaPrice(600)
+      setFeeRate(3)
+      setShowWealthPotionCost(true)
+      setWealthPotionPrice(300)
+      setAutoCalculate(true)
+      
+      return
+    }
+    
+    // 슬롯 이름 복원
+    if (settings.slotName) {
+      setSlotNames(prev => ({
+        ...prev,
+        [slotNumber]: settings.slotName
+      }))
+    }
     
     // 설정값 복원
     if (settings.mobLevel !== undefined) setMobLevel(settings.mobLevel)
@@ -246,12 +328,53 @@ export function BasicCalculator() {
     if (settings.wealthPotionPrice !== undefined) setWealthPotionPrice(settings.wealthPotionPrice)
     if (settings.autoCalculate !== undefined) setAutoCalculate(settings.autoCalculate)
     
+    setCurrentSlot(slotNumber)
+    setTempSlotName(slotNames[slotNumber] || `슬롯 ${slotNumber}`)
     setSettingsLoaded(true)
+    
+    // 설정 복원 메시지를 3초 후 숨김
+    setTimeout(() => setSettingsLoaded(false), 3000)
   }
   
   // 컴포넌트 마운트 시 설정 로드
   useEffect(() => {
-    loadSettings()
+    setMounted(true)
+    
+    // 모든 슬롯의 이름과 데이터 유무를 로드
+    if (canUseFunctionalCookies()) {
+      const newSlotNames: {[key: number]: string} = {}
+      const newSlotHasData: {[key: number]: boolean} = {}
+      
+      for (let i = 1; i <= 3; i++) {
+        const settings = loadCalculatorSettings(i)
+        if (settings) {
+          newSlotHasData[i] = true
+          if (settings.slotName) {
+            newSlotNames[i] = settings.slotName
+          } else {
+            newSlotNames[i] = `슬롯 ${i}`
+          }
+        } else {
+          newSlotHasData[i] = false
+          newSlotNames[i] = `슬롯 ${i}`
+        }
+      }
+      setSlotNames(newSlotNames)
+      setSlotHasData(newSlotHasData)
+      setTempSlotName(newSlotNames[1] || '슬롯 1')
+      
+      // slotNames가 업데이트된 후에 loadSettings 호출
+      // setTimeout을 사용하여 다음 렌더링 사이클에서 실행
+      setTimeout(() => {
+        loadSettings(1)
+      }, 0)
+    } else {
+      setTempSlotName('슬롯 1')
+      // 쿠키 사용 불가 시에도 기본값 로드
+      setTimeout(() => {
+        loadSettings(1)
+      }, 0)
+    }
   }, [])
 
   // 현재 입력값들을 객체로 반환
@@ -604,27 +727,115 @@ export function BasicCalculator() {
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
-      {/* 설정 저장/복원 버튼 */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={saveSettings}
-            className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Save className="w-4 h-4" />
-            설정 저장
-          </button>
-          <button
-            onClick={loadSettings}
-            className="px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors flex items-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4" />
-            설정 복원
-          </button>
+      {/* 슬롯 선택 UI */}
+      <div className="mb-4 border-b pb-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          {/* 슬롯 버튼들 */}
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-gray-700 mr-2">저장 슬롯:</h3>
+            <div className="flex gap-2">
+              {[1, 2, 3].map((slot) => (
+                <div key={slot} className="flex items-center gap-1">
+                  <button
+                    onClick={() => loadSettings(slot)}
+                    className={`px-3 py-2 text-sm rounded transition-all ${
+                      currentSlot === slot
+                        ? 'bg-blue-600 text-white'
+                        : mounted && slotHasData[slot]
+                        ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-500'
+                    }`}
+                  >
+                    {mounted && slotHasData[slot] ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        {slot === currentSlot && tempSlotName ? tempSlotName : slotNames[slot]}
+                      </span>
+                    ) : (
+                      <span>
+                        {slot === currentSlot && tempSlotName ? tempSlotName : slotNames[slot]} 
+                        {mounted && !slotHasData[slot] ? ' (비어있음)' : ''}
+                      </span>
+                    )}
+                  </button>
+                  {currentSlot === slot && (
+                    <>
+                      <button
+                        onClick={() => saveSettings(slot)}
+                        className="p-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                        title="현재 설정 저장"
+                      >
+                        <Save className="w-4 h-4" />
+                      </button>
+                      {mounted && slotHasData[slot] && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`슬롯 ${slot}의 데이터를 삭제하시겠습니까?`)) {
+                              clearCalculatorSettings(slot)
+                              setSlotNames(prev => ({
+                                ...prev,
+                                [slot]: `슬롯 ${slot}`
+                              }))
+                              setSlotHasData(prev => ({
+                                ...prev,
+                                [slot]: false
+                              }))
+                              setShowSaveSuccess(true)
+                              setTimeout(() => setShowSaveSuccess(false), 3000)
+                            }
+                          }}
+                          className="p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                          title="슬롯 데이터 삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* 슬롯 이름 변경 */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 whitespace-nowrap">슬롯 이름:</label>
+            <input
+              type="text"
+              value={tempSlotName}
+              onChange={(e) => {
+                setTempSlotName(e.target.value)
+              }}
+              onFocus={() => {
+                // 포커스 시 현재 슬롯 이름을 임시 이름으로 설정
+                setTempSlotName(slotNames[currentSlot])
+              }}
+              onBlur={() => {
+                // 블러 시 빈 값이면 원래 이름으로 복원
+                if (!tempSlotName.trim()) {
+                  setTempSlotName(slotNames[currentSlot])
+                } else {
+                  // 변경된 이름을 슬롯 이름에 적용
+                  setSlotNames(prev => ({
+                    ...prev,
+                    [currentSlot]: tempSlotName
+                  }))
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur()
+                }
+              }}
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
+              placeholder={`슬롯 ${currentSlot}`}
+              maxLength={20}
+            />
+          </div>
         </div>
         
         {/* 상태 메시지 */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-2">
           {showSaveSuccess && (
             <div className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded flex items-center gap-1">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
@@ -646,32 +857,31 @@ export function BasicCalculator() {
         </div>
       </div>
       
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
-          {/* 사냥 정보 */}
-          <div className="lg:col-span-3 space-y-4">
-            <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
+        {/* 사냥 정보 */}
+        <div className="lg:col-span-3 space-y-4">
+          <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
           
-            {/* 몹 레벨 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                몹 레벨
-              </label>
-                              <NumberInput
-                  value={mobLevel}
-                  onChange={setMobLevel}
-                  min={1}
-                  size="md"
-                  className="w-full"
-                />
+          {/* 몹 레벨 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              몹 레벨
+            </label>
+            <NumberInput
+              value={mobLevel}
+              onChange={setMobLevel}
+              min={1}
+              size="md"
+              className="w-full"
+            />
             </div>
 
-            {/* 사냥량 설정 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                사냥량
-              </label>
-                              <div className="flex items-center space-x-2">
+          {/* 사냥량 설정 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              사냥량
+            </label>
+            <div className="flex items-center space-x-2">
                   <select
                     value={isCustomHuntTime ? 'custom' : huntTime}
                     onChange={(e) => {
@@ -711,7 +921,7 @@ export function BasicCalculator() {
                     }}
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value={0.125} selected>1젠</option>
+                    <option value={0.125}>1젠</option>
                     <option value={2}>2분</option>
                     <option value={6}>6분</option>
                     <option value={10}>10분</option>
@@ -720,17 +930,17 @@ export function BasicCalculator() {
                     <option value="custom">직접 입력</option>
                   </select>
                   <span className="text-sm text-gray-600">당</span>
-                                     <NumberInput
-                     value={mobCount}
-                     onChange={setMobCount}
-                     min={1}
-                     size="md"
-                     className="w-24"
-                   />
+                  <NumberInput
+                    value={mobCount}
+                    onChange={setMobCount}
+                    min={1}
+                    size="md"
+                    className="w-24"
+                  />
                   <span className="text-sm text-gray-600">마리</span>
                 </div>
               
-                            {/* 직접 입력 필드 */}
+              {/* 직접 입력 필드 */}
               {isCustomHuntTime && (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <NumberInput
@@ -819,7 +1029,7 @@ export function BasicCalculator() {
                   setIsCustomResultTime(true)
                   // 현재 선택된 값을 기본값으로 설정
                   const currentMinutes = resultTime
-                                        if (currentMinutes === 30) {
+                  if (currentMinutes === 30) {
                         setResultTimeUnit('mini_wealth')
                         setCustomResultTimeValue(1)
                       } else if (currentMinutes === 120) {
@@ -846,16 +1056,16 @@ export function BasicCalculator() {
                   setResultTime(Number(e.target.value))
                 }
               }}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
                       <option value={0.125}>1젠 (7.5초)</option>
                       <option value={30}>30분</option>
                       <option value={60}>1시간</option>
                       <option value={270}>4시간 30분</option>
                       <option value="custom">직접 입력</option>
-                    </select>
+            </select>
             
-                        {/* 직접 입력 필드 */}
+            {/* 직접 입력 필드 */}
             {isCustomResultTime && (
               <div className="mt-2 grid grid-cols-3 gap-2 items-center">
                 <NumberInput
@@ -935,7 +1145,7 @@ export function BasicCalculator() {
             </label>
             <select
               value={feeRate}
-                              onChange={(e) => setFeeRate(Number(e.target.value))}
+              onChange={(e) => setFeeRate(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value={0}>0% (직접 사용)</option>
@@ -945,7 +1155,7 @@ export function BasicCalculator() {
           </div>
         </div>
 
-          {/* 스탯 정보 */}
+        {/* 스탯 정보 */}
         <div className="lg:col-span-4 space-y-4">
           <h3 className="text-base font-semibold text-gray-800 border-b pb-2">스탯 정보</h3>
           
@@ -954,38 +1164,16 @@ export function BasicCalculator() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               기본 환경 설정
             </label>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-3">
-                <input
-                  type="radio"
-                  id="challenger-buff"
-                  name="globalBuff"
-                  checked={globalBuffMode === 'challenger'}
-                  onChange={() => setGlobalBuffMode('challenger')}
-                />
-                <label htmlFor="challenger-buff" className="text-sm text-gray-700">챌린저스: 다이아 버프 (20%)</label>
-              </div>
-              <div className="flex items-center space-x-3">
-                <input
-                  type="radio"
-                  id="artifact-buff"
-                  name="globalBuff"
-                  checked={globalBuffMode === 'artifact'}
-                  onChange={() => setGlobalBuffMode('artifact')}
-                />
-                <label htmlFor="artifact-buff" className="text-sm text-gray-700">일반 월드: 유니온 (0~12%)</label>
-              </div>
-              <div className="flex items-center space-x-3">
-                <input
-                  type="radio"
-                  id="no-global-buff"
-                  name="globalBuff"
-                  checked={globalBuffMode === 'none'}
-                  onChange={() => setGlobalBuffMode('none')}
-                />
-                <label htmlFor="no-global-buff" className="text-sm text-gray-700">해당 없음</label>
-              </div>
-            </div>
+            <RadioGroup
+              options={[
+                { value: 'challenger', label: '챌린저스: 다이아 버프 (20%)' },
+                { value: 'artifact', label: '일반 월드: 유니온 (0~12%)' },
+                { value: 'none', label: '해당 없음' }
+              ]}
+              value={globalBuffMode}
+              onChange={(value) => setGlobalBuffMode(value as 'none' | 'challenger' | 'artifact')}
+              name="globalBuff"
+            />
           </div>
 
           {/* 재물 획득의 비약 */}
@@ -1045,17 +1233,15 @@ export function BasicCalculator() {
                 아이템 드롭률
               </label>
               <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setItemDropInputMode(itemDropInputMode === 'direct' ? 'detail' : 'direct')}
-                  className={`px-2 py-1 text-sm rounded ${
-                    itemDropInputMode === 'direct' 
-                      ? 'bg-red-500 text-white' 
-                      : 'bg-blue-500 text-white'
-                  }`}
-                >
-                  {itemDropInputMode === 'direct' ? '직접' : '자동'}
-                </button>
+                <ToggleButton
+                  options={[
+                    { value: 'detail', label: '자동' },
+                    { value: 'direct', label: '직접' }
+                  ]}
+                  value={itemDropInputMode}
+                  onChange={(value) => setItemDropInputMode(value as 'direct' | 'detail')}
+                  size="sm"
+                />
                 <input
                   type="number"
                   value={itemDropInputMode === 'direct' ? itemDropBonus : calculateItemDropBonus()}
@@ -1111,74 +1297,55 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">잠재능력</label>
                 <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (itemPotentialMode === 'direct') {
+                  <ToggleButton
+                    options={[
+                      { value: 'lines', label: '줄수' },
+                      { value: 'direct', label: '직접' }
+                    ]}
+                    value={itemPotentialMode}
+                    onChange={(value) => {
+                      if (value === 'lines' && itemPotentialMode === 'direct') {
                         // 직접 -> 줄수: 20% 단위로 변환, 나머지 버림
                         setItemPotentialLines(Math.floor(itemPotentialDirect / 20))
-                      }
-                      setItemPotentialMode('lines')
-                      if (itemDropInputMode === 'direct') {
-                        setItemDropInputMode('detail')
-                      }
-                    }}
-                    className={`px-2 py-1 text-sm rounded ${
-                      itemPotentialMode === 'lines' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    줄수
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (itemPotentialMode === 'lines') {
+                      } else if (value === 'direct' && itemPotentialMode === 'lines') {
                         // 줄수 -> 직접: 줄수 * 20%
                         setItemPotentialDirect(itemPotentialLines * 20)
                       }
-                      setItemPotentialMode('direct')
+                      setItemPotentialMode(value as 'lines' | 'direct')
                       if (itemDropInputMode === 'direct') {
                         setItemDropInputMode('detail')
                       }
                     }}
-                    className={`px-2 py-1 text-sm rounded ${
-                      itemPotentialMode === 'direct' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    직접
-                  </button>
+                    size="sm"
+                  />
                   {itemPotentialMode === 'lines' ? (
                     <>
-                                              <NumberInput
-                          value={itemPotentialLines}
-                          onChange={(value) => {
-                            setItemPotentialLines(Math.min(10, Math.max(0, value)))
-                            if (itemDropInputMode === 'direct') {
-                              setItemDropInputMode('detail')
-                            }
-                          }}
-                          min={0}
-                          max={10}
-                          size="md"
-                          className="w-20"
-                        />
+                      <NumberInput
+                        value={itemPotentialLines}
+                        onChange={(value) => {
+                          setItemPotentialLines(Math.min(10, Math.max(0, value)))
+                          if (itemDropInputMode === 'direct') {
+                            setItemDropInputMode('detail')
+                          }
+                        }}
+                        min={0}
+                        max={10}
+                        size="md"
+                        className="w-20"
+                      />
                       <span className="text-sm text-gray-500">줄</span>
                     </>
                   ) : (
                     <>
-                                              <NumberInput
-                          value={itemPotentialDirect}
-                          onChange={(value) => setItemPotentialDirect(Math.min(200, Math.max(0, value)))}
-                          min={0}
-                          max={200}
-                          step={5}
-                          size="md"
-                          className="w-20"
-                        />
+                      <NumberInput
+                        value={itemPotentialDirect}
+                        onChange={(value) => setItemPotentialDirect(Math.min(200, Math.max(0, value)))}
+                        min={0}
+                        max={200}
+                        step={5}
+                        size="md"
+                        className="w-20"
+                      />
                       <span className="text-sm text-gray-500">%</span>
                     </>
                   )}
@@ -1189,14 +1356,14 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">어빌리티</label>
                 <div className="flex items-center space-x-2">
-                                      <NumberInput
-                      value={itemAbility}
-                      onChange={(value) => setItemAbility(Math.min(20, Math.max(0, value)))}
-                      min={0}
-                      max={20}
-                      size="md"
-                      className="w-20"
-                    />
+                  <NumberInput
+                    value={itemAbility}
+                    onChange={(value) => setItemAbility(Math.min(20, Math.max(0, value)))}
+                    min={0}
+                    max={20}
+                    size="md"
+                    className="w-20"
+                  />
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
@@ -1254,78 +1421,59 @@ export function BasicCalculator() {
                     {holySymbol ? '30%' : usefulHolySymbol ? `${14 + Math.floor(usefulHolySymbolLevel / 3)}%` : '0%'}
                   </div>
                 </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-1">
-                    <input
-                      type="radio"
-                      id="no-holy-symbol"
-                      name="holySymbol"
-                      checked={!holySymbol && !usefulHolySymbol}
-                      onChange={() => {
-                        setHolySymbol(false)
-                        setUsefulHolySymbol(false)
-                        if (itemDropInputMode === 'direct') {
-                          setItemDropInputMode('detail')
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <label htmlFor="no-holy-symbol" className="text-sm text-gray-700">사용 안함</label>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <input
-                      type="radio"
-                      id="regular-holy-symbol"
-                      name="holySymbol"
-                      checked={holySymbol}
-                      onChange={() => {
-                        setHolySymbol(true)
-                        setUsefulHolySymbol(false)
-                        if (itemDropInputMode === 'direct') {
-                          setItemDropInputMode('detail')
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <label htmlFor="regular-holy-symbol" className="text-sm text-gray-700">홀리 심볼</label>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-1 mt-1">
-                  <input
-                    type="radio"
-                    id="useful-holy-symbol"
-                    name="holySymbol"
-                    checked={usefulHolySymbol}
-                    onChange={() => {
+                <RadioGroupWithInput
+                  options={[
+                    { 
+                      value: 'none', 
+                      label: '사용 안함' 
+                    },
+                    { 
+                      value: 'regular', 
+                      label: '홀리 심볼' 
+                    },
+                    { 
+                      value: 'useful', 
+                      label: '쓸만한 홀리 심볼',
+                      hasInput: true,
+                      inputProps: {
+                        value: usefulHolySymbolLevel,
+                        onChange: (value) => {
+                          const level = Math.min(30, Math.max(1, value))
+                          setUsefulHolySymbolLevel(level)
+                          if (!usefulHolySymbol) {
+                            setUsefulHolySymbol(true)
+                            setHolySymbol(false)
+                          }
+                          if (itemDropInputMode === 'direct') {
+                            setItemDropInputMode('detail')
+                          }
+                        },
+                        min: 1,
+                        max: 30,
+                        placeholder: '30',
+                        suffix: '레벨'
+                      }
+                    }
+                  ]}
+                  value={holySymbol ? 'regular' : usefulHolySymbol ? 'useful' : 'none'}
+                  onChange={(value) => {
+                    if (value === 'none') {
+                      setHolySymbol(false)
+                      setUsefulHolySymbol(false)
+                    } else if (value === 'regular') {
+                      setHolySymbol(true)
+                      setUsefulHolySymbol(false)
+                    } else if (value === 'useful') {
                       setHolySymbol(false)
                       setUsefulHolySymbol(true)
-                      if (itemDropInputMode === 'direct') {
-                        setItemDropInputMode('detail')
-                      }
-                    }}
-                    className="rounded"
-                  />
-                  <label htmlFor="useful-holy-symbol" className="text-sm text-gray-700">쓸만한 홀리 심볼</label>
-                                      <NumberInput
-                      value={usefulHolySymbolLevel}
-                      onChange={(value) => {
-                        const level = Math.min(30, Math.max(1, value))
-                        setUsefulHolySymbolLevel(level)
-                        if (!usefulHolySymbol) {
-                          setUsefulHolySymbol(true)
-                          setHolySymbol(false)
-                        }
-                        if (itemDropInputMode === 'direct') {
-                          setItemDropInputMode('detail')
-                        }
-                      }}
-                      min={1}
-                      max={30}
-                      className="w-20"
-                      placeholder="30"
-                    />
-                  <span className="text-sm text-gray-500">레벨</span>
-                </div>
+                    }
+                    if (itemDropInputMode === 'direct') {
+                      setItemDropInputMode('detail')
+                    }
+                  }}
+                  name="holySymbol"
+                  orientation="horizontal"
+                />
               </div>
 
               {/* 잔돈이 눈에 띄네 */}
@@ -1384,17 +1532,15 @@ export function BasicCalculator() {
                 메소 획득량
               </label>
               <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setMesoInputMode(mesoInputMode === 'direct' ? 'detail' : 'direct')}
-                  className={`px-2 py-1 text-sm rounded ${
-                    mesoInputMode === 'direct' 
-                      ? 'bg-red-500 text-white' 
-                      : 'bg-blue-500 text-white'
-                  }`}
-                >
-                  {mesoInputMode === 'direct' ? '직접' : '자동'}
-                </button>
+                <ToggleButton
+                  options={[
+                    { value: 'detail', label: '자동' },
+                    { value: 'direct', label: '직접' }
+                  ]}
+                  value={mesoInputMode}
+                  onChange={(value) => setMesoInputMode(value as 'direct' | 'detail')}
+                  size="sm"
+                />
                 <input
                   type="number"
                   value={mesoInputMode === 'direct' ? mesoBonus : calculateMesoBonus()}
@@ -1450,72 +1596,53 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">잠재능력</label>
                 <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (mesoPotentialMode === 'direct') {
+                  <ToggleButton
+                    options={[
+                      { value: 'lines', label: '줄수' },
+                      { value: 'direct', label: '직접' }
+                    ]}
+                    value={mesoPotentialMode}
+                    onChange={(value) => {
+                      if (value === 'lines' && mesoPotentialMode === 'direct') {
                         // 직접 -> 줄수: 20% 단위로 변환, 나머지 버림
                         setMesoPotentialLines(Math.floor(mesoPotentialDirect / 20))
-                      }
-                      setMesoPotentialMode('lines')
-                      if (mesoInputMode === 'direct') {
-                        setMesoInputMode('detail')
-                      }
-                    }}
-                    className={`px-2 py-1 text-sm rounded ${
-                      mesoPotentialMode === 'lines' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    줄수
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (mesoPotentialMode === 'lines') {
+                      } else if (value === 'direct' && mesoPotentialMode === 'lines') {
                         // 줄수 -> 직접: 줄수 * 20%
                         setMesoPotentialDirect(mesoPotentialLines * 20)
                       }
-                      setMesoPotentialMode('direct')
+                      setMesoPotentialMode(value as 'lines' | 'direct')
                       if (mesoInputMode === 'direct') {
                         setMesoInputMode('detail')
                       }
                     }}
-                    className={`px-2 py-1 text-sm rounded ${
-                      mesoPotentialMode === 'direct' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    직접
-                  </button>
+                    size="sm"
+                  />
                   {mesoPotentialMode === 'lines' ? (
                     <>
-                                              <NumberInput
-                          value={mesoPotentialLines}
-                          onChange={(value) => {
-                            setMesoPotentialLines(Math.min(5, Math.max(0, value)))
-                            if (mesoInputMode === 'direct') {
-                              setMesoInputMode('detail')
-                            }
-                          }}
-                          min={0}
-                          max={5}
-                          className="w-20"
-                        />
+                      <NumberInput
+                        value={mesoPotentialLines}
+                        onChange={(value) => {
+                          setMesoPotentialLines(Math.min(5, Math.max(0, value)))
+                          if (mesoInputMode === 'direct') {
+                            setMesoInputMode('detail')
+                          }
+                        }}
+                        min={0}
+                        max={5}
+                        className="w-20"
+                      />
                       <span className="text-sm text-gray-500">줄</span>
                     </>
                   ) : (
                     <>
-                                              <NumberInput
-                          value={mesoPotentialDirect}
-                          onChange={(value) => setMesoPotentialDirect(Math.min(100, Math.max(0, value)))}
-                          min={0}
-                          max={100}
-                          step={5}
-                          className="w-20"
-                        />
+                      <NumberInput
+                        value={mesoPotentialDirect}
+                        onChange={(value) => setMesoPotentialDirect(Math.min(100, Math.max(0, value)))}
+                        min={0}
+                        max={100}
+                        step={5}
+                        className="w-20"
+                      />
                       <span className="text-sm text-gray-500">%</span>
                     </>
                   )}
@@ -1526,13 +1653,13 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">어빌리티</label>
                 <div className="flex items-center space-x-2">
-                                      <NumberInput
-                      value={mesoAbility}
-                      onChange={(value) => setMesoAbility(Math.min(20, Math.max(0, value)))}
-                      min={0}
-                      max={20}
-                      className="w-20"
-                    />
+                  <NumberInput
+                    value={mesoAbility}
+                    onChange={(value) => setMesoAbility(Math.min(20, Math.max(0, value)))}
+                    min={0}
+                    max={20}
+                    className="w-20"
+                  />
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
@@ -1588,7 +1715,28 @@ export function BasicCalculator() {
 
         {/* 계산 결과 */}
         <div className="lg:col-span-4 space-y-4">
-          <h3 className="text-base font-semibold text-gray-800 border-b pb-2">계산 결과</h3>
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="text-base font-semibold text-gray-800">계산 결과</h3>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoCalculate}
+                  onChange={(e) => setAutoCalculate(e.target.checked)}
+                  className="rounded"
+                />
+                <span className="text-gray-700">자동 계산</span>
+              </label>
+              {!autoCalculate && (
+                <button
+                  onClick={() => calculateDrops()}
+                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                >
+                  계산하기
+                </button>
+              )}
+            </div>
+          </div>
         
           {result ? (
           <div className="space-y-4">
@@ -1637,7 +1785,7 @@ export function BasicCalculator() {
                     <div className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs cursor-help">
                       ?
                     </div>
-                                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
                        {(() => {
                          const inputs = getCurrentInputs()
                          // 재획비를 제외한 메소 획득량 계산
@@ -1667,7 +1815,7 @@ export function BasicCalculator() {
                     <div className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs cursor-help">
                       ?
                     </div>
-                                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-3 py-2 whitespace-nowrap z-10">
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-3 py-2 whitespace-nowrap z-10">
                        {(() => {
                          const currentDropRate = calculateItemDropBonus()
                          const solErdaDetails = getSolErdaCalculationDetails(currentDropRate)
@@ -1819,7 +1967,6 @@ export function BasicCalculator() {
           </div>
         )}
         </div>
-      </div>
       </div>
     </div>
   )

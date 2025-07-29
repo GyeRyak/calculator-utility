@@ -143,46 +143,81 @@ export function canUseFunctionalCookies(): boolean {
   return isCookieAllowed('functional')
 }
 
-// 계산기 설정 저장
-export function saveCalculatorSettings(settings: any): boolean {
+// 슬롯별 쿠키 키 생성
+function getSlotKey(slotNumber: number): string {
+  return `${COOKIE_SETTINGS_KEY}_slot_${slotNumber}`
+}
+
+// 계산기 설정 저장 (슬롯 지원)
+export function saveCalculatorSettings(settings: any, slotNumber: number = 1): boolean {
   if (!canUseFunctionalCookies()) {
     console.warn('Functional cookies are not allowed. Settings will not be saved.')
     return false
   }
   
+  if (slotNumber < 1 || slotNumber > 3) {
+    console.error('Invalid slot number. Must be between 1 and 3.')
+    return false
+  }
+  
   try {
-    setCookie(COOKIE_SETTINGS_KEY, JSON.stringify(settings), {
+    const slotKey = getSlotKey(slotNumber)
+    setCookie(slotKey, JSON.stringify(settings), {
       expires: 30, // 30일
       path: '/',
       sameSite: 'lax'
     })
     return true
   } catch (error) {
-    console.error('Failed to save calculator settings:', error)
+    console.error(`Failed to save calculator settings to slot ${slotNumber}:`, error)
     return false
   }
 }
 
-// 계산기 설정 불러오기
-export function loadCalculatorSettings(): any | null {
+// 계산기 설정 불러오기 (슬롯 지원)
+export function loadCalculatorSettings(slotNumber: number = 1): any | null {
   if (!canUseFunctionalCookies()) {
     return null
   }
   
-  const settingsData = getCookie(COOKIE_SETTINGS_KEY)
+  if (slotNumber < 1 || slotNumber > 3) {
+    console.error('Invalid slot number. Must be between 1 and 3.')
+    return null
+  }
+  
+  const slotKey = getSlotKey(slotNumber)
+  const settingsData = getCookie(slotKey)
   if (!settingsData) return null
   
   try {
     return JSON.parse(settingsData)
   } catch (error) {
-    console.error('Failed to load calculator settings:', error)
+    console.error(`Failed to load calculator settings from slot ${slotNumber}:`, error)
     return null
   }
 }
 
-// 계산기 설정 삭제
-export function clearCalculatorSettings(): void {
-  deleteCookie(COOKIE_SETTINGS_KEY, '/')
+// 특정 슬롯의 계산기 설정 삭제
+export function clearCalculatorSettings(slotNumber?: number): void {
+  if (slotNumber === undefined) {
+    // 모든 슬롯 삭제
+    for (let i = 1; i <= 3; i++) {
+      deleteCookie(getSlotKey(i), '/')
+    }
+  } else if (slotNumber >= 1 && slotNumber <= 3) {
+    // 특정 슬롯만 삭제
+    deleteCookie(getSlotKey(slotNumber), '/')
+  }
+}
+
+// 슬롯에 저장된 데이터가 있는지 확인
+export function hasSlotData(slotNumber: number): boolean {
+  if (!canUseFunctionalCookies()) return false
+  
+  if (slotNumber < 1 || slotNumber > 3) return false
+  
+  const slotKey = getSlotKey(slotNumber)
+  return getCookie(slotKey) !== null
 }
 
 // 모든 비필수 쿠키 삭제

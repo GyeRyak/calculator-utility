@@ -192,8 +192,8 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
           setTimeout(() => {
             if (inputRef.current && isFocused) {
               inputRef.current.focus()
-              // 커서 위치도 정확히 복원
-              inputRef.current.setSelectionRange(currentSelection.start, currentSelection.end)
+              // type="number"에서는 setSelectionRange가 지원되지 않음
+              // 포커스만 복원
             }
           }, 0)
         }
@@ -267,8 +267,8 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
           setTimeout(() => {
             if (inputRef.current && isFocused) {
               inputRef.current.focus()
-              // 커서 위치도 정확히 복원
-              inputRef.current.setSelectionRange(currentSelection.start, currentSelection.end)
+              // type="number"에서는 setSelectionRange가 지원되지 않음
+              // 포커스만 복원
             }
           }, 0)
         }

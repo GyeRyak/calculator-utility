@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import CookieConsent from '@/components/ui/CookieConsent'
 import { getCookieConsent, type CookieConsent as CookieConsentType } from '@/utils/cookies'
 
@@ -18,9 +18,9 @@ export function CookieProvider({ children }: CookieProviderProps) {
     setConsent(existingConsent)
   }, [])
 
-  const handleConsentChange = (newConsent: CookieConsentType) => {
+  const handleConsentChange = useCallback((newConsent: CookieConsentType) => {
     setConsent(newConsent)
-  }
+  }, [])
 
   if (!mounted) {
     return <>{children}</>
