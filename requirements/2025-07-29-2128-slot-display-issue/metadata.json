@@ -1,0 +1,20 @@
+{
+  "id": "slot-display-issue",
+  "started": "2025-07-29T21:28:00.000Z",
+  "lastUpdated": "2025-07-29T21:32:00.000Z",
+  "status": "complete",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 2, "total": 2 }
+  },
+  "contextFiles": [
+    "src/components/calculators/BasicCalculator.tsx",
+    "src/utils/cookies.ts"
+  ],
+  "relatedFeatures": [
+    "슬롯 시스템",
+    "쿠키 기반 설정 저장",
+    "사용자 인터페이스"
+  ]
+}

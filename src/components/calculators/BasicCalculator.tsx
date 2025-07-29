@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2 } from 'lucide-react'
-import { calculateDropData, getMesoCalculationDetails, getSolErdaCalculationDetails, type DropCalculationParams } from '../../utils/dropCalculations'
+import { calculateHuntingExpectation, getMesoCalculationDetails, getSolErdaFragmentCalculationDetails, type HuntingExpectationParams } from '../../utils/huntingExpectationCalculations'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput } from '../ui'
@@ -18,20 +18,20 @@ interface CalculationResult {
   mesoDropRate: number
   solErdaDropRate: number
   mesoPerDrop: number
-  wealthPotionCount: number
-  wealthPotionCost: number
+  wealthAcquisitionPotionCount: number
+  wealthAcquisitionPotionCost: number
   totalMesoPerHour: number
   totalMesoWithoutPotion: number
 }
 
 interface CalculationInputs {
-  mobLevel: number
+  monsterLevel: number
   mesoBonus: number
-  itemDropBonus: number
+  dropRate: number
   huntTime: number
-  mobCount: number
+  monsterCount: number
   resultTime: number
-  solErdaPrice: number
+  solErdaFragmentPrice: number
   feeRate: number
   isCustomHuntTime: boolean
   huntTimeUnit: string
@@ -40,7 +40,7 @@ interface CalculationInputs {
   resultTimeUnit: string
   customResultTimeValue: number
   mesoInputMode: string
-  itemDropInputMode: string
+  dropRateInputMode: string
   mesoUnionBuff: boolean
   mesoPotentialMode: string
   mesoPotentialLines: number
@@ -48,18 +48,18 @@ interface CalculationInputs {
   mesoAbility: number
   globalBuffMode: string
   mesoArtifactLevel: number
-  itemUnionBuff: boolean
-  itemPotentialMode: string
-  itemPotentialLines: number
-  itemPotentialDirect: number
-  itemAbility: number
-  itemArtifactLevel: number
+  dropRateUnionBuff: boolean
+  dropRatePotentialMode: string
+  dropRatePotentialLines: number
+  dropRatePotentialDirect: number
+  dropRateAbility: number
+  dropRateArtifactLevel: number
   holySymbol: boolean
   usefulHolySymbol: boolean
   usefulHolySymbolLevel: number
-  wealthPotion: boolean
-  changeDetection: boolean
-  changeDetectionLevel: number
+  wealthAcquisitionPotion: boolean
+  spottingSmallChange: boolean
+  spottingSmallChangeLevel: number
 }
 
 export function BasicCalculator() {
@@ -74,6 +74,18 @@ export function BasicCalculator() {
     3: '슬롯 3'
   })
   const [tempSlotName, setTempSlotName] = useState<string>('') // 임시 슬롯 이름
+  const [lastSavedInputs, setLastSavedInputs] = useState<{[key: number]: CalculationInputs | null}>({
+    1: null,
+    2: null,
+    3: null
+  }) // 슬롯별 마지막 저장된 입력값
+  const [lastSavedSlotNames, setLastSavedSlotNames] = useState<{[key: number]: string}>({
+    1: '슬롯 1',
+    2: '슬롯 2',
+    3: '슬롯 3'
+  }) // 슬롯별 마지막 저장된 이름
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false) // 미저장 경고 모달
+  const [pendingSlotNumber, setPendingSlotNumber] = useState<number | null>(null) // 전환 대기 중인 슬롯 번호
   const [slotHasData, setSlotHasData] = useState<{[key: number]: boolean}>({
     1: false,
     2: false,
@@ -82,13 +94,13 @@ export function BasicCalculator() {
   const [mounted, setMounted] = useState(false)
   
   // 입력 상태
-  const [mobLevel, setMobLevel] = useState<number>(275)
+  const [monsterLevel, setMonsterLevel] = useState<number>(275)
   const [mesoBonus, setMesoBonus] = useState<number>(40)
-  const [itemDropBonus, setItemDropBonus] = useState<number>(60)
+  const [dropRate, setDropRate] = useState<number>(60)
   
   // 입력 방식 선택
   const [mesoInputMode, setMesoInputMode] = useState<'direct' | 'detail'>('detail')
-  const [itemDropInputMode, setItemDropInputMode] = useState<'direct' | 'detail'>('detail')
+  const [dropRateInputMode, setDropRateInputMode] = useState<'direct' | 'detail'>('detail')
   
   // 메소 획득량 상세 옵션
   const [mesoUnionBuff, setMesoUnionBuff] = useState<boolean>(false) // 유니온의 부
@@ -101,40 +113,40 @@ export function BasicCalculator() {
   const [mesoArtifactMode, setMesoArtifactMode] = useState<'level' | 'direct'>('level')
   const [mesoArtifactLevelInput, setMesoArtifactLevelInput] = useState<number>(10)
   const [mesoArtifactPercentInput, setMesoArtifactPercentInput] = useState<number>(12)
-  const [itemUnionBuff, setItemUnionBuff] = useState<boolean>(false) // 유니온의 행운
-  const [itemPotentialMode, setItemPotentialMode] = useState<'lines' | 'direct'>('lines')
-  const [itemPotentialLines, setItemPotentialLines] = useState<number>(0) // 드랍 0줄
-  const [itemPotentialDirect, setItemPotentialDirect] = useState<number>(0) 
-  const [itemAbility, setItemAbility] = useState<number>(15) // 유니크 15%
-  const [itemArtifactLevel, setItemArtifactLevel] = useState<number>(10)
-  const [itemArtifactMode, setItemArtifactMode] = useState<'level' | 'direct'>('level')
-  const [itemArtifactLevelInput, setItemArtifactLevelInput] = useState<number>(10)
-  const [itemArtifactPercentInput, setItemArtifactPercentInput] = useState<number>(12)
+  const [dropRateUnionBuff, setDropRateUnionBuff] = useState<boolean>(false) // 유니온의 행운
+  const [dropRatePotentialMode, setDropRatePotentialMode] = useState<'lines' | 'direct'>('lines')
+  const [dropRatePotentialLines, setDropRatePotentialLines] = useState<number>(0) // Drop Rate 0줄
+  const [dropRatePotentialDirect, setDropRatePotentialDirect] = useState<number>(0) 
+  const [dropRateAbility, setDropRateAbility] = useState<number>(15) // 유니크 15%
+  const [dropRateArtifactLevel, setDropRateArtifactLevel] = useState<number>(10)
+  const [dropRateArtifactMode, setDropRateArtifactMode] = useState<'level' | 'direct'>('level')
+  const [dropRateArtifactLevelInput, setDropRateArtifactLevelInput] = useState<number>(10)
+  const [dropRateArtifactPercentInput, setDropRateArtifactPercentInput] = useState<number>(12)
   const [holySymbol, setHolySymbol] = useState<boolean>(false)
   const [usefulHolySymbol, setUsefulHolySymbol] = useState<boolean>(true)
   const [usefulHolySymbolLevel, setUsefulHolySymbolLevel] = useState<number>(30)
   
-  // 잔돈이 눈에 띄네 
-  const [changeDetection, setChangeDetection] = useState<boolean>(true)
-  const [changeDetectionLevel, setChangeDetectionLevel] = useState<number>(4)
+  // Spotting Small Change
+  const [spottingSmallChange, setSpottingSmallChange] = useState<boolean>(true)
+  const [spottingSmallChangeLevel, setSpottingSmallChangeLevel] = useState<number>(4)
   
-  // 재물 획득의 비약
-  const [wealthPotion, setWealthPotion] = useState<boolean>(true)
+  // Wealth Acquisition Potion
+  const [wealthAcquisitionPotion, setWealthAcquisitionPotion] = useState<boolean>(true)
   // 상태 추가 (컴포넌트 상단)
   const [showWealthPotionCost, setShowWealthPotionCost] = useState<boolean>(true)
-  const [wealthPotionPrice, setWealthPotionPrice] = useState<number>(300) // 만 메소
+  const [wealthAcquisitionPotionPrice, setWealthAcquisitionPotionPrice] = useState<number>(300) // 만 메소
 
   // 사냥 정보
   const [huntTime, setHuntTime] = useState<number>(0.125) // 1젠 = 7.5초 = 0.125분
   const [isCustomHuntTime, setIsCustomHuntTime] = useState<boolean>(false)
   const [huntTimeUnit, setHuntTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'gen'>('gen')
   const [customHuntTimeValue, setCustomHuntTimeValue] = useState<number>(1)
-  const [mobCount, setMobCount] = useState<number>(39)
+  const [monsterCount, setMonsterCount] = useState<number>(39)
   const [resultTime, setResultTime] = useState<number>(30) // 분
   const [isCustomResultTime, setIsCustomResultTime] = useState<boolean>(false)
   const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'gen'>('minutes')
   const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(30)
-  const [solErdaPrice, setSolErdaPrice] = useState<number>(600) // 만 메소
+  const [solErdaFragmentPrice, setSolErdaFragmentPrice] = useState<number>(600) // 만 메소
   const [feeRate, setFeeRate] = useState<number>(3) // %
   
   // 자동 연산 토글
@@ -153,11 +165,11 @@ export function BasicCalculator() {
     }
     
     const settings = {
-      mobLevel,
+      monsterLevel,
       mesoBonus,
-      itemDropBonus,
+      dropRate,
       mesoInputMode,
-      itemDropInputMode,
+      dropRateInputMode,
       mesoUnionBuff,
       mesoPotentialMode,
       mesoPotentialLines,
@@ -168,34 +180,34 @@ export function BasicCalculator() {
       mesoArtifactMode,
       mesoArtifactLevelInput,
       mesoArtifactPercentInput,
-      itemUnionBuff,
-      itemPotentialMode,
-      itemPotentialLines,
-      itemPotentialDirect,
-      itemAbility,
-      itemArtifactLevel,
-      itemArtifactMode,
-      itemArtifactLevelInput,
-      itemArtifactPercentInput,
+      dropRateUnionBuff,
+      dropRatePotentialMode,
+      dropRatePotentialLines,
+      dropRatePotentialDirect,
+      dropRateAbility,
+      dropRateArtifactLevel,
+      dropRateArtifactMode,
+      dropRateArtifactLevelInput,
+      dropRateArtifactPercentInput,
       holySymbol,
       usefulHolySymbol,
       usefulHolySymbolLevel,
-      wealthPotion,
-      changeDetection,
-      changeDetectionLevel,
+      wealthAcquisitionPotion,
+      spottingSmallChange,
+      spottingSmallChangeLevel,
       huntTime,
       isCustomHuntTime,
       huntTimeUnit,
       customHuntTimeValue,
-      mobCount,
+      monsterCount,
       resultTime,
       isCustomResultTime,
       resultTimeUnit,
       customResultTimeValue,
-      solErdaPrice,
+      solErdaFragmentPrice,
       feeRate,
       showWealthPotionCost,
-      wealthPotionPrice,
+      wealthAcquisitionPotionPrice,
       autoCalculate,
       slotName: slotNames[slotNumber]
     }
@@ -204,6 +216,63 @@ export function BasicCalculator() {
       setSlotHasData(prev => ({
         ...prev,
         [slotNumber]: true
+      }))
+      // 저장 성공 시 마지막 저장된 입력값 및 슬롯 이름 업데이트
+      // settings 객체에서 실제 저장된 값들을 사용
+      const actualSavedInputs: CalculationInputs = {
+        monsterLevel: settings.monsterLevel,
+        mesoBonus: settings.mesoBonus,
+        dropRate: settings.dropRate,
+        huntTime: settings.huntTime,
+        monsterCount: settings.monsterCount,
+        resultTime: settings.resultTime,
+        solErdaFragmentPrice: settings.solErdaFragmentPrice,
+        feeRate: settings.feeRate,
+        isCustomHuntTime: settings.isCustomHuntTime,
+        huntTimeUnit: settings.huntTimeUnit,
+        customHuntTimeValue: settings.customHuntTimeValue,
+        isCustomResultTime: settings.isCustomResultTime,
+        resultTimeUnit: settings.resultTimeUnit,
+        customResultTimeValue: settings.customResultTimeValue,
+        mesoInputMode: settings.mesoInputMode,
+        dropRateInputMode: settings.dropRateInputMode,
+        mesoUnionBuff: settings.mesoUnionBuff,
+        mesoPotentialMode: settings.mesoPotentialMode,
+        mesoPotentialLines: settings.mesoPotentialLines,
+        mesoPotentialDirect: settings.mesoPotentialDirect,
+        mesoAbility: settings.mesoAbility,
+        globalBuffMode: settings.globalBuffMode,
+        mesoArtifactLevel: settings.mesoArtifactLevel,
+        dropRateUnionBuff: settings.dropRateUnionBuff,
+        dropRatePotentialMode: settings.dropRatePotentialMode,
+        dropRatePotentialLines: settings.dropRatePotentialLines,
+        dropRatePotentialDirect: settings.dropRatePotentialDirect,
+        dropRateAbility: settings.dropRateAbility,
+        dropRateArtifactLevel: settings.dropRateArtifactLevel,
+        holySymbol: settings.holySymbol,
+        usefulHolySymbol: settings.usefulHolySymbol,
+        usefulHolySymbolLevel: settings.usefulHolySymbolLevel,
+        wealthAcquisitionPotion: settings.wealthAcquisitionPotion,
+        mesoArtifactMode: settings.mesoArtifactMode,
+        mesoArtifactLevelInput: settings.mesoArtifactLevelInput,
+        mesoArtifactPercentInput: settings.mesoArtifactPercentInput,
+        dropRateArtifactMode: settings.dropRateArtifactMode,
+        dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput,
+        dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput,
+        showWealthPotionCost: settings.showWealthPotionCost,
+        wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice,
+        spottingSmallChange: settings.spottingSmallChange,
+        spottingSmallChangeLevel: settings.spottingSmallChangeLevel
+      }
+      
+      console.log('저장 시 actualSavedInputs:', actualSavedInputs)
+      setLastSavedInputs(prev => ({
+        ...prev,
+        [slotNumber]: actualSavedInputs
+      }))
+      setLastSavedSlotNames(prev => ({
+        ...prev,
+        [slotNumber]: slotNames[slotNumber]
       }))
       setShowSaveSuccess(true)
       setTimeout(() => setShowSaveSuccess(false), 3000)
@@ -226,11 +295,11 @@ export function BasicCalculator() {
       setTempSlotName(slotNames[slotNumber] || `슬롯 ${slotNumber}`)
       
       // 기본값으로 초기화
-      setMobLevel(275)
+      setMonsterLevel(275)
       setMesoBonus(40)
-      setItemDropBonus(60)
+      setDropRate(60)
       setMesoInputMode('detail')
-      setItemDropInputMode('detail')
+      setDropRateInputMode('detail')
       setMesoUnionBuff(false)
       setMesoPotentialMode('lines')
       setMesoPotentialLines(0)
@@ -241,35 +310,91 @@ export function BasicCalculator() {
       setMesoArtifactMode('level')
       setMesoArtifactLevelInput(10)
       setMesoArtifactPercentInput(12)
-      setItemUnionBuff(false)
-      setItemPotentialMode('lines')
-      setItemPotentialLines(0)
-      setItemPotentialDirect(0)
-      setItemAbility(15)
-      setItemArtifactLevel(10)
-      setItemArtifactMode('level')
-      setItemArtifactLevelInput(10)
-      setItemArtifactPercentInput(12)
+      setDropRateUnionBuff(false)
+      setDropRatePotentialMode('lines')
+      setDropRatePotentialLines(0)
+      setDropRatePotentialDirect(0)
+      setDropRateAbility(15)
+      setDropRateArtifactLevel(10)
+      setDropRateArtifactMode('level')
+      setDropRateArtifactLevelInput(10)
+      setDropRateArtifactPercentInput(12)
       setHolySymbol(false)
       setUsefulHolySymbol(true)
       setUsefulHolySymbolLevel(30)
-      setWealthPotion(true)
-      setChangeDetection(true)
-      setChangeDetectionLevel(4)
+      setWealthAcquisitionPotion(true)
+      setSpottingSmallChange(true)
+      setSpottingSmallChangeLevel(4)
       setHuntTime(0.125)
       setIsCustomHuntTime(false)
       setHuntTimeUnit('gen')
       setCustomHuntTimeValue(1)
-      setMobCount(39)
+      setMonsterCount(39)
       setResultTime(30)
       setIsCustomResultTime(false)
       setResultTimeUnit('minutes')
       setCustomResultTimeValue(30)
-      setSolErdaPrice(600)
+      setSolErdaFragmentPrice(600)
       setFeeRate(3)
       setShowWealthPotionCost(true)
-      setWealthPotionPrice(300)
+      setWealthAcquisitionPotionPrice(300)
       setAutoCalculate(true)
+      
+      // 빈 슬롯의 기본값으로 lastSavedInputs 설정
+      const defaultInputs: CalculationInputs = {
+        monsterLevel: 275,
+        mesoBonus: 40,
+        dropRate: 60,
+        huntTime: 0.125,
+        monsterCount: 39,
+        resultTime: 30,
+        solErdaFragmentPrice: 600,
+        feeRate: 3,
+        isCustomHuntTime: false,
+        huntTimeUnit: 'minutes',
+        customHuntTimeValue: 7.5,
+        isCustomResultTime: false,
+        resultTimeUnit: 'minutes',
+        customResultTimeValue: 30,
+        mesoInputMode: 'detail',
+        dropRateInputMode: 'detail',
+        mesoUnionBuff: false,
+        mesoPotentialMode: 'lines',
+        mesoPotentialLines: 0,
+        mesoPotentialDirect: 0,
+        mesoAbility: 0,
+        globalBuffMode: 'artifact',
+        mesoArtifactLevel: 0,
+        dropRateUnionBuff: false,
+        dropRatePotentialMode: 'lines',
+        dropRatePotentialLines: 0,
+        dropRatePotentialDirect: 0,
+        dropRateAbility: 0,
+        dropRateArtifactLevel: 0,
+        holySymbol: false,
+        usefulHolySymbol: false,
+        usefulHolySymbolLevel: 1,
+        wealthAcquisitionPotion: false,
+        mesoArtifactMode: 'level',
+        mesoArtifactLevelInput: 0,
+        mesoArtifactPercentInput: 0,
+        dropRateArtifactMode: 'level',
+        dropRateArtifactLevelInput: 0,
+        dropRateArtifactPercentInput: 0,
+        showWealthPotionCost: true,
+        wealthAcquisitionPotionPrice: 300,
+        spottingSmallChange: false,
+        spottingSmallChangeLevel: 0
+      }
+      
+      setLastSavedInputs(prev => ({
+        ...prev,
+        [slotNumber]: defaultInputs
+      }))
+      setLastSavedSlotNames(prev => ({
+        ...prev,
+        [slotNumber]: slotNames[slotNumber] || `슬롯 ${slotNumber}`
+      }))
       
       return
     }
@@ -280,14 +405,18 @@ export function BasicCalculator() {
         ...prev,
         [slotNumber]: settings.slotName
       }))
+      // tempSlotName도 함께 업데이트
+      if (slotNumber === currentSlot) {
+        setTempSlotName(settings.slotName)
+      }
     }
     
     // 설정값 복원
-    if (settings.mobLevel !== undefined) setMobLevel(settings.mobLevel)
+    if (settings.monsterLevel !== undefined) setMonsterLevel(settings.monsterLevel)
     if (settings.mesoBonus !== undefined) setMesoBonus(settings.mesoBonus)
-    if (settings.itemDropBonus !== undefined) setItemDropBonus(settings.itemDropBonus)
+    if (settings.dropRate !== undefined) setDropRate(settings.dropRate)
     if (settings.mesoInputMode !== undefined) setMesoInputMode(settings.mesoInputMode)
-    if (settings.itemDropInputMode !== undefined) setItemDropInputMode(settings.itemDropInputMode)
+    if (settings.dropRateInputMode !== undefined) setDropRateInputMode(settings.dropRateInputMode)
     if (settings.mesoUnionBuff !== undefined) setMesoUnionBuff(settings.mesoUnionBuff)
     if (settings.mesoPotentialMode !== undefined) setMesoPotentialMode(settings.mesoPotentialMode)
     if (settings.mesoPotentialLines !== undefined) setMesoPotentialLines(settings.mesoPotentialLines)
@@ -298,39 +427,100 @@ export function BasicCalculator() {
     if (settings.mesoArtifactMode !== undefined) setMesoArtifactMode(settings.mesoArtifactMode)
     if (settings.mesoArtifactLevelInput !== undefined) setMesoArtifactLevelInput(settings.mesoArtifactLevelInput)
     if (settings.mesoArtifactPercentInput !== undefined) setMesoArtifactPercentInput(settings.mesoArtifactPercentInput)
-    if (settings.itemUnionBuff !== undefined) setItemUnionBuff(settings.itemUnionBuff)
-    if (settings.itemPotentialMode !== undefined) setItemPotentialMode(settings.itemPotentialMode)
-    if (settings.itemPotentialLines !== undefined) setItemPotentialLines(settings.itemPotentialLines)
-    if (settings.itemPotentialDirect !== undefined) setItemPotentialDirect(settings.itemPotentialDirect)
-    if (settings.itemAbility !== undefined) setItemAbility(settings.itemAbility)
-    if (settings.itemArtifactLevel !== undefined) setItemArtifactLevel(settings.itemArtifactLevel)
-    if (settings.itemArtifactMode !== undefined) setItemArtifactMode(settings.itemArtifactMode)
-    if (settings.itemArtifactLevelInput !== undefined) setItemArtifactLevelInput(settings.itemArtifactLevelInput)
-    if (settings.itemArtifactPercentInput !== undefined) setItemArtifactPercentInput(settings.itemArtifactPercentInput)
+    if (settings.dropRateUnionBuff !== undefined) setDropRateUnionBuff(settings.dropRateUnionBuff)
+    if (settings.dropRatePotentialMode !== undefined) setDropRatePotentialMode(settings.dropRatePotentialMode)
+    if (settings.dropRatePotentialLines !== undefined) setDropRatePotentialLines(settings.dropRatePotentialLines)
+    if (settings.dropRatePotentialDirect !== undefined) setDropRatePotentialDirect(settings.dropRatePotentialDirect)
+    if (settings.dropRateAbility !== undefined) setDropRateAbility(settings.dropRateAbility)
+    if (settings.dropRateArtifactLevel !== undefined) setDropRateArtifactLevel(settings.dropRateArtifactLevel)
+    if (settings.dropRateArtifactMode !== undefined) setDropRateArtifactMode(settings.dropRateArtifactMode)
+    if (settings.dropRateArtifactLevelInput !== undefined) setDropRateArtifactLevelInput(settings.dropRateArtifactLevelInput)
+    if (settings.dropRateArtifactPercentInput !== undefined) setDropRateArtifactPercentInput(settings.dropRateArtifactPercentInput)
     if (settings.holySymbol !== undefined) setHolySymbol(settings.holySymbol)
     if (settings.usefulHolySymbol !== undefined) setUsefulHolySymbol(settings.usefulHolySymbol)
     if (settings.usefulHolySymbolLevel !== undefined) setUsefulHolySymbolLevel(settings.usefulHolySymbolLevel)
-    if (settings.wealthPotion !== undefined) setWealthPotion(settings.wealthPotion)
-    if (settings.changeDetection !== undefined) setChangeDetection(settings.changeDetection)
-    if (settings.changeDetectionLevel !== undefined) setChangeDetectionLevel(settings.changeDetectionLevel)
+    if (settings.wealthAcquisitionPotion !== undefined) setWealthAcquisitionPotion(settings.wealthAcquisitionPotion)
+    if (settings.spottingSmallChange !== undefined) setSpottingSmallChange(settings.spottingSmallChange)
+    if (settings.spottingSmallChangeLevel !== undefined) setSpottingSmallChangeLevel(settings.spottingSmallChangeLevel)
     if (settings.huntTime !== undefined) setHuntTime(settings.huntTime)
     if (settings.isCustomHuntTime !== undefined) setIsCustomHuntTime(settings.isCustomHuntTime)
     if (settings.huntTimeUnit !== undefined) setHuntTimeUnit(settings.huntTimeUnit)
     if (settings.customHuntTimeValue !== undefined) setCustomHuntTimeValue(settings.customHuntTimeValue)
-    if (settings.mobCount !== undefined) setMobCount(settings.mobCount)
+    if (settings.monsterCount !== undefined) setMonsterCount(settings.monsterCount)
     if (settings.resultTime !== undefined) setResultTime(settings.resultTime)
     if (settings.isCustomResultTime !== undefined) setIsCustomResultTime(settings.isCustomResultTime)
     if (settings.resultTimeUnit !== undefined) setResultTimeUnit(settings.resultTimeUnit)
     if (settings.customResultTimeValue !== undefined) setCustomResultTimeValue(settings.customResultTimeValue)
-    if (settings.solErdaPrice !== undefined) setSolErdaPrice(settings.solErdaPrice)
+    if (settings.solErdaFragmentPrice !== undefined) setSolErdaFragmentPrice(settings.solErdaFragmentPrice)
     if (settings.feeRate !== undefined) setFeeRate(settings.feeRate)
     if (settings.showWealthPotionCost !== undefined) setShowWealthPotionCost(settings.showWealthPotionCost)
-    if (settings.wealthPotionPrice !== undefined) setWealthPotionPrice(settings.wealthPotionPrice)
+    if (settings.wealthAcquisitionPotionPrice !== undefined) setWealthAcquisitionPotionPrice(settings.wealthAcquisitionPotionPrice)
     if (settings.autoCalculate !== undefined) setAutoCalculate(settings.autoCalculate)
     
+    // 저장된 슬롯 이름이 있으면 사용, 없으면 기본값 사용
+    const slotName = settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
+    setTempSlotName(slotName)
+    
     setCurrentSlot(slotNumber)
-    setTempSlotName(slotNames[slotNumber] || `슬롯 ${slotNumber}`)
     setSettingsLoaded(true)
+    
+    // 저장된 설정값을 직접 lastSavedInputs로 설정
+    // 이전 버전 호환성을 위해 속성 이름 확인
+    const savedInputs: CalculationInputs = {
+      monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
+      mesoBonus: settings.mesoBonus ?? 40,
+      dropRate: settings.dropRate ?? settings.itemDropBonus ?? 60,
+      huntTime: settings.huntTime ?? 0.125,
+      monsterCount: settings.monsterCount ?? 39,
+      resultTime: settings.resultTime ?? 30,
+      solErdaFragmentPrice: settings.solErdaFragmentPrice ?? 600,
+      feeRate: settings.feeRate ?? 3,
+      isCustomHuntTime: settings.isCustomHuntTime ?? false,
+      huntTimeUnit: settings.huntTimeUnit ?? 'minutes',
+      customHuntTimeValue: settings.customHuntTimeValue ?? 7.5,
+      isCustomResultTime: settings.isCustomResultTime ?? false,
+      resultTimeUnit: settings.resultTimeUnit ?? 'minutes', 
+      customResultTimeValue: settings.customResultTimeValue ?? 30,
+      mesoInputMode: settings.mesoInputMode ?? 'detail',
+      dropRateInputMode: settings.dropRateInputMode ?? settings.itemDropInputMode ?? 'detail',
+      mesoUnionBuff: settings.mesoUnionBuff ?? false,
+      mesoPotentialMode: settings.mesoPotentialMode ?? 'lines',
+      mesoPotentialLines: settings.mesoPotentialLines ?? 0,
+      mesoPotentialDirect: settings.mesoPotentialDirect ?? 0,
+      mesoAbility: settings.mesoAbility ?? 0,
+      globalBuffMode: settings.globalBuffMode ?? 'artifact',
+      mesoArtifactLevel: settings.mesoArtifactLevel ?? 0,
+      dropRateUnionBuff: settings.dropRateUnionBuff ?? false,
+      dropRatePotentialMode: settings.dropRatePotentialMode ?? 'lines',
+      dropRatePotentialLines: settings.dropRatePotentialLines ?? 0,
+      dropRatePotentialDirect: settings.dropRatePotentialDirect ?? 0,
+      dropRateAbility: settings.dropRateAbility ?? 0,
+      dropRateArtifactLevel: settings.dropRateArtifactLevel ?? 0,
+      holySymbol: settings.holySymbol ?? false,
+      usefulHolySymbol: settings.usefulHolySymbol ?? false,
+      usefulHolySymbolLevel: settings.usefulHolySymbolLevel ?? 1,
+      wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
+      mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
+      mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
+      mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
+      dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
+      dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
+      dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
+      showWealthPotionCost: settings.showWealthPotionCost ?? true,
+      wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
+      spottingSmallChange: settings.spottingSmallChange ?? false,
+      spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0
+    }
+    
+    console.log('직접 설정한 savedInputs:', savedInputs)
+    setLastSavedInputs(prev => ({
+      ...prev,
+      [slotNumber]: savedInputs
+    }))
+    setLastSavedSlotNames(prev => ({
+      ...prev,
+      [slotNumber]: settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
+    }))
     
     // 설정 복원 메시지를 3초 후 숨김
     setTimeout(() => setSettingsLoaded(false), 3000)
@@ -345,8 +535,19 @@ export function BasicCalculator() {
       const newSlotNames: {[key: number]: string} = {}
       const newSlotHasData: {[key: number]: boolean} = {}
       
+      const initialLastSavedInputs: {[key: number]: CalculationInputs | null} = {
+        1: null,
+        2: null,
+        3: null
+      }
+      
       for (let i = 1; i <= 3; i++) {
         const settings = loadCalculatorSettings(i)
+        console.log(`초기 로드 슬롯 ${i} 설정:`, settings)
+        if (settings && i === 1) {
+          console.log('슬롯 1의 dropRateAbility 값:', settings.dropRateAbility)
+        }
+        
         if (settings) {
           newSlotHasData[i] = true
           if (settings.slotName) {
@@ -354,14 +555,68 @@ export function BasicCalculator() {
           } else {
             newSlotNames[i] = `슬롯 ${i}`
           }
+          
+          // 초기 로드 시 저장된 값을 lastSavedInputs에 설정
+          // 이전 버전 호환성을 위해 속성 이름 확인
+          initialLastSavedInputs[i] = {
+            monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
+            mesoBonus: settings.mesoBonus ?? 40,
+            dropRate: settings.dropRate ?? settings.itemDropBonus ?? 60,
+            huntTime: settings.huntTime ?? 0.125,
+            monsterCount: settings.monsterCount ?? 39,
+            resultTime: settings.resultTime ?? 30,
+            solErdaFragmentPrice: settings.solErdaFragmentPrice ?? 600,
+            feeRate: settings.feeRate ?? 3,
+            isCustomHuntTime: settings.isCustomHuntTime ?? false,
+            huntTimeUnit: settings.huntTimeUnit ?? 'minutes',
+            customHuntTimeValue: settings.customHuntTimeValue ?? 7.5,
+            isCustomResultTime: settings.isCustomResultTime ?? false,
+            resultTimeUnit: settings.resultTimeUnit ?? 'minutes',
+            customResultTimeValue: settings.customResultTimeValue ?? 30,
+            mesoInputMode: settings.mesoInputMode ?? 'detail',
+            dropRateInputMode: settings.dropRateInputMode ?? settings.itemDropInputMode ?? 'detail',
+            mesoUnionBuff: settings.mesoUnionBuff ?? false,
+            mesoPotentialMode: settings.mesoPotentialMode ?? 'lines',
+            mesoPotentialLines: settings.mesoPotentialLines ?? 0,
+            mesoPotentialDirect: settings.mesoPotentialDirect ?? 0,
+            mesoAbility: settings.mesoAbility ?? 0,
+            globalBuffMode: settings.globalBuffMode ?? 'artifact',
+            mesoArtifactLevel: settings.mesoArtifactLevel ?? 0,
+            dropRateUnionBuff: settings.dropRateUnionBuff ?? false,
+            dropRatePotentialMode: settings.dropRatePotentialMode ?? 'lines',
+            dropRatePotentialLines: settings.dropRatePotentialLines ?? 0,
+            dropRatePotentialDirect: settings.dropRatePotentialDirect ?? 0,
+            dropRateAbility: settings.dropRateAbility ?? 0,
+            dropRateArtifactLevel: settings.dropRateArtifactLevel ?? 0,
+            holySymbol: settings.holySymbol ?? false,
+            usefulHolySymbol: settings.usefulHolySymbol ?? false,
+            usefulHolySymbolLevel: settings.usefulHolySymbolLevel ?? 1,
+            wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
+            mesoArtifactMode: settings.mesoArtifactMode ?? 'level',
+            mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? 0,
+            mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? 0,
+            dropRateArtifactMode: settings.dropRateArtifactMode ?? 'level',
+            dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? 0,
+            dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? 0,
+            showWealthPotionCost: settings.showWealthPotionCost ?? true,
+            wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
+            spottingSmallChange: settings.spottingSmallChange ?? false,
+            spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0
+          }
         } else {
           newSlotHasData[i] = false
           newSlotNames[i] = `슬롯 ${i}`
+          // 빈 슬롯은 null로 유지
         }
       }
       setSlotNames(newSlotNames)
       setSlotHasData(newSlotHasData)
       setTempSlotName(newSlotNames[1] || '슬롯 1')
+      // 초기 로드 시 저장된 슬롯 이름과 입력값 설정
+      setLastSavedSlotNames(newSlotNames)
+      setLastSavedInputs(initialLastSavedInputs)
+      
+      console.log('초기 로드 시 설정된 lastSavedInputs:', initialLastSavedInputs)
       
       // slotNames가 업데이트된 후에 loadSettings 호출
       // setTimeout을 사용하여 다음 렌더링 사이클에서 실행
@@ -379,13 +634,13 @@ export function BasicCalculator() {
 
   // 현재 입력값들을 객체로 반환
   const getCurrentInputs = (): CalculationInputs => ({
-    mobLevel,
+    monsterLevel,
     mesoBonus,
-    itemDropBonus,
+    dropRate,
     huntTime,
-    mobCount,
+    monsterCount,
     resultTime,
-    solErdaPrice,
+    solErdaFragmentPrice,
     feeRate,
     isCustomHuntTime,
     huntTimeUnit,
@@ -394,7 +649,7 @@ export function BasicCalculator() {
     resultTimeUnit,
     customResultTimeValue,
     mesoInputMode,
-    itemDropInputMode,
+    dropRateInputMode,
     mesoUnionBuff,
     mesoPotentialMode,
     mesoPotentialLines,
@@ -402,19 +657,89 @@ export function BasicCalculator() {
     mesoAbility,
     globalBuffMode,
     mesoArtifactLevel,
-    itemUnionBuff,
-    itemPotentialMode,
-    itemPotentialLines,
-    itemPotentialDirect,
-    itemAbility,
-    itemArtifactLevel,
+    dropRateUnionBuff,
+    dropRatePotentialMode,
+    dropRatePotentialLines,
+    dropRatePotentialDirect,
+    dropRateAbility,
+    dropRateArtifactLevel,
     holySymbol,
     usefulHolySymbol,
     usefulHolySymbolLevel,
-    wealthPotion,
-    changeDetection,
-    changeDetectionLevel
+    wealthAcquisitionPotion,
+    spottingSmallChange,
+    spottingSmallChangeLevel
   })
+
+  // 미저장 변경사항 감지
+  const hasUnsavedChanges = useMemo(() => {
+    // 초기 로드 중이면 변경사항 없음
+    if (!mounted) {
+      return false
+    }
+    
+    // 현재 슬롯의 저장된 데이터가 없으면 변경사항 없음
+    const currentSlotSavedInputs = lastSavedInputs[currentSlot]
+    if (!currentSlotSavedInputs) {
+      return false
+    }
+    
+    // 실제로 저장된 슬롯 이름과 비교
+    const savedSlotName = lastSavedSlotNames[currentSlot]
+    const nameChanged = tempSlotName !== savedSlotName
+    
+    // 계산기 값 변경 확인 (저장된 설정과 현재 입력값 비교)
+    const current = getCurrentInputs()
+    const valuesChanged = Object.keys(current).some(key => {
+      const currentValue = current[key as keyof CalculationInputs]
+      const savedValue = currentSlotSavedInputs[key as keyof CalculationInputs]
+      return currentValue !== savedValue
+    })
+    
+    return nameChanged || valuesChanged
+  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
+
+  // 슬롯 전환 처리 함수
+  const handleSlotChange = (slotNumber: number) => {
+    if (slotNumber === currentSlot) return
+    
+    // 미저장 변경사항이 있으면 경고 표시
+    if (hasUnsavedChanges) {
+      setPendingSlotNumber(slotNumber)
+      setShowUnsavedWarning(true)
+    } else {
+      // 변경사항이 없으면 바로 슬롯 전환
+      loadSettings(slotNumber)
+    }
+  }
+
+  // 경고 모달에서 저장 후 이동
+  const handleSaveAndSwitch = () => {
+    if (pendingSlotNumber !== null) {
+      saveSettings(currentSlot)
+      // 저장 후 잠시 대기한 다음 슬롯 전환 (저장 완료를 위해)
+      setTimeout(() => {
+        loadSettings(pendingSlotNumber)
+        setShowUnsavedWarning(false)
+        setPendingSlotNumber(null)
+      }, 100)
+    }
+  }
+
+  // 경고 모달에서 저장하지 않고 이동
+  const handleSwitchWithoutSaving = () => {
+    if (pendingSlotNumber !== null) {
+      loadSettings(pendingSlotNumber)
+      setShowUnsavedWarning(false)
+      setPendingSlotNumber(null)
+    }
+  }
+
+  // 경고 모달에서 취소
+  const handleCancelSwitch = () => {
+    setShowUnsavedWarning(false)
+    setPendingSlotNumber(null)
+  }
 
   // 입력값 변경 여부 확인
   const hasInputsChanged = (): boolean => {
@@ -463,7 +788,7 @@ export function BasicCalculator() {
       )
     }
 
-    if (wealthPotion) {
+    if (wealthAcquisitionPotion) {
       total = (100 + total) * 12 - 1000 // 소숫점 연산 회피
       total /= 10
     }
@@ -473,30 +798,30 @@ export function BasicCalculator() {
   
   // 아이템 드랍률 계산
   const calculateItemDropBonus = () => {
-    if (itemDropInputMode === 'direct') {
-      return itemDropBonus
+    if (dropRateInputMode === 'direct') {
+      return dropRate
     }
     
     let total = 0
     
     // 유니온의 행운
-    if (globalBuffMode !== 'challenger' && itemUnionBuff) total += 50;
+    if (globalBuffMode !== 'challenger' && dropRateUnionBuff) total += 50;
     
     // 잠재능력
-    const itemPotential = itemPotentialMode === 'lines' ? itemPotentialLines * 20 : itemPotentialDirect
+    const itemPotential = dropRatePotentialMode === 'lines' ? dropRatePotentialLines * 20 : dropRatePotentialDirect
     total += itemPotential
     
     // 어빌리티
-    total += itemAbility
+    total += dropRateAbility
     
     // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
     if (globalBuffMode === 'challenger') {
       total += 20
     } else if (globalBuffMode === 'artifact') {
       total += calculateArtifactBonus(
-        itemArtifactMode === 'level' ? itemArtifactLevelInput : 0,
-        itemArtifactMode,
-        itemArtifactPercentInput
+        dropRateArtifactMode === 'level' ? dropRateArtifactLevelInput : 0,
+        dropRateArtifactMode,
+        dropRateArtifactPercentInput
       )
     }
     
@@ -511,7 +836,7 @@ export function BasicCalculator() {
     }
     
     // 재물 획득의 비약 (합연산)
-    if (wealthPotion) {
+    if (wealthAcquisitionPotion) {
       total += 20
     }
     
@@ -527,42 +852,42 @@ export function BasicCalculator() {
     const calculatedItemDropBonus = calculateItemDropBonus()
     
     // 단위 시간당 처치 수
-    const mobsPerMinute = inputs.mobCount / inputs.huntTime
+    const mobsPerMinute = inputs.monsterCount / inputs.huntTime
     const mobsPerHour = mobsPerMinute * 60
     
     // 결과 시간 동안의 총 처치 수
-    const totalMobs = mobsPerMinute * inputs.resultTime
+    const totalMonsters = mobsPerMinute * inputs.resultTime
     
     // 잔돈이 눈에 띄네 보너스 계산
-    const changeDetectionBonus = inputs.changeDetection ? inputs.changeDetectionLevel * 2 : 0
+    const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 : 0
 
     // 재물 획득의 비약 적용된 상태의 드랍 데이터 계산
-    const dropResultWithPotion = calculateDropData({
-      mobLevel: inputs.mobLevel,
-      totalMobs,
-      mesoAcquisitionRate: calculatedMesoBonus,
-      itemDropRate: calculatedItemDropBonus,
-      solErdaPrice: inputs.solErdaPrice,
+    const dropResultWithPotion = calculateHuntingExpectation({
+      monsterLevel: inputs.monsterLevel,
+      totalMonsters,
+      mesoBonus: calculatedMesoBonus,
+      dropRate: calculatedItemDropBonus,
+      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      changeDetectionBonus: changeDetectionBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus
     })
     
     // 시간당 계산 (재물 획득의 비약 적용된 상태)
-    const dropResultPerHourWithPotion = calculateDropData({
-      mobLevel: inputs.mobLevel,
-      totalMobs: mobsPerHour,
-      mesoAcquisitionRate: calculatedMesoBonus,
-      itemDropRate: calculatedItemDropBonus,
-      solErdaPrice: inputs.solErdaPrice,
+    const dropResultPerHourWithPotion = calculateHuntingExpectation({
+      monsterLevel: inputs.monsterLevel,
+      totalMonsters: mobsPerHour,
+      mesoBonus: calculatedMesoBonus,
+      dropRate: calculatedItemDropBonus,
+      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      changeDetectionBonus: changeDetectionBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus
     })
     
     // 재물 획득의 비약 없을 때의 드랍 데이터 계산 (20% 곱연산/합연산 전 상태)
     let mesoAcquisitionRateWithoutPotion = calculatedMesoBonus
     let itemDropRateWithoutPotion = calculatedItemDropBonus
     
-    if (wealthPotion) {
+    if (wealthAcquisitionPotion) {
       // 재물 획득의 비약 효과 제거
       itemDropRateWithoutPotion = calculatedItemDropBonus - 20 // 합연산 20% 제거
       // 메소 획득량에서 20% 곱연산 효과 제거
@@ -570,35 +895,35 @@ export function BasicCalculator() {
       mesoAcquisitionRateWithoutPotion *= 100
     }
     
-    const dropResultWithoutPotion = calculateDropData({
-      mobLevel: inputs.mobLevel,
-      totalMobs,
-      mesoAcquisitionRate: mesoAcquisitionRateWithoutPotion,
-      itemDropRate: itemDropRateWithoutPotion,
-      solErdaPrice: inputs.solErdaPrice,
+    const dropResultWithoutPotion = calculateHuntingExpectation({
+      monsterLevel: inputs.monsterLevel,
+      totalMonsters,
+      mesoBonus: mesoAcquisitionRateWithoutPotion,
+      dropRate: itemDropRateWithoutPotion,
+      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      changeDetectionBonus: changeDetectionBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus
     })
     
     // 재물 획득의 비약 관련 계산
-    let wealthPotionCount = 0
-    let wealthPotionCost = 0
-    let wealthPotionCountPerHour = 0
-    let wealthPotionCostPerHour = 0
+    let wealthAcquisitionPotionCount = 0
+    let wealthAcquisitionPotionCost = 0
+    let wealthAcquisitionPotionCountPerHour = 0
+    let wealthAcquisitionPotionCostPerHour = 0
 
-    if (wealthPotion && showWealthPotionCost) {
+    if (wealthAcquisitionPotion && showWealthPotionCost) {
       // 30분마다 1개씩 사용 (31분이면 2개)
-      wealthPotionCount = Math.ceil(inputs.resultTime / 30)
-      wealthPotionCost = wealthPotionCount * wealthPotionPrice * 10000
+      wealthAcquisitionPotionCount = Math.ceil(inputs.resultTime / 30)
+      wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
       
       // 1시간 기준 계산 (2개 사용)
-      wealthPotionCountPerHour = 2
-      wealthPotionCostPerHour = wealthPotionCountPerHour * wealthPotionPrice * 10000
+      wealthAcquisitionPotionCountPerHour = 2
+      wealthAcquisitionPotionCostPerHour = wealthAcquisitionPotionCountPerHour * wealthAcquisitionPotionPrice * 10000
     }
 
     // 총 메소 (재물 획득의 비약 비용 차감)
-    const totalMeso = dropResultWithPotion.totalIncome - wealthPotionCost
-    const totalMesoPerHour = dropResultPerHourWithPotion.totalIncome - wealthPotionCostPerHour
+    const totalMeso = dropResultWithPotion.totalIncome - wealthAcquisitionPotionCost
+    const totalMesoPerHour = dropResultPerHourWithPotion.totalIncome - wealthAcquisitionPotionCostPerHour
 
     const newResult = {
       baseMeso: dropResultWithPotion.totalMeso,
@@ -609,8 +934,8 @@ export function BasicCalculator() {
       mesoDropRate: dropResultWithPotion.mesoDropRate,
       solErdaDropRate: dropResultWithPotion.solErdaDropRate,
       mesoPerDrop: dropResultWithPotion.mesoPerDrop,
-      wealthPotionCount,
-      wealthPotionCost,
+      wealthAcquisitionPotionCount,
+      wealthAcquisitionPotionCost,
       totalMesoPerHour,
       totalMesoWithoutPotion: dropResultWithoutPotion.totalIncome
     }
@@ -624,7 +949,7 @@ export function BasicCalculator() {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [mobLevel, mesoBonus, itemDropBonus, huntTime, mobCount, resultTime, solErdaPrice, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, itemDropInputMode, mesoUnionBuff, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, itemUnionBuff, itemPotentialMode, itemPotentialLines, itemPotentialDirect, itemAbility, itemArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, itemArtifactMode, itemArtifactLevelInput, itemArtifactPercentInput, showWealthPotionCost, wealthPotionPrice, changeDetection, changeDetectionLevel])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel])
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('ko-KR').format(Math.floor(num))
@@ -675,49 +1000,49 @@ export function BasicCalculator() {
     if (!result) return null
 
     const inputs = getCurrentInputs()
-    const mobsPerMinute = inputs.mobCount / inputs.huntTime
-    const totalMobs = mobsPerMinute * inputs.resultTime
+    const mobsPerMinute = inputs.monsterCount / inputs.huntTime
+    const totalMonsters = mobsPerMinute * inputs.resultTime
 
     // 현재 계산된 보너스 값들
     const currentMesoBonus = calculateMesoBonus()
     const currentItemDropBonus = calculateItemDropBonus()
 
     // 잔돈이 눈에 띄네 보너스 계산
-    const changeDetectionBonus = inputs.changeDetection ? inputs.changeDetectionLevel * 2 : 0
+    const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 : 0
 
     // 드랍률 20% 증가 효과 (합연산)
-    const dropCalcWithDropBonus = calculateDropData({
-      mobLevel: inputs.mobLevel,
-      totalMobs,
-      mesoAcquisitionRate: currentMesoBonus,
-      itemDropRate: currentItemDropBonus + 20, // 기존 드랍률에 20% 추가
-      solErdaPrice: inputs.solErdaPrice,
+    const dropCalcWithDropBonus = calculateHuntingExpectation({
+      monsterLevel: inputs.monsterLevel,
+      totalMonsters,
+      mesoBonus: currentMesoBonus,
+      dropRate: currentItemDropBonus + 20, // 기존 드랍률에 20% 추가
+      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
-      changeDetectionBonus: changeDetectionBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus
     })
 
     // 메소 획득량 20% 증가 효과 (합연산)
-    const additionalMesoBonus = wealthPotion ? 24 : 20
-    const dropCalcWithMesoBonus = calculateDropData({
-      mobLevel: inputs.mobLevel,
-      totalMobs,
-      mesoAcquisitionRate: currentMesoBonus + additionalMesoBonus,
-      itemDropRate: currentItemDropBonus,
-      solErdaPrice: inputs.solErdaPrice,
+    const additionalMesoBonus = wealthAcquisitionPotion ? 24 : 20
+    const dropCalcWithMesoBonus = calculateHuntingExpectation({
+      monsterLevel: inputs.monsterLevel,
+      totalMonsters,
+      mesoBonus: currentMesoBonus + additionalMesoBonus,
+      dropRate: currentItemDropBonus,
+      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
-      changeDetectionBonus: changeDetectionBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus
     })
 
     // 재물 획득의 비약 비용 계산 (기존 로직과 동일)
-    let wealthPotionCost = 0
-    if (wealthPotion && showWealthPotionCost) {
-      const wealthPotionCount = Math.ceil(inputs.resultTime / 30)
-      wealthPotionCost = wealthPotionCount * wealthPotionPrice * 10000
+    let wealthAcquisitionPotionCost = 0
+    if (wealthAcquisitionPotion && showWealthPotionCost) {
+      const wealthAcquisitionPotionCount = Math.ceil(inputs.resultTime / 30)
+      wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
     }
 
     return {
-      dropRateIncrease: (dropCalcWithDropBonus.totalIncome - wealthPotionCost) - result.totalMeso,
-      mesoRateIncrease: (dropCalcWithMesoBonus.totalIncome - wealthPotionCost) - result.totalMeso
+      dropRateIncrease: (dropCalcWithDropBonus.totalIncome - wealthAcquisitionPotionCost) - result.totalMeso,
+      mesoRateIncrease: (dropCalcWithMesoBonus.totalIncome - wealthAcquisitionPotionCost) - result.totalMeso
     }
   }
 
@@ -737,7 +1062,7 @@ export function BasicCalculator() {
               {[1, 2, 3].map((slot) => (
                 <div key={slot} className="flex items-center gap-1">
                   <button
-                    onClick={() => loadSettings(slot)}
+                    onClick={() => handleSlotChange(slot)}
                     className={`px-3 py-2 text-sm rounded transition-all ${
                       currentSlot === slot
                         ? 'bg-blue-600 text-white'
@@ -807,13 +1132,12 @@ export function BasicCalculator() {
                 setTempSlotName(e.target.value)
               }}
               onFocus={() => {
-                // 포커스 시 현재 슬롯 이름을 임시 이름으로 설정
-                setTempSlotName(slotNames[currentSlot])
+                // 포커스 시 이미 tempSlotName이 설정되어 있으므로 아무것도 하지 않음
               }}
               onBlur={() => {
                 // 블러 시 빈 값이면 원래 이름으로 복원
                 if (!tempSlotName.trim()) {
-                  setTempSlotName(slotNames[currentSlot])
+                  setTempSlotName(slotNames[currentSlot] || `슬롯 ${currentSlot}`)
                 } else {
                   // 변경된 이름을 슬롯 이름에 적용
                   setSlotNames(prev => ({
@@ -862,14 +1186,14 @@ export function BasicCalculator() {
         <div className="lg:col-span-3 space-y-4">
           <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
           
-          {/* 몹 레벨 */}
+          {/* 몬스터 레벨 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              몹 레벨
+              몬스터 레벨
             </label>
             <NumberInput
-              value={mobLevel}
-              onChange={setMobLevel}
+              value={monsterLevel}
+              onChange={setMonsterLevel}
               min={1}
               size="md"
               className="w-full"
@@ -912,11 +1236,11 @@ export function BasicCalculator() {
                         // 기존 시간과 새로운 시간을 이용해 마릿수 계산
                         const oldTime = huntTime
                         const newTime = Number(e.target.value)
-                        const newMobCount = Math.floor(mobCount * (newTime / oldTime))
+                        const newMobCount = Math.floor(monsterCount * (newTime / oldTime))
                         
                         setIsCustomHuntTime(false)
                         setHuntTime(newTime)
-                        setMobCount(newMobCount)
+                        setMonsterCount(newMobCount)
                       }
                     }}
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -931,8 +1255,8 @@ export function BasicCalculator() {
                   </select>
                   <span className="text-sm text-gray-600">당</span>
                   <NumberInput
-                    value={mobCount}
-                    onChange={setMobCount}
+                    value={monsterCount}
+                    onChange={setMonsterCount}
                     min={1}
                     size="md"
                     className="w-24"
@@ -956,11 +1280,11 @@ export function BasicCalculator() {
                       else if (huntTimeUnit === 'gen') newMinutes = value * 0.125 // 1젠 = 7.5초 = 0.125분
                       
                       // 마릿수 자동 계산 (소수점 이하 버림)
-                      const newMobCount = Math.floor(mobCount * (newMinutes / oldMinutes))
+                      const newMobCount = Math.floor(monsterCount * (newMinutes / oldMinutes))
                       
                       setCustomHuntTimeValue(value)
                       setHuntTime(newMinutes)
-                      setMobCount(newMobCount)
+                      setMonsterCount(newMobCount)
                     }}
                     min={0.1}
                     step={1}
@@ -997,10 +1321,10 @@ export function BasicCalculator() {
                         else if (newUnit === 'gen') newMinutes = newValue * 0.125
                         
                         // 마릿수 자동 계산 (소수점 이하 버림)
-                        const newMobCount = Math.floor(mobCount * (newMinutes / oldMinutes))
+                        const newMobCount = Math.floor(monsterCount * (newMinutes / oldMinutes))
                         
                         setCustomHuntTimeValue(newValue)
-                        setMobCount(newMobCount)
+                        setMonsterCount(newMobCount)
                       }
                       setHuntTimeUnit(newUnit)
                     }}
@@ -1130,8 +1454,8 @@ export function BasicCalculator() {
               솔 에르다 조각 가격 (만 메소)
             </label>
             <NumberInput
-              value={solErdaPrice}
-              onChange={setSolErdaPrice}
+              value={solErdaFragmentPrice}
+              onChange={setSolErdaFragmentPrice}
               min={0}
               step={10}
               className="w-full"
@@ -1185,15 +1509,15 @@ export function BasicCalculator() {
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  checked={wealthPotion}
-                  onChange={(e) => setWealthPotion(e.target.checked)}
+                  checked={wealthAcquisitionPotion}
+                  onChange={(e) => setWealthAcquisitionPotion(e.target.checked)}
                   className="rounded"
                 />
                 <span className="text-sm text-gray-700">사용</span>
               </div>
             </div>
             
-            {wealthPotion && (
+            {wealthAcquisitionPotion && (
               <div className="mt-3 space-y-3">
                 <div className="flex items-center space-x-2">
                   <input
@@ -1212,8 +1536,8 @@ export function BasicCalculator() {
                     </label>
                     <div className="flex items-center space-x-1">
                       <NumberInput
-                        value={wealthPotionPrice}
-                        onChange={setWealthPotionPrice}
+                        value={wealthAcquisitionPotionPrice}
+                        onChange={setWealthAcquisitionPotionPrice}
                         min={0}
                         step={10}
                         className="w-32"
@@ -1238,27 +1562,27 @@ export function BasicCalculator() {
                     { value: 'detail', label: '자동' },
                     { value: 'direct', label: '직접' }
                   ]}
-                  value={itemDropInputMode}
-                  onChange={(value) => setItemDropInputMode(value as 'direct' | 'detail')}
+                  value={dropRateInputMode}
+                  onChange={(value) => setDropRateInputMode(value as 'direct' | 'detail')}
                   size="sm"
                 />
                 <input
                   type="number"
-                  value={itemDropInputMode === 'direct' ? itemDropBonus : calculateItemDropBonus()}
+                  value={dropRateInputMode === 'direct' ? dropRate : calculateItemDropBonus()}
                   onChange={(e) => {
-                    if (itemDropInputMode === 'direct') {
-                      setItemDropBonus(Number(e.target.value))
+                    if (dropRateInputMode === 'direct') {
+                      setDropRate(Number(e.target.value))
                     }
                   }}
                   onClick={() => {
-                    if (itemDropInputMode === 'detail') {
-                      setItemDropBonus(calculateItemDropBonus())
-                      setItemDropInputMode('direct')
+                    if (dropRateInputMode === 'detail') {
+                      setDropRate(calculateItemDropBonus())
+                      setDropRateInputMode('direct')
                     }
                   }}
-                  readOnly={itemDropInputMode === 'detail'}
+                  readOnly={dropRateInputMode === 'detail'}
                   className={`w-16 px-2 py-1 text-sm border border-gray-300 rounded text-center ${
-                    itemDropInputMode === 'detail' ? 'bg-gray-100 text-gray-500 cursor-pointer' : ''
+                    dropRateInputMode === 'detail' ? 'bg-gray-100 text-gray-500 cursor-pointer' : ''
                   } [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                   min="0"
                 />
@@ -1268,7 +1592,7 @@ export function BasicCalculator() {
 
             {/* 상세 옵션들 */}
             <div className={`p-4 rounded-lg space-y-3 ${
-              itemDropInputMode === 'direct' 
+              dropRateInputMode === 'direct' 
                 ? 'bg-gray-200 opacity-60' 
                 : 'bg-gray-50'
             }`}>
@@ -1280,11 +1604,11 @@ export function BasicCalculator() {
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={itemUnionBuff}
+                      checked={dropRateUnionBuff}
                       onChange={(e) => {
-                        setItemUnionBuff(e.target.checked)
-                        if (itemDropInputMode === 'direct') {
-                          setItemDropInputMode('detail')
+                        setDropRateUnionBuff(e.target.checked)
+                        if (dropRateInputMode === 'direct') {
+                          setDropRateInputMode('detail')
                         }
                       }}
                       className="rounded"
@@ -1302,30 +1626,30 @@ export function BasicCalculator() {
                       { value: 'lines', label: '줄수' },
                       { value: 'direct', label: '직접' }
                     ]}
-                    value={itemPotentialMode}
+                    value={dropRatePotentialMode}
                     onChange={(value) => {
-                      if (value === 'lines' && itemPotentialMode === 'direct') {
+                      if (value === 'lines' && dropRatePotentialMode === 'direct') {
                         // 직접 -> 줄수: 20% 단위로 변환, 나머지 버림
-                        setItemPotentialLines(Math.floor(itemPotentialDirect / 20))
-                      } else if (value === 'direct' && itemPotentialMode === 'lines') {
+                        setDropRatePotentialLines(Math.floor(dropRatePotentialDirect / 20))
+                      } else if (value === 'direct' && dropRatePotentialMode === 'lines') {
                         // 줄수 -> 직접: 줄수 * 20%
-                        setItemPotentialDirect(itemPotentialLines * 20)
+                        setDropRatePotentialDirect(dropRatePotentialLines * 20)
                       }
-                      setItemPotentialMode(value as 'lines' | 'direct')
-                      if (itemDropInputMode === 'direct') {
-                        setItemDropInputMode('detail')
+                      setDropRatePotentialMode(value as 'lines' | 'direct')
+                      if (dropRateInputMode === 'direct') {
+                        setDropRateInputMode('detail')
                       }
                     }}
                     size="sm"
                   />
-                  {itemPotentialMode === 'lines' ? (
+                  {dropRatePotentialMode === 'lines' ? (
                     <>
                       <NumberInput
-                        value={itemPotentialLines}
+                        value={dropRatePotentialLines}
                         onChange={(value) => {
-                          setItemPotentialLines(Math.min(10, Math.max(0, value)))
-                          if (itemDropInputMode === 'direct') {
-                            setItemDropInputMode('detail')
+                          setDropRatePotentialLines(Math.min(10, Math.max(0, value)))
+                          if (dropRateInputMode === 'direct') {
+                            setDropRateInputMode('detail')
                           }
                         }}
                         min={0}
@@ -1338,8 +1662,8 @@ export function BasicCalculator() {
                   ) : (
                     <>
                       <NumberInput
-                        value={itemPotentialDirect}
-                        onChange={(value) => setItemPotentialDirect(Math.min(200, Math.max(0, value)))}
+                        value={dropRatePotentialDirect}
+                        onChange={(value) => setDropRatePotentialDirect(Math.min(200, Math.max(0, value)))}
                         min={0}
                         max={200}
                         step={5}
@@ -1357,8 +1681,8 @@ export function BasicCalculator() {
                 <label className="text-sm text-gray-700">어빌리티</label>
                 <div className="flex items-center space-x-2">
                   <NumberInput
-                    value={itemAbility}
-                    onChange={(value) => setItemAbility(Math.min(20, Math.max(0, value)))}
+                    value={dropRateAbility}
+                    onChange={(value) => setDropRateAbility(Math.min(20, Math.max(0, value)))}
                     min={0}
                     max={20}
                     size="md"
@@ -1375,23 +1699,23 @@ export function BasicCalculator() {
     <div className="flex items-center space-x-2">
       <button
         type="button"
-        onClick={() => setItemArtifactMode('level')}
-        className={`px-2 py-1 text-sm rounded ${itemArtifactMode === 'level' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+        onClick={() => setDropRateArtifactMode('level')}
+        className={`px-2 py-1 text-sm rounded ${dropRateArtifactMode === 'level' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
       >
         레벨
       </button>
       <button
         type="button"
-        onClick={() => setItemArtifactMode('direct')}
-        className={`px-2 py-1 text-sm rounded ${itemArtifactMode === 'direct' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+        onClick={() => setDropRateArtifactMode('direct')}
+        className={`px-2 py-1 text-sm rounded ${dropRateArtifactMode === 'direct' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
       >
         %
       </button>
-      {itemArtifactMode === 'level' ? (
+      {dropRateArtifactMode === 'level' ? (
         <>
           <NumberInput
-            value={itemArtifactLevelInput}
-            onChange={(value) => setItemArtifactLevelInput(Math.max(0, value))}
+            value={dropRateArtifactLevelInput}
+            onChange={(value) => setDropRateArtifactLevelInput(Math.max(0, value))}
             min={0}
             max={10}
             className="w-20"
@@ -1401,8 +1725,8 @@ export function BasicCalculator() {
       ) : (
         <>
           <NumberInput
-            value={itemArtifactPercentInput}
-            onChange={(value) => setItemArtifactPercentInput(Math.max(0, value))}
+            value={dropRateArtifactPercentInput}
+            onChange={(value) => setDropRateArtifactPercentInput(Math.max(0, value))}
             min={0}
             max={12}
             className="w-20"
@@ -1444,8 +1768,8 @@ export function BasicCalculator() {
                             setUsefulHolySymbol(true)
                             setHolySymbol(false)
                           }
-                          if (itemDropInputMode === 'direct') {
-                            setItemDropInputMode('detail')
+                          if (dropRateInputMode === 'direct') {
+                            setDropRateInputMode('detail')
                           }
                         },
                         min: 1,
@@ -1467,8 +1791,8 @@ export function BasicCalculator() {
                       setHolySymbol(false)
                       setUsefulHolySymbol(true)
                     }
-                    if (itemDropInputMode === 'direct') {
-                      setItemDropInputMode('detail')
+                    if (dropRateInputMode === 'direct') {
+                      setDropRateInputMode('detail')
                     }
                   }}
                   name="holySymbol"
@@ -1481,7 +1805,7 @@ export function BasicCalculator() {
                 <div className="flex items-center justify-between">
                   <label className="text-sm text-gray-700">잔돈이 눈에 띄네</label>
                   <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                    {changeDetection ? `+${changeDetectionLevel * 2}메소/드랍` : '사용 안함'}
+                    {spottingSmallChange ? `+${spottingSmallChangeLevel * 2}메소/드랍` : '사용 안함'}
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -1489,9 +1813,9 @@ export function BasicCalculator() {
                     <input
                       type="checkbox"
                       id="change-detection"
-                      checked={changeDetection}
+                      checked={spottingSmallChange}
                       onChange={(e) => {
-                        setChangeDetection(e.target.checked)
+                        setSpottingSmallChange(e.target.checked)
                         if (mesoInputMode === 'direct') {
                           setMesoInputMode('detail')
                         }
@@ -1500,13 +1824,13 @@ export function BasicCalculator() {
                     />
                     <label htmlFor="change-detection" className="text-sm text-gray-700">사용</label>
                   </div>
-                  {changeDetection && (
+                  {spottingSmallChange && (
                     <div className="flex items-center space-x-1">
                       <NumberInput
-                        value={changeDetectionLevel}
+                        value={spottingSmallChangeLevel}
                         onChange={(value) => {
                           const level = Math.min(4, Math.max(0, value))
-                          setChangeDetectionLevel(level)
+                          setSpottingSmallChangeLevel(level)
                           if (mesoInputMode === 'direct') {
                             setMesoInputMode('detail')
                           }
@@ -1746,7 +2070,7 @@ export function BasicCalculator() {
                 <div className="flex items-center">
                   <span className="text-yellow-600 mr-2">⚠️</span>
                   <p className="text-sm text-yellow-800">
-                    현재 표시된 결과는 입력된 값과 다른 계산 결과입니다. '계산하기' 버튼을 눌러 최신 결과를 확인하세요.
+                    현재 표시된 결과는 입력된 값과 다른 계산 결과입니다. &apos;계산하기&apos; 버튼을 눌러 최신 결과를 확인하세요.
                   </p>
                 </div>
               </div>
@@ -1758,7 +2082,7 @@ export function BasicCalculator() {
             <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="text-center">
               <div className="text-gray-600">몹 레벨</div>
-              <div className="font-medium text-blue-600">{mobLevel}</div>
+              <div className="font-medium text-blue-600">{monsterLevel}</div>
             </div>
             <div className="text-center">
               <div className="text-gray-600">아이템 드롭률</div>
@@ -1790,18 +2114,18 @@ export function BasicCalculator() {
                          const inputs = getCurrentInputs()
                          // 재획비를 제외한 메소 획득량 계산
                          let mesoRateWithoutWealth = calculateMesoBonus()
-                         if (wealthPotion) {
+                         if (wealthAcquisitionPotion) {
                            // 재획비 20% 곱연산 효과 제거
                            mesoRateWithoutWealth = (1 + calculateMesoBonus() / 100) / 1.2 - 1
                            mesoRateWithoutWealth *= 100
                          }
                          const mesoDetails = getMesoCalculationDetails(
-                           inputs.mobLevel,
+                           inputs.monsterLevel,
                            mesoRateWithoutWealth,
-                           wealthPotion
+                           wealthAcquisitionPotion
                          )
-                         const changeDetectionBonus = inputs.changeDetection ? inputs.changeDetectionLevel * 2 : 0
-                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)} × ${mesoDetails.wealthPotionMultiplier}${changeDetectionBonus > 0 ? ` + ${changeDetectionBonus}` : ''}`
+                         const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 : 0
+                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)} × ${mesoDetails.wealthPotionMultiplier}${spottingSmallChangeBonus > 0 ? ` + ${spottingSmallChangeBonus}` : ''}`
                        })()}
                      </div>
                   </div>
@@ -1818,7 +2142,7 @@ export function BasicCalculator() {
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-3 py-2 whitespace-nowrap z-10">
                        {(() => {
                          const currentDropRate = calculateItemDropBonus()
-                         const solErdaDetails = getSolErdaCalculationDetails(currentDropRate)
+                         const solErdaDetails = getSolErdaFragmentCalculationDetails(currentDropRate)
                          return (
                            <div className="text-center">
                              <div>드랍률 {currentDropRate}% → 다조 드랍률 {Math.round((solErdaDetails.dropRateMultiplier - 1) * 100)}%</div>
@@ -1845,7 +2169,7 @@ export function BasicCalculator() {
               <p className="text-sm text-gray-600">
                 사냥한 몬스터: <span className="font-medium text-blue-600">{formatNumber((() => {
                   const inputs = getCurrentInputs()
-                  const mobsPerMinute = inputs.mobCount / inputs.huntTime
+                  const mobsPerMinute = inputs.monsterCount / inputs.huntTime
                   return Math.floor(mobsPerMinute * inputs.resultTime)
                 })())} 마리</span>
               </p>
@@ -1858,10 +2182,10 @@ export function BasicCalculator() {
               <p className="text-sm text-gray-600">
                 다조 환산: <span className="font-medium text-green-600">{formatMesoWithKorean(result.solErdaProfit)} 메소</span>
               </p>
-              {wealthPotion && showWealthPotionCost && (
+              {wealthAcquisitionPotion && showWealthPotionCost && (
                 <>
                   <p className="text-sm text-gray-600">
-                    소형 재물 획득의 비약: <span className="font-medium text-red-600">-{result.wealthPotionCount}개 ({formatMesoWithKorean(result.wealthPotionCost, true)} 메소)</span>
+                    소형 재물 획득의 비약: <span className="font-medium text-red-600">-{result.wealthAcquisitionPotionCount}개 ({formatMesoWithKorean(result.wealthAcquisitionPotionCost, true)} 메소)</span>
                   </p>
                 </>
               )}
@@ -1876,10 +2200,10 @@ export function BasicCalculator() {
               <p className="text-sm text-green-600 mt-1">
                 시간당 {formatMesoWithKorean(result.totalMesoPerHour)} 메소 
               </p>
-              {wealthPotion && showWealthPotionCost && (
+              {wealthAcquisitionPotion && showWealthPotionCost && (
                 <div className="mt-2 text-sm text-gray-600">
                   <p>재획비 적용 전: {formatMesoWithKorean(result.totalMesoWithoutPotion, true)} 메소</p>
-                  <p>재획비 적용 후: {formatMesoWithKorean(result.totalIncome, true)} 메소 - {formatMesoWithKorean(result.wealthPotionCost, true)} 메소</p>
+                  <p>재획비 적용 후: {formatMesoWithKorean(result.totalIncome, true)} 메소 - {formatMesoWithKorean(result.wealthAcquisitionPotionCost, true)} 메소</p>
                   <p className={result.totalMeso > result.totalMesoWithoutPotion ? 'text-blue-600 font-medium' : 'text-red-600 font-medium'}>
                     재획비 사용으로 총 {formatMesoWithKorean(Math.abs(result.totalMeso - result.totalMesoWithoutPotion), true)} 메소
                     {result.totalMeso > result.totalMesoWithoutPotion ? ' 이득' : ' 손해'}
@@ -1894,7 +2218,7 @@ export function BasicCalculator() {
               if (!dragonEffect) return null
 
               // 잠재능력 줄 수 기준으로 최대치 확인
-              const currentItemPotentialLines = itemPotentialMode === 'lines' ? itemPotentialLines : Math.floor(itemPotentialDirect / 20)
+              const currentItemPotentialLines = dropRatePotentialMode === 'lines' ? dropRatePotentialLines : Math.floor(dropRatePotentialDirect / 20)
               const currentMesoPotentialLines = mesoPotentialMode === 'lines' ? mesoPotentialLines : Math.floor(mesoPotentialDirect / 20)
               const isDropRateMaxed = currentItemPotentialLines >= 10 // 10줄
               const isMesoRateMaxed = currentMesoPotentialLines >= 5 // 5줄
@@ -1934,7 +2258,7 @@ export function BasicCalculator() {
                       <div className="bg-white p-3 rounded-md border border-orange-200">
                         <h5 className="text-sm font-medium text-orange-700 mb-1">메소 획득량 +20%</h5>
                         <p className="text-sm text-orange-600">
-                          현재 메소 획득량: <span className="font-medium">{formatDecimal(currentMesoRate, 0)}%</span> → <span className="font-medium">{formatDecimal(currentMesoRate + (wealthPotion ? 24 : 20), 0)}%</span>
+                          현재 메소 획득량: <span className="font-medium">{formatDecimal(currentMesoRate, 0)}%</span> → <span className="font-medium">{formatDecimal(currentMesoRate + (wealthAcquisitionPotion ? 24 : 20), 0)}%</span>
                         </p>
                         <p className="text-lg font-bold text-orange-600 mt-1">
                           수익 증가: <span className={dragonEffect.mesoRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
@@ -1968,6 +2292,41 @@ export function BasicCalculator() {
         )}
         </div>
       </div>
+
+      {/* 미저장 변경사항 경고 모달 */}
+      {showUnsavedWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertCircle className="w-6 h-6 text-orange-500" />
+              <h3 className="text-lg font-semibold text-gray-900">저장되지 않은 변경사항</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              현재 슬롯에 저장되지 않은 변경사항이 있습니다. 다른 슬롯으로 이동하시겠습니까?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCancelSwitch}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSwitchWithoutSaving}
+                className="px-4 py-2 text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+              >
+                저장하지 않고 이동
+              </button>
+              <button
+                onClick={handleSaveAndSwitch}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                저장 후 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

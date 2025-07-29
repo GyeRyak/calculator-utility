@@ -11,7 +11,7 @@ export default function AboutPage() {
           
           <h3 className="text-xl font-semibold mb-3">현재 제공하는 계산기</h3>
           <ul className="list-disc list-inside text-gray-700 mb-6">
-            <li><strong>드랍/메소 획득 손익분기 계산기</strong>: 아이템 드랍률과 메소 획득량을 고려한 손익분기점 계산</li>
+            <li><strong>사냥 기댓값 계산기</strong>: 드랍률과 메소 획득량을 고려한 사냥 기댓값 계산</li>
           </ul>
           
           <h3 className="text-xl font-semibold mb-3">개발 예정</h3>

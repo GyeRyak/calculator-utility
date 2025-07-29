@@ -9,7 +9,7 @@ export function Hero() {
       </p>
       <div className="bg-white/60 rounded-lg p-4 max-w-2xl mx-auto mb-4">
         <p className="text-lg text-blue-700 font-medium mb-2">
-          ✅ 현재 이용 가능: 드랍/메소 획득 손익분기 계산기
+          ✅ 현재 이용 가능: 사냥 기댓값 계산기
         </p>
         <p className="text-sm text-gray-600">
           🚧 추가 계산기들 개발 예정

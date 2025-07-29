@@ -8,8 +8,8 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: '계산 유틸리티',
-  description: '드랍/메소 획득 손익분기 계산기를 포함한 다양한 계산 도구',
-  keywords: ['계산기', '드랍률', '메소', '손익분기', '유틸리티', 'calculator'],
+  description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
+  keywords: ['계산기', '사냥', '기댓값', '드랍률', '메소', '획득량', '유틸리티'],
 }
 
 export default function RootLayout({

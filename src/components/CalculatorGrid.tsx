@@ -3,9 +3,9 @@ import { Calculator, Settings, Plus, Wrench, Cog, Zap } from 'lucide-react'
 
 const calculatorCategories = [
   {
-    id: 'basic',
-    title: '드랍/메소 획득 손익분기 계산기',
-    description: '아이템 드랍률과 메소 획득량을 고려한 손익분기점 계산',
+    id: 'hunting-expectation',
+    title: '사냥 기댓값 계산기',
+    description: '드랍률과 메소 획득량을 고려한 사냥 기댓값 계산',
     icon: Calculator,
     href: '/calculators/basic',
     color: 'bg-blue-500',
