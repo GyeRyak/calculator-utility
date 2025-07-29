@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: read
       pages: write
+      id-token: write
 
     steps:
     - name: Checkout
@@ -35,7 +36,7 @@ jobs:
     - name: Build
       # GitHub Pages는 하위 경로로 배포되므로, 빌드 시 경로를 설정해줘야 합니다.
       # 프로젝트의 빌드 설정(예: next.config.js)에서 이 환경 변수를 사용해야 합니다.
-      run: npm run build
+      run: npm run export
       env:
         # 레포지토리 이름을 동적으로 가져와 BASE_PATH로 설정합니다.
         BASE_PATH: /${{ github.event.repository.name }}
