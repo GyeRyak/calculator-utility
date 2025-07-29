@@ -475,12 +475,12 @@ export function BasicCalculator() {
           <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
           {/* 사냥 정보 */}
-          <div className="lg:col-span-3 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-800 border-b pb-1">사냥 정보</h3>
+          <div className="lg:col-span-3 space-y-4">
+            <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
           
             {/* 몹 레벨 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 몹 레벨
               </label>
                               <NumberInput
@@ -494,7 +494,7 @@ export function BasicCalculator() {
 
             {/* 사냥량 설정 */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 사냥량
               </label>
                               <div className="flex items-center space-x-2">
@@ -535,7 +535,7 @@ export function BasicCalculator() {
                         setMobCount(newMobCount)
                       }
                     }}
-                    className="w-16 px-1.5 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value={0.125} selected>1젠</option>
                     <option value={2}>2분</option>
@@ -550,15 +550,15 @@ export function BasicCalculator() {
                      value={mobCount}
                      onChange={setMobCount}
                      min={1}
-                     size="sm"
-                     className="w-20"
+                     size="md"
+                     className="w-24"
                    />
                   <span className="text-sm text-gray-600">마리</span>
                 </div>
               
                             {/* 직접 입력 필드 */}
               {isCustomHuntTime && (
-                <div className="mt-2 grid grid-cols-3 gap-2 items-center">
+                <div className="mt-2 grid grid-cols-2 gap-2">
                   <NumberInput
                     value={customHuntTimeValue}
                     onChange={(value) => {
@@ -580,7 +580,7 @@ export function BasicCalculator() {
                     }}
                     min={0.1}
                     step={1}
-                    className="col-span-2"
+                    className="w-full"
                     placeholder="시간 입력"
                   />
                   <select
@@ -620,7 +620,7 @@ export function BasicCalculator() {
                       }
                       setHuntTimeUnit(newUnit)
                     }}
-                    className="col-span-1 px-2 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="seconds">초</option>
                     <option value="gen">젠</option>
@@ -699,7 +699,7 @@ export function BasicCalculator() {
                   }}
                   min={0.1}
                   step={1}
-                  className="col-span-2"
+                  className="w-full"
                   placeholder="시간 입력"
                 />
                 <select
@@ -727,7 +727,7 @@ export function BasicCalculator() {
                     }
                     setResultTimeUnit(newUnit)
                   }}
-                  className="col-span-1 px-2 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="seconds">초</option>
                   <option value="gen">젠</option>
@@ -773,7 +773,7 @@ export function BasicCalculator() {
 
           {/* 스탯 정보 */}
         <div className="lg:col-span-4 space-y-4">
-          <h3 className="text-base font-semibold text-gray-800 border-b pb-1">스탯 정보</h3>
+          <h3 className="text-base font-semibold text-gray-800 border-b pb-2">스탯 정보</h3>
           
           {/* 글로벌 버프 설정 */}
           <div>
@@ -854,7 +854,7 @@ export function BasicCalculator() {
                         onChange={setWealthPotionPrice}
                         min={0}
                         step={10}
-                        className="w-24 text-sm"
+                        className="w-32"
                       />
                       <span className="text-sm text-gray-600">만 메소</span>
                     </div>
@@ -912,7 +912,7 @@ export function BasicCalculator() {
                 ? 'bg-gray-200 opacity-60' 
                 : 'bg-gray-50'
             }`}>
-              <h4 className="text-xs font-semibold text-gray-700">상세 옵션</h4>
+              <h4 className="text-sm font-semibold text-gray-700">상세 옵션</h4>
               {/* 유니온의 행운 */}
               {globalBuffMode !== 'challenger' && (
                 <div className="flex items-center justify-between">
@@ -989,10 +989,10 @@ export function BasicCalculator() {
                           }}
                           min={0}
                           max={10}
-                          size="sm"
-                          className="w-12"
+                          size="md"
+                          className="w-20"
                         />
-                      <span className="text-xs text-gray-500">줄</span>
+                      <span className="text-sm text-gray-500">줄</span>
                     </>
                   ) : (
                     <>
@@ -1002,10 +1002,10 @@ export function BasicCalculator() {
                           min={0}
                           max={200}
                           step={5}
-                          size="sm"
-                          className="w-12"
+                          size="md"
+                          className="w-20"
                         />
-                      <span className="text-xs text-gray-500">%</span>
+                      <span className="text-sm text-gray-500">%</span>
                     </>
                   )}
                 </div>
@@ -1020,10 +1020,10 @@ export function BasicCalculator() {
                       onChange={(value) => setItemAbility(Math.min(20, Math.max(0, value)))}
                       min={0}
                       max={20}
-                      size="sm"
-                      className="w-12"
+                      size="md"
+                      className="w-20"
                     />
-                  <span className="text-xs text-gray-500">%</span>
+                  <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
 
@@ -1053,7 +1053,7 @@ export function BasicCalculator() {
             onChange={(value) => setItemArtifactLevelInput(Math.max(0, value))}
             min={0}
             max={10}
-            className="w-12 text-sm"
+            className="w-20"
           />
           <span className="text-xs text-gray-500">레벨</span>
         </>
@@ -1064,7 +1064,7 @@ export function BasicCalculator() {
             onChange={(value) => setItemArtifactPercentInput(Math.max(0, value))}
             min={0}
             max={12}
-            className="w-12 text-sm"
+            className="w-20"
           />
           <span className="text-xs text-gray-500">%</span>
         </>
@@ -1096,7 +1096,7 @@ export function BasicCalculator() {
                       }}
                       className="rounded"
                     />
-                    <label htmlFor="no-holy-symbol" className="text-xs text-gray-700">사용 안함</label>
+                    <label htmlFor="no-holy-symbol" className="text-sm text-gray-700">사용 안함</label>
                   </div>
                   <div className="flex items-center space-x-1">
                     <input
@@ -1113,7 +1113,7 @@ export function BasicCalculator() {
                       }}
                       className="rounded"
                     />
-                    <label htmlFor="regular-holy-symbol" className="text-xs text-gray-700">홀리 심볼</label>
+                    <label htmlFor="regular-holy-symbol" className="text-sm text-gray-700">홀리 심볼</label>
                   </div>
                 </div>
                 <div className="flex items-center space-x-1 mt-1">
@@ -1131,7 +1131,7 @@ export function BasicCalculator() {
                     }}
                     className="rounded"
                   />
-                  <label htmlFor="useful-holy-symbol" className="text-xs text-gray-700">쓸만한 홀리 심볼</label>
+                  <label htmlFor="useful-holy-symbol" className="text-sm text-gray-700">쓸만한 홀리 심볼</label>
                                       <NumberInput
                       value={usefulHolySymbolLevel}
                       onChange={(value) => {
@@ -1147,10 +1147,10 @@ export function BasicCalculator() {
                       }}
                       min={1}
                       max={30}
-                      className="w-12 text-sm"
+                      className="w-20"
                       placeholder="30"
                     />
-                  <span className="text-xs text-gray-500">레벨</span>
+                  <span className="text-sm text-gray-500">레벨</span>
                 </div>
               </div>
 
@@ -1176,7 +1176,7 @@ export function BasicCalculator() {
                       }}
                       className="rounded"
                     />
-                    <label htmlFor="change-detection" className="text-xs text-gray-700">사용</label>
+                    <label htmlFor="change-detection" className="text-sm text-gray-700">사용</label>
                   </div>
                   {changeDetection && (
                     <div className="flex items-center space-x-1">
@@ -1191,11 +1191,11 @@ export function BasicCalculator() {
                         }}
                         min={0}
                         max={4}
-                        size="sm"
-                        className="w-12"
+                        size="md"
+                        className="w-20"
                         placeholder="4"
                       />
-                      <span className="text-xs text-gray-500">레벨</span>
+                      <span className="text-sm text-gray-500">레벨</span>
                     </div>
                   )}
                 </div>
@@ -1251,7 +1251,7 @@ export function BasicCalculator() {
                 ? 'bg-gray-200 opacity-60' 
                 : 'bg-gray-50'
             }`}>
-              <h4 className="text-xs font-semibold text-gray-700">상세 옵션</h4>
+              <h4 className="text-sm font-semibold text-gray-700">상세 옵션</h4>
               {/* 유니온의 부 */}
               {globalBuffMode !== 'challenger' && (
                 <div className="flex items-center justify-between">
@@ -1328,9 +1328,9 @@ export function BasicCalculator() {
                           }}
                           min={0}
                           max={5}
-                          className="w-12 text-sm"
+                          className="w-20"
                         />
-                      <span className="text-xs text-gray-500">줄</span>
+                      <span className="text-sm text-gray-500">줄</span>
                     </>
                   ) : (
                     <>
@@ -1340,9 +1340,9 @@ export function BasicCalculator() {
                           min={0}
                           max={100}
                           step={5}
-                          className="w-12 text-sm"
+                          className="w-20"
                         />
-                      <span className="text-xs text-gray-500">%</span>
+                      <span className="text-sm text-gray-500">%</span>
                     </>
                   )}
                 </div>
@@ -1357,9 +1357,9 @@ export function BasicCalculator() {
                       onChange={(value) => setMesoAbility(Math.min(20, Math.max(0, value)))}
                       min={0}
                       max={20}
-                      className="w-12 text-sm"
+                      className="w-20"
                     />
-                  <span className="text-xs text-gray-500">%</span>
+                  <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
 
@@ -1389,7 +1389,7 @@ export function BasicCalculator() {
             onChange={(value) => setMesoArtifactLevelInput(Math.max(0, value))}
             min={0}
             max={10}
-            className="w-12 text-sm"
+            className="w-20"
           />
           <span className="text-xs text-gray-500">레벨</span>
         </>
@@ -1400,7 +1400,7 @@ export function BasicCalculator() {
             onChange={(value) => setMesoArtifactPercentInput(Math.max(0, value))}
             min={0}
             max={12}
-            className="w-12 text-sm"
+            className="w-20"
           />
           <span className="text-xs text-gray-500">%</span>
         </>
@@ -1414,7 +1414,7 @@ export function BasicCalculator() {
 
         {/* 계산 결과 */}
         <div className="lg:col-span-4 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-800 border-b pb-1">계산 결과</h3>
+          <h3 className="text-base font-semibold text-gray-800 border-b pb-2">계산 결과</h3>
         
           {result ? (
           <div className="space-y-4">
@@ -1432,8 +1432,8 @@ export function BasicCalculator() {
 
                     {/* 연산 기초값 정보 */}
           <div className="p-3 bg-gray-50 rounded-lg border">
-            <h4 className="text-xs font-medium text-gray-800 mb-2">연산 기초값</h4>
-            <div className="grid grid-cols-1 gap-2 text-xs">
+            <h4 className="text-sm font-medium text-gray-800 mb-2">연산 기초값</h4>
+            <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="text-center">
               <div className="text-gray-600">몹 레벨</div>
               <div className="font-medium text-blue-600">{mobLevel}</div>
@@ -1500,7 +1500,7 @@ export function BasicCalculator() {
                          return (
                            <div className="text-center">
                              <div>드랍률 {currentDropRate}% → 다조 드랍률 {Math.round((solErdaDetails.dropRateMultiplier - 1) * 100)}%</div>
-                             <div className="text-xs opacity-70 mt-0.5">
+                             <div className="text-sm opacity-70 mt-0.5">
                                (기본 드랍률 {solErdaDetails.baseSolErdaRate.toFixed(4)}% 및 드랍률 로그 추정치 적용)
                              </div>
                            </div>
@@ -1555,7 +1555,7 @@ export function BasicCalculator() {
                 시간당 {formatMesoWithKorean(result.totalMesoPerHour)} 메소 
               </p>
               {wealthPotion && showWealthPotionCost && (
-                <div className="mt-2 text-xs text-gray-600">
+                <div className="mt-2 text-sm text-gray-600">
                   <p>재획비 적용 전: {formatMesoWithKorean(result.totalMesoWithoutPotion, true)} 메소</p>
                   <p>재획비 적용 후: {formatMesoWithKorean(result.totalIncome, true)} 메소 - {formatMesoWithKorean(result.wealthPotionCost, true)} 메소</p>
                   <p className={result.totalMeso > result.totalMesoWithoutPotion ? 'text-blue-600 font-medium' : 'text-red-600 font-medium'}>
