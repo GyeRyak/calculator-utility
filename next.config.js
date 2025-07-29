@@ -4,6 +4,7 @@ const nextConfig = {
   ...(process.env.NODE_ENV === 'production' && {
     output: 'export',
     trailingSlash: true,
+    basePath: '/calculator-utility',
   }),
   images: {
     unoptimized: true
