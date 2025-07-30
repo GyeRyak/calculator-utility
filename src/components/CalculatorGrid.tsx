@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calculator, Settings, Plus, Wrench, Cog, Zap } from 'lucide-react'
+import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp } from 'lucide-react'
 
 const calculatorCategories = [
   {
@@ -12,13 +12,13 @@ const calculatorCategories = [
     available: true
   },
   {
-    id: 'calculator2',
-    title: '계산기 2',
-    description: '개발 예정',
-    icon: Settings,
-    href: null,
+    id: 'breakeven',
+    title: '드랍/메획 손익분기 계산기',
+    description: '아이템 구매 시 투자 회수 기간 계산',
+    icon: TrendingUp,
+    href: '/calculators/breakeven',
     color: 'bg-green-500',
-    available: false
+    available: true
   },
   {
     id: 'calculator3',

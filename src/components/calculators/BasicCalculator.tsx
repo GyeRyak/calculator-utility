@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2 } from 'lucide-react'
+import SlotHeader from '../ui/SlotHeader'
+import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, getSolErdaFragmentCalculationDetails, type HuntingExpectationParams } from '../../utils/huntingExpectationCalculations'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
@@ -72,6 +74,8 @@ interface CalculationInputs {
 }
 
 export function BasicCalculator() {
+  const { showNotification } = useNotification()
+  
   // 설정 저장/복원 상태
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [showSaveSuccess, setShowSaveSuccess] = useState(false)
@@ -83,6 +87,8 @@ export function BasicCalculator() {
     3: '슬롯 3'
   })
   const [tempSlotName, setTempSlotName] = useState<string>('') // 임시 슬롯 이름
+  const [isEditingSlotName, setIsEditingSlotName] = useState(false)
+  const [settingsSaved, setSettingsSaved] = useState(false)
   const [lastSavedInputs, setLastSavedInputs] = useState<{[key: number]: CalculationInputs | null}>({
     1: null,
     2: null,
@@ -167,10 +173,80 @@ export function BasicCalculator() {
   const [calculatedInputs, setCalculatedInputs] = useState<CalculationInputs | null>(null)
   
   // 설정 저장/복원 함수
+  // 슬롯 데이터 확인 함수
+  const hasSlotDataFunction = (slot: number): boolean => {
+    return mounted && slotHasData[slot]
+  }
+
+  // 초기화 함수
+  const resetAll = () => {
+    if (confirm('현재 슬롯의 모든 설정을 초기화하시겠습니까?')) {
+      clearCalculatorSettings(currentSlot)
+      
+      // 기본값으로 리셋
+      setMonsterLevel(275)
+      setMesoBonus(20)
+      setDropRate(100)
+      setHuntTime(0.125)
+      setMonsterCount(39)
+      setResultTime(120)
+      setSolErdaFragmentPrice(600)
+      setFeeRate(3)
+      setIsCustomHuntTime(false)
+      setHuntTimeUnit('gen')
+      setCustomHuntTimeValue(1)
+      setIsCustomResultTime(false)
+      setResultTimeUnit('minutes')
+      setCustomResultTimeValue(120)
+      setMesoInputMode('simple')
+      setDropRateInputMode('simple')
+      setMesoUnionBuff(false)
+      setPhantomUnionMeso(0)
+      setMesoPotentialMode('lines')
+      setMesoPotentialLines(0)
+      setMesoPotentialDirect(0)
+      setMesoAbility(0)
+      setGlobalBuffMode('core')
+      setMesoArtifactLevel(0)
+      setDropRateUnionBuff(false)
+      setDropRatePotentialMode('lines')
+      setDropRatePotentialLines(0)
+      setDropRatePotentialDirect(0)
+      setDropRateAbility(0)
+      setDropRateArtifactLevel(0)
+      setHolySymbol(false)
+      setUsefulHolySymbol(false)
+      setUsefulHolySymbolLevel(30)
+      setWealthAcquisitionPotion(false)
+      setMesoArtifactMode('level')
+      setMesoArtifactLevelInput(0)
+      setMesoArtifactPercentInput(0)
+      setDropRateArtifactMode('level')
+      setDropRateArtifactLevelInput(0)
+      setDropRateArtifactPercentInput(0)
+      setShowWealthPotionCost(false)
+      setWealthAcquisitionPotionPrice(5.5)
+      setSpottingSmallChange(false)
+      setSpottingSmallChangeLevel(0)
+      
+      // 슬롯 이름 초기화
+      setSlotNames(prev => ({
+        ...prev,
+        [currentSlot]: `슬롯 ${currentSlot}`
+      }))
+      setTempSlotName(`슬롯 ${currentSlot}`)
+      setSlotHasData(prev => ({
+        ...prev,
+        [currentSlot]: false
+      }))
+      
+      showNotification('success', '현재 슬롯이 초기화되었습니다.')
+    }
+  }
+
   const saveSettings = (slotNumber: number = currentSlot) => {
     if (!canUseFunctionalCookies()) {
-      setShowSaveError(true)
-      setTimeout(() => setShowSaveError(false), 3000)
+      showNotification('error', '기능성 쿠키가 비활성화되어 있습니다.')
       return
     }
     
@@ -277,7 +353,6 @@ export function BasicCalculator() {
         spottingSmallChangeLevel: settings.spottingSmallChangeLevel
       }
       
-      console.log('저장 시 actualSavedInputs:', actualSavedInputs)
       setLastSavedInputs(prev => ({
         ...prev,
         [slotNumber]: actualSavedInputs
@@ -286,15 +361,13 @@ export function BasicCalculator() {
         ...prev,
         [slotNumber]: slotNames[slotNumber]
       }))
-      setShowSaveSuccess(true)
-      setTimeout(() => setShowSaveSuccess(false), 3000)
+      showNotification('success', `슬롯 ${slotNumber}에 설정이 저장되었습니다.`)
     } else {
-      setShowSaveError(true)
-      setTimeout(() => setShowSaveError(false), 3000)
+      showNotification('error', '설정 저장에 실패했습니다.')
     }
   }
   
-  const loadSettings = (slotNumber: number = currentSlot) => {
+  const loadSettings = (slotNumber: number = currentSlot, isInitialLoad: boolean = false) => {
     if (!canUseFunctionalCookies()) {
       return
     }
@@ -478,6 +551,9 @@ export function BasicCalculator() {
     
     setCurrentSlot(slotNumber)
     setSettingsLoaded(true)
+    if (!isInitialLoad) {
+      showNotification('success', `슬롯 ${slotNumber}의 설정을 불러왔습니다.`)
+    }
     
     // 저장된 설정값을 직접 lastSavedInputs로 설정
     // 이전 버전 호환성을 위해 속성 이름 확인
@@ -528,7 +604,6 @@ export function BasicCalculator() {
       spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0
     }
     
-    console.log('직접 설정한 savedInputs:', savedInputs)
     setLastSavedInputs(prev => ({
       ...prev,
       [slotNumber]: savedInputs
@@ -559,10 +634,6 @@ export function BasicCalculator() {
       
       for (let i = 1; i <= 3; i++) {
         const settings = loadCalculatorSettings(i)
-        console.log(`초기 로드 슬롯 ${i} 설정:`, settings)
-        if (settings && i === 1) {
-          console.log('슬롯 1의 dropRateAbility 값:', settings.dropRateAbility)
-        }
         
         if (settings) {
           newSlotHasData[i] = true
@@ -633,18 +704,17 @@ export function BasicCalculator() {
       setLastSavedSlotNames(newSlotNames)
       setLastSavedInputs(initialLastSavedInputs)
       
-      console.log('초기 로드 시 설정된 lastSavedInputs:', initialLastSavedInputs)
       
       // slotNames가 업데이트된 후에 loadSettings 호출
       // setTimeout을 사용하여 다음 렌더링 사이클에서 실행
       setTimeout(() => {
-        loadSettings(1)
+        loadSettings(1, true)
       }, 0)
     } else {
       setTempSlotName('슬롯 1')
       // 쿠키 사용 불가 시에도 기본값 로드
       setTimeout(() => {
-        loadSettings(1)
+        loadSettings(1, true)
       }, 0)
     }
   }, [])
@@ -1084,133 +1154,20 @@ export function BasicCalculator() {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
       {/* 슬롯 선택 UI */}
-      <div className="mb-4 border-b pb-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-          {/* 슬롯 버튼들 */}
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-gray-700 mr-2">저장 슬롯:</h3>
-            <div className="flex gap-2">
-              {[1, 2, 3].map((slot) => (
-                <div key={slot} className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleSlotChange(slot)}
-                    className={`px-3 py-2 text-sm rounded transition-all ${
-                      currentSlot === slot
-                        ? 'bg-blue-600 text-white'
-                        : mounted && slotHasData[slot]
-                        ? 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                        : 'bg-gray-100 hover:bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {mounted && slotHasData[slot] ? (
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        {slot === currentSlot && tempSlotName ? tempSlotName : slotNames[slot]}
-                      </span>
-                    ) : (
-                      <span>
-                        {slot === currentSlot && tempSlotName ? tempSlotName : slotNames[slot]} 
-                        {mounted && !slotHasData[slot] ? ' (비어있음)' : ''}
-                      </span>
-                    )}
-                  </button>
-                  {currentSlot === slot && (
-                    <>
-                      <button
-                        onClick={() => saveSettings(slot)}
-                        className="p-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                        title="현재 설정 저장"
-                      >
-                        <Save className="w-4 h-4" />
-                      </button>
-                      {mounted && slotHasData[slot] && (
-                        <button
-                          onClick={() => {
-                            if (confirm(`슬롯 ${slot}의 데이터를 삭제하시겠습니까?`)) {
-                              clearCalculatorSettings(slot)
-                              setSlotNames(prev => ({
-                                ...prev,
-                                [slot]: `슬롯 ${slot}`
-                              }))
-                              setSlotHasData(prev => ({
-                                ...prev,
-                                [slot]: false
-                              }))
-                              setShowSaveSuccess(true)
-                              setTimeout(() => setShowSaveSuccess(false), 3000)
-                            }
-                          }}
-                          className="p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                          title="슬롯 데이터 삭제"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* 슬롯 이름 변경 */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 whitespace-nowrap">슬롯 이름:</label>
-            <input
-              type="text"
-              value={tempSlotName}
-              onChange={(e) => {
-                setTempSlotName(e.target.value)
-              }}
-              onFocus={() => {
-                // 포커스 시 이미 tempSlotName이 설정되어 있으므로 아무것도 하지 않음
-              }}
-              onBlur={() => {
-                // 블러 시 빈 값이면 원래 이름으로 복원
-                if (!tempSlotName.trim()) {
-                  setTempSlotName(slotNames[currentSlot] || `슬롯 ${currentSlot}`)
-                } else {
-                  // 변경된 이름을 슬롯 이름에 적용
-                  setSlotNames(prev => ({
-                    ...prev,
-                    [currentSlot]: tempSlotName
-                  }))
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.currentTarget.blur()
-                }
-              }}
-              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-32"
-              placeholder={`슬롯 ${currentSlot}`}
-              maxLength={20}
-            />
-          </div>
-        </div>
-        
-        {/* 상태 메시지 */}
-        <div className="flex items-center gap-2 mt-2">
-          {showSaveSuccess && (
-            <div className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              설정이 저장되었습니다
-            </div>
-          )}
-          {showSaveError && (
-            <div className="px-3 py-1 bg-red-100 text-red-800 text-sm rounded flex items-center gap-1">
-              <AlertCircle className="w-4 h-4" />
-              기능성 쿠키가 비활성화되어 있습니다
-            </div>
-          )}
-          {settingsLoaded && canUseFunctionalCookies() && (
-            <div className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded flex items-center gap-1">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              저장된 설정 복원됨
-            </div>
-          )}
-        </div>
-      </div>
+      <SlotHeader
+        currentSlot={currentSlot}
+        maxSlots={3}
+        slotNames={slotNames}
+        tempSlotName={tempSlotName}
+        isEditingSlotName={isEditingSlotName}
+        hasSlotData={hasSlotDataFunction}
+        onSlotSwitch={handleSlotChange}
+        onSlotNameChange={setTempSlotName}
+        onSlotNameEdit={setIsEditingSlotName}
+        onSave={() => saveSettings(currentSlot)}
+        onReset={resetAll}
+      />
+      
       
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
         {/* 사냥 정보 */}
