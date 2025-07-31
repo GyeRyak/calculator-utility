@@ -118,7 +118,8 @@ export function validateLimits(
 export function calculateItemBreakeven(
   params: HuntingExpectationParams,
   item: BreakevenItem,
-  materialsPerDay: number
+  materialsPerDay: number,
+  globalFeeRate: 3 | 5
 ): BreakevenResult {
   // 기본 수익 계산
   const baseResult = calculateHuntingExpectation(params)
@@ -144,7 +145,7 @@ export function calculateItemBreakeven(
   const increasePerHour = itemResult.totalIncome - baseResult.totalIncome
   
   // 순 투자 비용
-  const netCost = calculateNetCost(item, params.globalFeeRate)
+  const netCost = calculateNetCost(item, globalFeeRate)
   const netCostInMeso = netCost * 100000000 // 억 메소 -> 메소
   
   // 손익분기 계산
@@ -173,7 +174,7 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
   totalResult: BreakevenResult | null
   warnings: string[]
 } {
-  const { items, materialsPerDay, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, ...huntingParams } = params
+  const { items, materialsPerDay, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, globalFeeRate, ...huntingParams } = params
   
   // 재물 획득의 비약 효과 적용
   let adjustedHuntingParams = { ...huntingParams }
@@ -186,7 +187,7 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
   
   // 개별 아이템 계산
   const itemResults = items.map(item => 
-    calculateItemBreakeven(adjustedHuntingParams, item, materialsPerDay)
+    calculateItemBreakeven(adjustedHuntingParams, item, materialsPerDay, globalFeeRate)
   )
   
   // 전체 보너스 계산 (잠재능력으로 인한 증가분만)
@@ -221,7 +222,7 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
     const totalItemResult = calculateHuntingExpectation(totalParams)
     
     // 전체 순 투자 비용
-    const totalNetCost = items.reduce((sum, item) => sum + calculateNetCost(item, params.globalFeeRate), 0)
+    const totalNetCost = items.reduce((sum, item) => sum + calculateNetCost(item, globalFeeRate), 0)
     const totalNetCostInMeso = totalNetCost * 100000000
     
     // 시간당 총 증가 수익
