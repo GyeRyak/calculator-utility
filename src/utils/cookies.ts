@@ -162,11 +162,8 @@ export function saveCalculatorSettings(settings: any, slotNumber: number = 1): b
   
   try {
     const slotKey = getSlotKey(slotNumber)
-    setCookie(slotKey, JSON.stringify(settings), {
-      expires: 30, // 30일
-      path: '/',
-      sameSite: 'lax'
-    })
+    // localStorage 사용으로 변경
+    localStorage.setItem(slotKey, JSON.stringify(settings))
     return true
   } catch (error) {
     console.error(`Failed to save calculator settings to slot ${slotNumber}:`, error)
@@ -185,11 +182,12 @@ export function loadCalculatorSettings(slotNumber: number = 1): any | null {
     return null
   }
   
-  const slotKey = getSlotKey(slotNumber)
-  const settingsData = getCookie(slotKey)
-  if (!settingsData) return null
-  
   try {
+    const slotKey = getSlotKey(slotNumber)
+    // localStorage 사용으로 변경
+    const settingsData = localStorage.getItem(slotKey)
+    if (!settingsData) return null
+    
     return JSON.parse(settingsData)
   } catch (error) {
     console.error(`Failed to load calculator settings from slot ${slotNumber}:`, error)
@@ -199,14 +197,18 @@ export function loadCalculatorSettings(slotNumber: number = 1): any | null {
 
 // 특정 슬롯의 계산기 설정 삭제
 export function clearCalculatorSettings(slotNumber?: number): void {
-  if (slotNumber === undefined) {
-    // 모든 슬롯 삭제
-    for (let i = 1; i <= 3; i++) {
-      deleteCookie(getSlotKey(i), '/')
+  try {
+    if (slotNumber === undefined) {
+      // 모든 슬롯 삭제
+      for (let i = 1; i <= 3; i++) {
+        localStorage.removeItem(getSlotKey(i))
+      }
+    } else if (slotNumber >= 1 && slotNumber <= 3) {
+      // 특정 슬롯만 삭제
+      localStorage.removeItem(getSlotKey(slotNumber))
     }
-  } else if (slotNumber >= 1 && slotNumber <= 3) {
-    // 특정 슬롯만 삭제
-    deleteCookie(getSlotKey(slotNumber), '/')
+  } catch (error) {
+    console.error('Failed to clear calculator settings:', error)
   }
 }
 
@@ -216,8 +218,12 @@ export function hasSlotData(slotNumber: number): boolean {
   
   if (slotNumber < 1 || slotNumber > 3) return false
   
-  const slotKey = getSlotKey(slotNumber)
-  return getCookie(slotKey) !== null
+  try {
+    const slotKey = getSlotKey(slotNumber)
+    return localStorage.getItem(slotKey) !== null
+  } catch {
+    return false
+  }
 }
 
 // 모든 비필수 쿠키 삭제

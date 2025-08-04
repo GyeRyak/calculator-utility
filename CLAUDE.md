@@ -15,6 +15,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint code**: `npm run lint` - Runs ESLint with Next.js configuration
 - **Deploy to GitHub Pages**: `npm run deploy` - Builds and deploys to GitHub Pages (requires gh-pages setup)
 
+## Development Best Practices
+
+- `npm run dev`는 실행하지 말고, 커밋하고 푸시하기 이전에 빌드하여 테스트할 것.
+
 ## Architecture Overview
 
 This is a Next.js 14 application using App Router for building calculator utilities. Key architectural patterns:

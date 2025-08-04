@@ -294,6 +294,7 @@ export function BasicCalculator() {
       isCustomResultTime,
       resultTimeUnit,
       customResultTimeValue,
+      characterLevel,
       solErdaFragmentPrice,
       feeRate,
       showWealthPotionCost,
@@ -354,7 +355,7 @@ export function BasicCalculator() {
         wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice,
         spottingSmallChange: settings.spottingSmallChange,
         spottingSmallChangeLevel: settings.spottingSmallChangeLevel,
-        characterLevel: characterLevel // 현재 상태값 사용 (설정에 저장되지 않음)
+        characterLevel: settings.characterLevel
       }
       
       setLastSavedInputs(prev => ({
@@ -429,6 +430,7 @@ export function BasicCalculator() {
       setShowWealthPotionCost(true)
       setWealthAcquisitionPotionPrice(300)
       setAutoCalculate(true)
+      setCharacterLevel(275)
       
       // 빈 슬롯의 기본값으로 lastSavedInputs 설정
       const defaultInputs: CalculationInputs = {
@@ -549,6 +551,7 @@ export function BasicCalculator() {
     if (settings.showWealthPotionCost !== undefined) setShowWealthPotionCost(settings.showWealthPotionCost)
     if (settings.wealthAcquisitionPotionPrice !== undefined) setWealthAcquisitionPotionPrice(settings.wealthAcquisitionPotionPrice)
     if (settings.autoCalculate !== undefined) setAutoCalculate(settings.autoCalculate)
+    if (settings.characterLevel !== undefined) setCharacterLevel(settings.characterLevel)
     
     // 저장된 슬롯 이름이 있으면 사용, 없으면 기본값 사용
     const slotName = settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
