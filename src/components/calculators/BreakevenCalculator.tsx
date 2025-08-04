@@ -43,7 +43,8 @@ export function BreakevenCalculator() {
     mesoBonus: 20,
     dropRate: 71,
     solErdaFragmentPrice: 600,
-    feeRate: 3
+    feeRate: 3,
+    characterLevel: 275
   }
 
   // 상태
@@ -360,7 +361,8 @@ export function BreakevenCalculator() {
         mesoBonus: calculatedMesoBonus,
         dropRate: calculatedDropRate,
         solErdaFragmentPrice: settings.solErdaFragmentPrice ?? 600,
-        feeRate: settings.feeRate ?? 3
+        feeRate: settings.feeRate ?? 3,
+        characterLevel: settings.characterLevel ?? 275
       })
       
       // 재물 획득의 비약 및 잠재능력 설정
@@ -544,6 +546,16 @@ export function BreakevenCalculator() {
         </div>
         {/* 기본 매개변수 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">캐릭터 레벨</label>
+            <NumberInput
+              value={baseParams.characterLevel ?? 275}
+              onChange={(value) => setBaseParams({ ...baseParams, characterLevel: value })}
+              min={1}
+              max={300}
+              step={1}
+            />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">몬스터 레벨</label>
             <NumberInput

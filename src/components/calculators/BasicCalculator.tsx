@@ -5,6 +5,7 @@ import { Save, RotateCcw, AlertCircle, Trash2 } from 'lucide-react'
 import SlotHeader from '../ui/SlotHeader'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, getSolErdaFragmentCalculationDetails, type HuntingExpectationParams } from '../../utils/huntingExpectationCalculations'
+import { calculateLevelPenalty } from '../../utils/levelPenalty'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput } from '../ui'
@@ -1012,7 +1013,8 @@ export function BasicCalculator() {
       dropRate: calculatedItemDropBonus,
       solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus,
+      characterLevel: inputs.characterLevel
     })
     
     // 시간당 계산 (재물 획득의 비약 적용된 상태)
@@ -1023,7 +1025,8 @@ export function BasicCalculator() {
       dropRate: calculatedItemDropBonus,
       solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus,
+      characterLevel: inputs.characterLevel
     })
     
     // 재물 획득의 비약 없을 때의 드랍 데이터 계산 (20% 곱연산/합연산 전 상태)
@@ -1045,7 +1048,8 @@ export function BasicCalculator() {
       dropRate: itemDropRateWithoutPotion,
       solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus,
+      characterLevel: inputs.characterLevel
     })
     
     // 재물 획득의 비약 관련 계산
@@ -1144,7 +1148,17 @@ export function BasicCalculator() {
 
     const inputs = getCurrentInputs()
     const mobsPerMinute = inputs.monsterCount / inputs.huntTime
-    const totalMonsters = mobsPerMinute * inputs.resultTime
+    
+    // 메소 제한 옵션인 경우 실제 시간 계산
+    let actualResultTime = inputs.resultTime
+    if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
+      const mesoLimit = calculateMesoLimit(characterLevel)
+      const baseMesoPerMob = inputs.monsterLevel * 7.5
+      const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
+      actualResultTime = mobsForMesoLimit / mobsPerMinute
+    }
+    
+    const totalMonsters = mobsPerMinute * actualResultTime
 
     // 현재 계산된 보너스 값들
     const currentMesoBonus = calculateMesoBonus()
@@ -1161,7 +1175,8 @@ export function BasicCalculator() {
       dropRate: currentItemDropBonus + 20, // 기존 드랍률에 20% 추가
       solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
-      spottingSmallChangeBonus: spottingSmallChangeBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus,
+      characterLevel: inputs.characterLevel
     })
 
     // 메소 획득량 20% 증가 효과 (합연산)
@@ -1173,13 +1188,14 @@ export function BasicCalculator() {
       dropRate: currentItemDropBonus,
       solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
-      spottingSmallChangeBonus: spottingSmallChangeBonus
+      spottingSmallChangeBonus: spottingSmallChangeBonus,
+      characterLevel: inputs.characterLevel
     })
 
     // 재물 획득의 비약 비용 계산 (기존 로직과 동일)
     let wealthAcquisitionPotionCost = 0
     if (wealthAcquisitionPotion && showWealthPotionCost) {
-      const wealthAcquisitionPotionCount = Math.ceil(inputs.resultTime / 30)
+      const wealthAcquisitionPotionCount = Math.ceil(actualResultTime / 30)
       wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
     }
 
@@ -2200,13 +2216,15 @@ export function BasicCalculator() {
                            mesoRateWithoutWealth = (1 + calculateMesoBonus() / 100) / 1.2 - 1
                            mesoRateWithoutWealth *= 100
                          }
+                         const levelPenalty = calculateLevelPenalty(inputs.characterLevel, inputs.monsterLevel)
                          const mesoDetails = getMesoCalculationDetails(
                            inputs.monsterLevel,
                            mesoRateWithoutWealth,
-                           wealthAcquisitionPotion
+                           wealthAcquisitionPotion,
+                           levelPenalty
                          )
                          const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 : 0
-                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)} × ${mesoDetails.wealthPotionMultiplier}${spottingSmallChangeBonus > 0 ? ` + ${spottingSmallChangeBonus}` : ''}`
+                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)}${mesoDetails.levelPenalty !== 1 ? ` × ${mesoDetails.levelPenalty.toFixed(2)}(레벨 패널티)` : ''} × ${mesoDetails.wealthPotionMultiplier}${spottingSmallChangeBonus > 0 ? ` + ${spottingSmallChangeBonus}` : ''}`
                        })()}
                      </div>
                   </div>

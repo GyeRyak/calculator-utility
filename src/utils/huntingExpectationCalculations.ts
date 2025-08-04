@@ -1,4 +1,5 @@
 // 사냥 기댓값 계산 유틸리티 함수들
+import { calculateLevelPenalty } from './levelPenalty'
 
 /**
  * 메소 드랍률 계산
@@ -23,10 +24,11 @@ export function calculateSolErdaFragmentDropRate(dropRate: number): number {
  * 메소 드랍량 계산 (1마리당)
  * @param monsterLevel 몬스터 레벨
  * @param mesoBonus 메소 획득량 (%)
+ * @param levelPenalty 레벨 차이에 따른 패널티 (0-1)
  * @returns 1마리당 메소 드랍량
  */
-export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number): number {
-  return monsterLevel * 7.5 * (1 + mesoBonus / 100)
+export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number, levelPenalty: number = 1): number {
+  return monsterLevel * 7.5 * (1 + mesoBonus / 100) * levelPenalty
 }
 
 /**
@@ -34,9 +36,10 @@ export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number): n
  * @param monsterLevel 몬스터 레벨
  * @param mesoBonus 메소 획득량 (%)
  * @param wealthAcquisitionPotion Wealth Acquisition Potion 사용 여부
+ * @param levelPenalty 레벨 차이에 따른 패널티 (0-1)
  * @returns 메소 계산 상세 정보
  */
-export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: number, wealthAcquisitionPotion: boolean) {
+export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: number, wealthAcquisitionPotion: boolean, levelPenalty: number = 1) {
   const baseMeso = monsterLevel * 7.5 // 몬스터 드랍 기본 메소
   const mesoMultiplier = 1 + mesoBonus / 100 // 일반 메소 획득량 배수
   const wealthPotionMultiplier = wealthAcquisitionPotion ? 1.2 : 1 // 재획비 배수
@@ -45,7 +48,8 @@ export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: numbe
     baseMeso,
     mesoMultiplier,
     wealthPotionMultiplier,
-    totalMeso: baseMeso * mesoMultiplier * wealthPotionMultiplier
+    levelPenalty,
+    totalMeso: baseMeso * mesoMultiplier * wealthPotionMultiplier * levelPenalty
   }
 }
 
@@ -79,6 +83,7 @@ export interface HuntingExpectationParams {
   solErdaFragmentPrice: number // 만 메소 단위
   feeRate: number // %
   spottingSmallChangeBonus?: number // Spotting Small Change 추가 메소 (기본 0)
+  characterLevel?: number // 캐릭터 레벨 (레벨 패널티 계산용)
 }
 
 export interface HuntingExpectationResult {
@@ -104,12 +109,16 @@ export function calculateHuntingExpectation(params: HuntingExpectationParams): H
     dropRate,
     solErdaFragmentPrice,
     feeRate,
-    spottingSmallChangeBonus = 0
+    spottingSmallChangeBonus = 0,
+    characterLevel
   } = params
+
+  // 레벨 패널티 계산
+  const levelPenalty = characterLevel ? calculateLevelPenalty(characterLevel, monsterLevel) : 1
 
   // 메소 계산
   const mesoDropRate = calculateMesoDropRate(dropRate)
-  const baseMesoPerDrop = calculateMesoPerDrop(monsterLevel, mesoBonus)
+  const baseMesoPerDrop = calculateMesoPerDrop(monsterLevel, mesoBonus, levelPenalty)
   // Spotting Small Change: 메소 획득량 적용 후 돈주머니당 추가 메소
   const mesoPerDrop = baseMesoPerDrop + spottingSmallChangeBonus
   const totalMeso = Math.floor(totalMonsters * mesoDropRate * mesoPerDrop)
