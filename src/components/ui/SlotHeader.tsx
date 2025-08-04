@@ -75,12 +75,10 @@ export default function SlotHeader({
                 value={tempSlotName}
                 onChange={(e) => onSlotNameChange(e.target.value)}
                 onBlur={() => {
-                  onSlotNameEdit(false)
                   onSave()
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    onSlotNameEdit(false)
                     onSave()
                   } else if (e.key === 'Escape') {
                     onSlotNameEdit(false)

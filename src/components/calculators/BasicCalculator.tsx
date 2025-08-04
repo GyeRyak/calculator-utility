@@ -300,7 +300,7 @@ export function BasicCalculator() {
       showWealthPotionCost,
       wealthAcquisitionPotionPrice,
       autoCalculate,
-      slotName: slotNames[slotNumber]
+      slotName: slotNumber === currentSlot ? tempSlotName : slotNames[slotNumber]
     }
     
     if (saveCalculatorSettings(settings, slotNumber)) {
@@ -308,6 +308,13 @@ export function BasicCalculator() {
         ...prev,
         [slotNumber]: true
       }))
+      // 슬롯 이름도 저장
+      if (slotNumber === currentSlot && tempSlotName) {
+        setSlotNames(prev => ({
+          ...prev,
+          [slotNumber]: tempSlotName
+        }))
+      }
       // 저장 성공 시 마지막 저장된 입력값 및 슬롯 이름 업데이트
       // settings 객체에서 실제 저장된 값들을 사용
       const actualSavedInputs: CalculationInputs = {
@@ -364,9 +371,13 @@ export function BasicCalculator() {
       }))
       setLastSavedSlotNames(prev => ({
         ...prev,
-        [slotNumber]: slotNames[slotNumber]
+        [slotNumber]: slotNumber === currentSlot ? tempSlotName : slotNames[slotNumber]
       }))
       showNotification('success', `슬롯 ${slotNumber}에 설정이 저장되었습니다.`)
+      // 슬롯 이름 편집 모드 종료
+      if (slotNumber === currentSlot) {
+        setIsEditingSlotName(false)
+      }
     } else {
       showNotification('error', '설정 저장에 실패했습니다.')
     }
