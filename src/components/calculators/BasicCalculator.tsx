@@ -41,6 +41,7 @@ interface CalculationInputs {
   isCustomResultTime: boolean
   resultTimeUnit: string
   customResultTimeValue: number
+  characterLevel: number
   mesoInputMode: string
   dropRateInputMode: string
   mesoUnionBuff: boolean
@@ -160,8 +161,9 @@ export function BasicCalculator() {
   const [monsterCount, setMonsterCount] = useState<number>(39)
   const [resultTime, setResultTime] = useState<number>(30) // 분
   const [isCustomResultTime, setIsCustomResultTime] = useState<boolean>(false)
-  const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'gen'>('minutes')
+  const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'meso_limit'>('minutes')
   const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(30)
+  const [characterLevel, setCharacterLevel] = useState<number>(275) // 캐릭터 레벨 (메소 제한용)
   const [solErdaFragmentPrice, setSolErdaFragmentPrice] = useState<number>(600) // 만 메소
   const [feeRate, setFeeRate] = useState<number>(3) // %
   
@@ -350,7 +352,8 @@ export function BasicCalculator() {
         showWealthPotionCost: settings.showWealthPotionCost,
         wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice,
         spottingSmallChange: settings.spottingSmallChange,
-        spottingSmallChangeLevel: settings.spottingSmallChangeLevel
+        spottingSmallChangeLevel: settings.spottingSmallChangeLevel,
+        characterLevel: characterLevel // 현재 상태값 사용 (설정에 저장되지 않음)
       }
       
       setLastSavedInputs(prev => ({
@@ -471,7 +474,8 @@ export function BasicCalculator() {
         showWealthPotionCost: true,
         wealthAcquisitionPotionPrice: 300,
         spottingSmallChange: false,
-        spottingSmallChangeLevel: 0
+        spottingSmallChangeLevel: 0,
+        characterLevel: 275
       }
       
       setLastSavedInputs(prev => ({
@@ -601,7 +605,8 @@ export function BasicCalculator() {
       showWealthPotionCost: settings.showWealthPotionCost ?? true,
       wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
       spottingSmallChange: settings.spottingSmallChange ?? false,
-      spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0
+      spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0,
+      characterLevel: settings.characterLevel ?? 275
     }
     
     setLastSavedInputs(prev => ({
@@ -689,7 +694,8 @@ export function BasicCalculator() {
             showWealthPotionCost: settings.showWealthPotionCost ?? true,
             wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? 300,
             spottingSmallChange: settings.spottingSmallChange ?? false,
-            spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0
+            spottingSmallChangeLevel: settings.spottingSmallChangeLevel ?? 0,
+            characterLevel: settings.characterLevel ?? 275
           }
         } else {
           newSlotHasData[i] = false
@@ -735,6 +741,7 @@ export function BasicCalculator() {
     isCustomResultTime,
     resultTimeUnit,
     customResultTimeValue,
+    characterLevel,
     mesoInputMode,
     dropRateInputMode,
     mesoUnionBuff,
@@ -855,6 +862,24 @@ export function BasicCalculator() {
     return bonus
   }
 
+  // 캐릭터 레벨에 따른 메소 제한량 계산 (메소 단위)
+  const calculateMesoLimit = (level: number): number => {
+    if (level >= 1 && level <= 99) {
+      return 20000000 // 2000만 메소
+    } else if (level >= 100 && level <= 199) {
+      return 40000000 // 4000만 메소
+    } else if (level >= 200 && level <= 259) {
+      const exceededLevels = level - 200
+      const additionalMeso = Math.floor(exceededLevels / 5) * 5000000
+      return 80000000 + additionalMeso // 8000만 메소 + 5레벨당 500만 메소
+    } else if (level >= 260 && level <= 300) {
+      const exceededLevels = level - 260
+      const additionalMeso = Math.floor(exceededLevels / 5) * 10000000
+      return 150000000 + additionalMeso // 1억 5천만 메소 + 5레벨당 1000만 메소
+    }
+    return 0
+  }
+
   // 메소 획득량 계산
   const calculateMesoBonus = () => {
     if (mesoInputMode === 'direct') {
@@ -956,8 +981,25 @@ export function BasicCalculator() {
     const mobsPerMinute = inputs.monsterCount / inputs.huntTime
     const mobsPerHour = mobsPerMinute * 60
     
+    // 메소 제한 옵션 처리
+    let actualResultTime = inputs.resultTime
+    
+    if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
+      // 메소 제한량 계산
+      const mesoLimit = calculateMesoLimit(characterLevel)
+      
+      // 몬스터 1마리당 기본 메소 드랍량 계산 (메소 획득량 보너스 적용 전)
+      const baseMesoPerMob = inputs.monsterLevel * 7.5
+      
+      // 메소 제한량에 도달하는데 필요한 몬스터 수
+      const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
+      
+      // 필요한 시간 계산 (분 단위)
+      actualResultTime = mobsForMesoLimit / mobsPerMinute
+    }
+    
     // 결과 시간 동안의 총 처치 수
-    const totalMonsters = mobsPerMinute * inputs.resultTime
+    const totalMonsters = mobsPerMinute * actualResultTime
     
     // 잔돈이 눈에 띄네 보너스 계산
     const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 : 0
@@ -1014,7 +1056,7 @@ export function BasicCalculator() {
 
     if (wealthAcquisitionPotion && showWealthPotionCost) {
       // 30분마다 1개씩 사용 (31분이면 2개)
-      wealthAcquisitionPotionCount = Math.ceil(inputs.resultTime / 30)
+      wealthAcquisitionPotionCount = Math.ceil(actualResultTime / 30)
       wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
       
       // 1시간 기준 계산 (2개 사용)
@@ -1173,6 +1215,21 @@ export function BasicCalculator() {
         {/* 사냥 정보 */}
         <div className="lg:col-span-3 space-y-4">
           <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
+          
+          {/* 캐릭터 레벨 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              캐릭터 레벨
+            </label>
+            <NumberInput
+              value={characterLevel}
+              onChange={setCharacterLevel}
+              min={1}
+              max={300}
+              size="md"
+              className="w-full"
+            />
+          </div>
           
           {/* 몬스터 레벨 */}
           <div>
@@ -1335,7 +1392,7 @@ export function BasicCalculator() {
               계산 결과 단위 시간
             </label>
             <select
-              value={isCustomResultTime ? 'custom' : resultTime}
+              value={isCustomResultTime ? (resultTimeUnit === 'meso_limit' ? 'meso_limit' : 'custom') : resultTime}
               onChange={(e) => {
                 if (e.target.value === 'custom') {
                   setIsCustomResultTime(true)
@@ -1348,8 +1405,8 @@ export function BasicCalculator() {
                         setResultTimeUnit('full_wealth')
                         setCustomResultTimeValue(1)
                       } else if (currentMinutes === 0.125) { // 7.5초 = 0.125분
-                        setResultTimeUnit('gen')
-                        setCustomResultTimeValue(1)
+                        setResultTimeUnit('minutes')
+                        setCustomResultTimeValue(0.125)
                       } else if (currentMinutes < 1) { // 1분 미만은 초 단위로
                         setResultTimeUnit('seconds')
                         setCustomResultTimeValue(currentMinutes * 60)
@@ -1363,6 +1420,10 @@ export function BasicCalculator() {
                     setResultTimeUnit('minutes')
                     setCustomResultTimeValue(currentMinutes)
                   }
+                } else if (e.target.value === 'meso_limit') {
+                  setIsCustomResultTime(true)
+                  setResultTimeUnit('meso_limit')
+                  setCustomResultTimeValue(0) // 자동 계산되므로 0으로 설정
                 } else {
                   setIsCustomResultTime(false)
                   setResultTime(Number(e.target.value))
@@ -1374,11 +1435,12 @@ export function BasicCalculator() {
                       <option value={30}>30분</option>
                       <option value={60}>1시간</option>
                       <option value={270}>4시간 30분</option>
+                      <option value="meso_limit">메소 제한</option>
                       <option value="custom">직접 입력</option>
             </select>
             
             {/* 직접 입력 필드 */}
-            {isCustomResultTime && (
+            {isCustomResultTime && resultTimeUnit !== 'meso_limit' && (
               <div className="mt-2 grid grid-cols-3 gap-2 items-center">
                 <NumberInput
                   value={customResultTimeValue}
@@ -1390,7 +1452,6 @@ export function BasicCalculator() {
                     else if (resultTimeUnit === 'hours') minutes = value * 60
                     else if (resultTimeUnit === 'mini_wealth') minutes = value * 30
                     else if (resultTimeUnit === 'full_wealth') minutes = value * 120
-                    else if (resultTimeUnit === 'gen') minutes = value * 0.125 // 1젠 = 7.5초 = 0.125분
                     setResultTime(minutes)
                   }}
                   min={0.1}
@@ -1401,7 +1462,7 @@ export function BasicCalculator() {
                 <select
                   value={resultTimeUnit}
                   onChange={(e) => {
-                    const newUnit = e.target.value as 'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'gen'
+                    const newUnit = e.target.value as 'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth'
                     if (newUnit !== resultTimeUnit) {
                       // 현재 값을 분으로 변환
                       let currentMinutes = customResultTimeValue
@@ -1409,7 +1470,6 @@ export function BasicCalculator() {
                       else if (resultTimeUnit === 'hours') currentMinutes = customResultTimeValue * 60
                       else if (resultTimeUnit === 'mini_wealth') currentMinutes = customResultTimeValue * 30
                       else if (resultTimeUnit === 'full_wealth') currentMinutes = customResultTimeValue * 120
-                      else if (resultTimeUnit === 'gen') currentMinutes = customResultTimeValue * 0.125
                       
                       // 새 단위로 변환
                       let newValue = currentMinutes
@@ -1417,7 +1477,6 @@ export function BasicCalculator() {
                       else if (newUnit === 'hours') newValue = currentMinutes / 60
                       else if (newUnit === 'mini_wealth') newValue = currentMinutes / 30
                       else if (newUnit === 'full_wealth') newValue = currentMinutes / 120
-                      else if (newUnit === 'gen') newValue = currentMinutes / 0.125
                       
                       setCustomResultTimeValue(newValue)
                     }
@@ -1426,12 +1485,21 @@ export function BasicCalculator() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="seconds">초</option>
-                  <option value="gen">젠</option>
                   <option value="minutes">분</option>
                   <option value="hours">시간</option>
                   <option value="mini_wealth">소재</option>
                   <option value="full_wealth">재획</option>
                 </select>
+               </div>
+             )}
+             
+             {/* 메소 제한 정보 표시 */}
+             {isCustomResultTime && resultTimeUnit === 'meso_limit' && (
+               <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                 <div className="text-sm text-blue-700">
+                   <div>{characterLevel}레벨 메소 제한: {(calculateMesoLimit(characterLevel) / 100000000).toFixed(1)}억 메소</div>
+                   <div className="text-xs mt-1">메소 제한량 달성에 필요한 시간이 자동으로 계산됩니다.</div>
+                 </div>
                </div>
              )}
            </div>
@@ -2173,16 +2241,40 @@ export function BasicCalculator() {
             {/* 획득량 정보 */}
             <div className="bg-blue-50 p-4 rounded-lg">
               <h4 className="font-medium text-gray-900 mb-2">
-                {resultTime >= 60 && resultTime % 60 === 0 
-                  ? `${resultTime/60}시간` 
-                  : resultTime >= 60 
-                    ? `${Math.floor(resultTime/60)}시간 ${resultTime % 60}분`
-                    : `${resultTime}분`} 정산
+                {(() => {
+                  // 메소 제한인 경우 실제 계산된 시간 사용
+                  let displayTime = resultTime;
+                  if (isCustomResultTime && resultTimeUnit === 'meso_limit') {
+                    // calculateDrops와 동일한 로직으로 시간 계산
+                    const inputs = getCurrentInputs();
+                    const mobsPerMinute = inputs.monsterCount / inputs.huntTime;
+                    const mesoLimit = calculateMesoLimit(characterLevel);
+                    const baseMesoPerMob = inputs.monsterLevel * 7.5;
+                    const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob);
+                    displayTime = mobsForMesoLimit / mobsPerMinute;
+                  }
+                  
+                  return displayTime >= 60 && displayTime % 60 === 0 
+                    ? `${displayTime/60}시간` 
+                    : displayTime >= 60 
+                      ? `${Math.floor(displayTime/60)}시간 ${Math.round(displayTime % 60)}분`
+                      : `${Math.round(displayTime)}분`;
+                })()
+                } 정산
               </h4>
               <p className="text-sm text-gray-600">
                 사냥한 몬스터: <span className="font-medium text-blue-600">{formatNumber((() => {
                   const inputs = getCurrentInputs()
                   const mobsPerMinute = inputs.monsterCount / inputs.huntTime
+                  
+                  // 메소 제한인 경우 실제 계산된 몬스터 수 사용
+                  if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
+                    const mesoLimit = calculateMesoLimit(characterLevel);
+                    const baseMesoPerMob = inputs.monsterLevel * 7.5;
+                    const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob);
+                    return mobsForMesoLimit;
+                  }
+                  
                   return Math.floor(mobsPerMinute * inputs.resultTime)
                 })())} 마리</span>
               </p>
