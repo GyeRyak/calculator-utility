@@ -5,7 +5,7 @@ import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X } fr
 import Link from 'next/link'
 import SlotHeader from '../ui/SlotHeader'
 import { useNotification } from '@/contexts/NotificationContext'
-import { calculateHuntingExpectation, getMesoCalculationDetails, getSolErdaFragmentCalculationDetails, type HuntingExpectationParams } from '../../utils/huntingExpectationCalculations'
+import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
 import { calculateLevelPenalty } from '../../utils/levelPenalty'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
@@ -22,23 +22,21 @@ interface DropItem extends UIDropItem {
 
 interface CalculationResult {
   baseMeso: number
-  solErdaCount: number
-  solErdaProfit: number
   totalIncome: number
   totalMeso: number
   mesoDropRate: number
-  solErdaDropRate: number
   mesoPerDrop: number
   wealthAcquisitionPotionCount: number
   wealthAcquisitionPotionCost: number
   totalMesoPerHour: number
   totalMesoWithoutPotion: number
-  dropItems: {
+  dropItems: Map<string, {
     item: DropItem
     expectedCount: number
     expectedValue: number
     actualDropRate: number // 실제 드랍률 (드랍률 증가 효과 적용)
-  }[]
+    dropMultiplier: number // 드랍률 배수
+  }>
 }
 
 interface CalculationInputs {
@@ -48,7 +46,6 @@ interface CalculationInputs {
   huntTime: number
   monsterCount: number
   resultTime: number
-  solErdaFragmentPrice: number
   feeRate: number
   isCustomHuntTime: boolean
   huntTimeUnit: string
@@ -88,8 +85,8 @@ interface CalculationInputs {
   spottingSmallChange: boolean
   spottingSmallChangeLevel: number
   dropItems: DropItem[]
-  normalDropItems?: UIDropItem[]
-  logDropItems?: UIDropItem[]
+  normalDropItems?: Omit<UIDropItem, 'id'>[]
+  logDropItems?: Omit<UIDropItem, 'id'>[]
 }
 
 // 기본값 정의
@@ -100,7 +97,6 @@ const DEFAULT_VALUES = {
   huntTime: 0.125,
   monsterCount: 39,
   resultTime: 30,
-  solErdaFragmentPrice: 600,
   feeRate: 3,
   isCustomHuntTime: false,
   huntTimeUnit: 'minutes',
@@ -147,7 +143,7 @@ const DEFAULT_VALUES = {
     { id: 'spell-trace', name: '주문의 흔적', price: 0.2, dropRate: 1.2, directUse: false }
   ] as UIDropItem[],
   logDropItems: [
-    { id: 'sol-erda', name: '솔 에르다 조각', price: 600, dropRate: 0.0425, directUse: false },
+    { id: SOL_ERDA_FRAGMENT_ID, name: '솔 에르다 조각', price: 600, dropRate: 0.0425, directUse: false },
     { id: 'core-gemstone', name: '코어 젬스톤', price: 12, dropRate: 0.028, directUse: false },
     { id: 'symbol', name: '심볼', price: 60, dropRate: 0.00092, directUse: false }
   ] as UIDropItem[]
@@ -162,7 +158,6 @@ const createCalculationInputsFromSettings = (settings: any): CalculationInputs =
     huntTime: settings.huntTime ?? DEFAULT_VALUES.huntTime,
     monsterCount: settings.monsterCount ?? DEFAULT_VALUES.monsterCount,
     resultTime: settings.resultTime ?? DEFAULT_VALUES.resultTime,
-    solErdaFragmentPrice: settings.solErdaFragmentPrice ?? DEFAULT_VALUES.solErdaFragmentPrice,
     feeRate: settings.feeRate ?? DEFAULT_VALUES.feeRate,
     isCustomHuntTime: settings.isCustomHuntTime ?? DEFAULT_VALUES.isCustomHuntTime,
     huntTimeUnit: settings.huntTimeUnit ?? DEFAULT_VALUES.huntTimeUnit,
@@ -367,7 +362,6 @@ export function BasicCalculator() {
   const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'meso_limit'>('minutes')
   const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(30)
   const [characterLevel, setCharacterLevel] = useState<number>(275) // 캐릭터 레벨 (메소 제한용)
-  const [solErdaFragmentPrice, setSolErdaFragmentPrice] = useState<number>(600) // 만 메소
   const [feeRate, setFeeRate] = useState<number>(3) // %
   
   // 자동 연산 토글
@@ -429,7 +423,6 @@ export function BasicCalculator() {
     isCustomResultTime: setIsCustomResultTime,
     resultTimeUnit: setResultTimeUnit,
     customResultTimeValue: setCustomResultTimeValue,
-    solErdaFragmentPrice: setSolErdaFragmentPrice,
     feeRate: setFeeRate,
     showWealthPotionCost: setShowWealthPotionCost,
     wealthAcquisitionPotionPrice: setWealthAcquisitionPotionPrice,
@@ -579,9 +572,37 @@ export function BasicCalculator() {
     // dropItems를 normalDropItems와 logDropItems로 분리 (레거시 지원)
     if (settings.dropItems) {
       const normalItems = settings.dropItems.filter((item: DropItem) => item.type === 'normal')
-        .map(({ id, name, price, dropRate, directUse }: any) => ({ id, name, price: price || 0, dropRate: dropRate || 0, directUse: directUse || false }))
+        .map(({ name, price, dropRate, directUse }: any, index: number) => ({ 
+          id: `normal-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
+          name, 
+          price: price || 0, 
+          dropRate: dropRate || 0, 
+          directUse: directUse || false 
+        }))
       const logItems = settings.dropItems.filter((item: DropItem) => item.type === 'log')
-        .map(({ id, name, price, dropRate, directUse }: any) => ({ id, name, price: price || 0, dropRate: dropRate || 0, directUse: directUse || false }))
+        .map(({ name, price, dropRate, directUse }: any, index: number) => ({ 
+          id: `log-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
+          name, 
+          price: price || 0, 
+          dropRate: dropRate || 0, 
+          directUse: directUse || false 
+        }))
+      
+      // 레거시 데이터에서 솔 에르다 조각 ID 오버라이드 및 추가
+      const solErdaIndex = logItems.findIndex((item: any) => item.name === '솔 에르다 조각')
+      if (solErdaIndex !== -1) {
+        // 솔 에르다 조각이 있으면 ID를 고정 ID로 오버라이드
+        logItems[solErdaIndex].id = SOL_ERDA_FRAGMENT_ID
+      } else {
+        // 없으면 추가
+        logItems.push({
+          id: SOL_ERDA_FRAGMENT_ID,
+          name: '솔 에르다 조각',
+          price: 600,
+          dropRate: 0.0425,
+          directUse: false
+        })
+      }
       
       setNormalDropItems(normalItems)
       setLogDropItems(logItems)
@@ -589,8 +610,9 @@ export function BasicCalculator() {
     
     // 새로운 형식의 normalDropItems와 logDropItems 처리 (기본값 지원)
     if (settings.normalDropItems) {
-      setNormalDropItems(settings.normalDropItems.map((item: any) => ({
+      setNormalDropItems(settings.normalDropItems.map((item: any, index: number) => ({
         ...item,
+        id: `normal-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
         price: item.price || 0,
         dropRate: item.dropRate || 0,
         directUse: item.directUse || false
@@ -601,12 +623,42 @@ export function BasicCalculator() {
     }
     
     if (settings.logDropItems) {
-      setLogDropItems(settings.logDropItems.map((item: any) => ({
+      const logItems = settings.logDropItems.map((item: any, index: number) => ({
         ...item,
+        id: `log-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
         price: item.price || 0,
         dropRate: item.dropRate || 0,
         directUse: item.directUse || false
-      })))
+      }))
+      
+      // 솔 에르다 조각 ID 오버라이드 및 추가 처리
+      const solErdaIndex = logItems.findIndex((item: any) => item.name === '솔 에르다 조각')
+      if (solErdaIndex !== -1) {
+        // 리스트에 솔 에르다 조각이 있으면 ID를 고정 ID로 오버라이드
+        logItems[solErdaIndex].id = SOL_ERDA_FRAGMENT_ID
+      } else {
+        // 리스트에 없으면 별도 저장된 솔 에르다 조각 확인
+        if (settings.solErdaFragment) {
+          logItems.push({
+            id: SOL_ERDA_FRAGMENT_ID,
+            name: settings.solErdaFragment.name || '솔 에르다 조각',
+            price: settings.solErdaFragment.price || 600,
+            dropRate: settings.solErdaFragment.dropRate || 0.0425,
+            directUse: settings.solErdaFragment.directUse || false
+          })
+        } else {
+          // 솔 에르다 조각이 아예 없으면 기본값 추가
+          logItems.push({
+            id: SOL_ERDA_FRAGMENT_ID,
+            name: '솔 에르다 조각',
+            price: 600,
+            dropRate: 0.0425,
+            directUse: false
+          })
+        }
+      }
+      
+      setLogDropItems(logItems)
     } else if (!settings.dropItems) {
       // 기존 데이터에 드롭 설정이 전혀 없으면 기본값 사용
       setLogDropItems(DEFAULT_VALUES.logDropItems)
@@ -697,10 +749,10 @@ export function BasicCalculator() {
   }, [])
 
   // 현재 입력값들을 객체로 반환
-  // 현재 상태값들을 객체로 묶어서 반하
-  const getCurrentInputs = (): CalculationInputs => ({
+  // 현재 상태값들을 객체로 묶어서 반환
+  const getCurrentInputs = () => ({
     monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime,
-    solErdaFragmentPrice, feeRate, isCustomHuntTime, huntTimeUnit,
+    feeRate, isCustomHuntTime, huntTimeUnit,
     customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue,
     characterLevel, mesoInputMode, dropRateInputMode, mesoUnionBuff,
     phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect,
@@ -712,8 +764,21 @@ export function BasicCalculator() {
     usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion,
     showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
     spottingSmallChangeLevel, dropItems,
-    normalDropItems: normalDropItems.map(item => ({ ...item, type: 'normal' as const })),
-    logDropItems: logDropItems.map(item => ({ ...item, type: 'log' as const }))
+    normalDropItems: normalDropItems
+      .map(({ name, price, dropRate, directUse }) => ({ name, price, dropRate, directUse, type: 'normal' as const })),
+    logDropItems: logDropItems
+      .filter(item => item.id !== SOL_ERDA_FRAGMENT_ID)
+      .map(({ name, price, dropRate, directUse }) => ({ name, price, dropRate, directUse, type: 'log' as const })),
+    // 솔 에르다 조각 별도 저장
+    solErdaFragment: (() => {
+      const solErdaItem = logDropItems.find(item => item.id === SOL_ERDA_FRAGMENT_ID)
+      return solErdaItem ? {
+        name: solErdaItem.name,
+        price: solErdaItem.price,
+        dropRate: solErdaItem.dropRate,
+        directUse: solErdaItem.directUse
+      } : null
+    })()
   })
 
   // 데이터 소스 카드 닫기 핸들러
@@ -748,7 +813,7 @@ export function BasicCalculator() {
     })
     
     return nameChanged || valuesChanged
-  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
+  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
 
   // 슬롯 전환 처리 함수
   const handleSlotChange = (slotNumber: number) => {
@@ -958,10 +1023,11 @@ export function BasicCalculator() {
       totalMonsters,
       mesoBonus: calculatedMesoBonus,
       dropRate: calculatedItemDropBonus,
-      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel
+      characterLevel: inputs.characterLevel,
+      normalDropItems: dropItems.filter(item => item.type === 'normal'),
+      logDropItems: dropItems.filter(item => item.type === 'log')
     })
     
     // 시간당 계산 (재물 획득의 비약 적용된 상태)
@@ -970,10 +1036,11 @@ export function BasicCalculator() {
       totalMonsters: mobsPerHour,
       mesoBonus: calculatedMesoBonus,
       dropRate: calculatedItemDropBonus,
-      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel
+      characterLevel: inputs.characterLevel,
+      normalDropItems: dropItems.filter(item => item.type === 'normal'),
+      logDropItems: dropItems.filter(item => item.type === 'log')
     })
     
     // 재물 획득의 비약 없을 때의 드랍 데이터 계산 (20% 곱연산/합연산 전 상태)
@@ -993,41 +1060,52 @@ export function BasicCalculator() {
       totalMonsters,
       mesoBonus: mesoAcquisitionRateWithoutPotion,
       dropRate: itemDropRateWithoutPotion,
-      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
       feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel
+      characterLevel: inputs.characterLevel,
+      normalDropItems: dropItems.filter(item => item.type === 'normal'),
+      logDropItems: dropItems.filter(item => item.type === 'log')
     })
     
-    // 드랍 아이템 계산
-    const dropItemResults = inputs.dropItems.map(item => {
-      let actualDropRate: number
-      let expectedCount: number
-      
-      if (item.type === 'normal') {
-        // 일반 드랍률: 드랍률 증가 효과를 그대로 받음
-        actualDropRate = item.dropRate * (1 + calculatedItemDropBonus / 100) / 100
-        expectedCount = totalMonsters * actualDropRate
-      } else {
-        // 로그 드랍률: 솔 에르다 조각과 동일한 방식
-        const dropRateMultiplier = 1 + Math.log(1 + calculatedItemDropBonus / 100)
-        actualDropRate = (item.dropRate / 100) * dropRateMultiplier
-        expectedCount = totalMonsters * actualDropRate
-      }
-      
-      const actualFeeRate = item.directUse ? 0 : inputs.feeRate
-      const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
-      
-      return {
-        item,
-        expectedCount,
-        expectedValue,
-        actualDropRate: actualDropRate * 100 // %로 표시
-      }
-    })
+    // 드랍 아이템 결과를 Map으로 변환 (ID를 키로 사용)
+    const dropItemResults = new Map(
+      dropResultWithPotion.dropItems.map(dropResult => [
+        dropResult.item.id,
+        {
+          item: {
+            ...dropResult.item,
+            type: (dropResult.item.type || 'normal') as 'normal' | 'log'
+          } as DropItem,
+          expectedCount: dropResult.expectedCount,
+          expectedValue: dropResult.expectedValue,
+          actualDropRate: dropResult.actualDropRate,
+          dropMultiplier: dropResult.dropMultiplier
+        }
+      ])
+    )
     
-    // 드랍 아이템의 총 가치
-    const totalDropItemValue = dropItemResults.reduce((sum, result) => sum + result.expectedValue, 0)
+    const dropItemResultsPerHour = new Map(
+      dropResultPerHourWithPotion.dropItems.map(dropResult => [
+        dropResult.item.id,
+        {
+          item: {
+            ...dropResult.item,
+            type: (dropResult.item.type || 'normal') as 'normal' | 'log'
+          } as DropItem,
+          expectedCount: dropResult.expectedCount,
+          expectedValue: dropResult.expectedValue,
+          actualDropRate: dropResult.actualDropRate,
+          dropMultiplier: dropResult.dropMultiplier
+        }
+      ])
+    )
+    
+    // 드롭 아이템 총 가치
+    const totalDropItemValue = Array.from(dropItemResults.values())
+      .reduce((sum, item) => sum + item.expectedValue, 0)
+    
+    const totalDropItemValuePerHour = Array.from(dropItemResultsPerHour.values())
+      .reduce((sum, item) => sum + item.expectedValue, 0)
     
     // 재물 획득의 비약 관련 계산
     let wealthAcquisitionPotionCount = 0
@@ -1045,52 +1123,31 @@ export function BasicCalculator() {
       wealthAcquisitionPotionCostPerHour = wealthAcquisitionPotionCountPerHour * wealthAcquisitionPotionPrice * 10000
     }
 
-    // 재획비 없을 때의 드롭 아이템 계산
-    const dropItemResultsWithoutPotion = inputs.dropItems.map(item => {
-      let actualDropRate: number
-      let expectedCount: number
-      
-      if (item.type === 'normal') {
-        actualDropRate = item.dropRate * (1 + itemDropRateWithoutPotion / 100) / 100
-        expectedCount = totalMonsters * actualDropRate
-      } else {
-        const dropRateMultiplier = 1 + Math.log(1 + itemDropRateWithoutPotion / 100)
-        actualDropRate = (item.dropRate / 100) * dropRateMultiplier
-        expectedCount = totalMonsters * actualDropRate
-      }
-      
-      const actualFeeRate = item.directUse ? 0 : inputs.feeRate
-      const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
-      
-      return {
-        item,
-        expectedCount,
-        expectedValue,
-        actualDropRate: actualDropRate * 100
-      }
-    })
-    
-    const totalDropItemValueWithoutPotion = dropItemResultsWithoutPotion.reduce((sum, item) => sum + item.expectedValue, 0)
+    // 재획비 없을 때의 드롭 아이템 결과도 통합된 계산에서 가져옴
+    const totalDropItemValueWithoutPotion = dropResultWithoutPotion.totalDropItemValue
 
-    // 총 메소 계산
-    const totalIncomeBeforeCost = dropResultWithPotion.totalIncome + totalDropItemValue // 기본 메소 + 솔 에르다 + 드롭 아이템
+    // 총 메소 계산 (각 구성 요소를 명확히 분리)
+    const baseMeso = dropResultWithPotion.totalMeso // 기본 메소만
+    const totalIncomeBeforeCost = baseMeso + totalDropItemValue // 전체 수익
     const totalMesoWithPotion = totalIncomeBeforeCost - wealthAcquisitionPotionCost // 재획비 차감 후
-    const totalMesoWithoutPotion = dropResultWithoutPotion.totalIncome + totalDropItemValueWithoutPotion // 재획비 없을 때
-    const totalMesoPerHour = dropResultPerHourWithPotion.totalIncome + (totalDropItemValue * 60 / actualResultTime) - wealthAcquisitionPotionCostPerHour
+    
+    // 재획비 없을 때 계산도 동일하게 분리
+    const totalMesoWithoutPotion = dropResultWithoutPotion.totalIncome // 재획비 없을 때
+    
+    // 시간당 계산도 분리해서 처리  
+    const baseMesoPerHour = dropResultPerHourWithPotion.totalMeso
+    const totalMesoPerHour = baseMesoPerHour + totalDropItemValuePerHour - wealthAcquisitionPotionCostPerHour
 
     const newResult = {
-      baseMeso: dropResultWithPotion.totalMeso, // 기본 메소만 (솔 에르다, 드롭 아이템 제외)
-      solErdaCount: dropResultWithPotion.solErdaCount,
-      solErdaProfit: dropResultWithPotion.solErdaProfit,
+      baseMeso, // 기본 메소만 (솔 에르다, 드롭 아이템 제외)
       totalIncome: totalIncomeBeforeCost, // 기본 메소 + 솔 에르다 + 드롭 아이템 (재획비 비용 제외)
       totalMeso: totalMesoWithPotion, // 최종 총 메소 (재획비 비용 차감)
       mesoDropRate: dropResultWithPotion.mesoDropRate,
-      solErdaDropRate: dropResultWithPotion.solErdaDropRate,
       mesoPerDrop: dropResultWithPotion.mesoPerDrop,
       wealthAcquisitionPotionCount,
       wealthAcquisitionPotionCost,
       totalMesoPerHour,
-      totalMesoWithoutPotion: totalMesoWithoutPotion,
+      totalMesoWithoutPotion,
       dropItems: dropItemResults
     }
 
@@ -1103,7 +1160,7 @@ export function BasicCalculator() {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, solErdaFragmentPrice, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
 
 
   // 드메 효과 계산
@@ -1128,79 +1185,41 @@ export function BasicCalculator() {
     // 잔돈이 눈에 띄네 보너스 계산
     const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
 
-    // 드롭 아이템들 계산 함수
-    const calculateDropItemsTotal = (itemDropBonus: number) => {
-      let total = 0
-      
-      // 일반 드롭 아이템들 계산
-      const normalItems = inputs.normalDropItems || []
-      for (const item of normalItems) {
-        // 일반 드랍률: 드랍률 증가 효과를 그대로 받음
-        const actualDropRate = (item.dropRate || 0) * (1 + itemDropBonus / 100) / 100
-        const expectedCount = totalMonsters * actualDropRate
-        const actualFeeRate = item.directUse ? 0 : inputs.feeRate
-        const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
-        total += expectedValue
-      }
-      
-      // 로그 드롭 아이템들 계산
-      const logItems = inputs.logDropItems || []
-      for (const item of logItems) {
-        // 로그 드랍률: 솔 에르다 조각과 동일한 방식
-        const dropRateMultiplier = 1 + Math.log(1 + itemDropBonus / 100)
-        const actualDropRate = ((item.dropRate || 0) / 100) * dropRateMultiplier
-        const expectedCount = totalMonsters * actualDropRate
-        const actualFeeRate = item.directUse ? 0 : inputs.feeRate
-        const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
-        total += expectedValue
-      }
-      
-      return total
-    }
 
-    // 드랍률 20% 증가 효과 (합연산)
+    // 드랍률 20% 증가 효과 - 전체 기댓값 계산
     const dropCalcWithDropBonus = calculateHuntingExpectation({
       monsterLevel: inputs.monsterLevel,
       totalMonsters,
       mesoBonus: currentMesoBonus,
       dropRate: currentItemDropBonus + 20, // 기존 드랍률에 20% 추가
-      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
-      feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
+      feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel
+      characterLevel: inputs.characterLevel,
+      normalDropItems: dropItems.filter(item => item.type === 'normal'),
+      logDropItems: dropItems.filter(item => item.type === 'log')
     })
-    const dropItemsBonusWithDropRate = calculateDropItemsTotal(currentItemDropBonus + 20)
-
-    // 메소 획득량 20% 증가 효과 (합연산)
+    const dragonDropRateTotal = dropCalcWithDropBonus.totalIncome
+    
+    // 메소 획득량 20% 증가 효과 - 전체 기댓값 계산
     const additionalMesoBonus = wealthAcquisitionPotion ? 24 : 20
     const dropCalcWithMesoBonus = calculateHuntingExpectation({
       monsterLevel: inputs.monsterLevel,
       totalMonsters,
       mesoBonus: currentMesoBonus + additionalMesoBonus,
       dropRate: currentItemDropBonus,
-      solErdaFragmentPrice: inputs.solErdaFragmentPrice,
-      feeRate: inputs.feeRate, // 사용자가 설정한 수수료율 사용
+      feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel
+      characterLevel: inputs.characterLevel,
+      normalDropItems: dropItems.filter(item => item.type === 'normal'),
+      logDropItems: dropItems.filter(item => item.type === 'log')
     })
-    const dropItemsBonusWithMesoRate = calculateDropItemsTotal(currentItemDropBonus)
-
-    // 재물 획득의 비약 비용 계산 (기존 로직과 동일)
-    let wealthAcquisitionPotionCost = 0
-    if (wealthAcquisitionPotion && showWealthPotionCost) {
-      const wealthAcquisitionPotionCount = Math.ceil(actualResultTime / 30)
-      wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
-    }
-
-    // 드래곤 적용 시 총 수익 (재획비 차감 후)
-    const dragonDropRateTotal = dropCalcWithDropBonus.totalIncome + dropItemsBonusWithDropRate - wealthAcquisitionPotionCost
-    const dragonMesoRateTotal = dropCalcWithMesoBonus.totalIncome + dropItemsBonusWithMesoRate - wealthAcquisitionPotionCost
+    const dragonMesoRateTotal = dropCalcWithMesoBonus.totalIncome
 
     return {
-      dropRateIncrease: dragonDropRateTotal - result.totalMeso,
-      mesoRateIncrease: dragonMesoRateTotal - result.totalMeso
+      dropRateIncrease: dragonDropRateTotal - result.totalIncome,
+      mesoRateIncrease: dragonMesoRateTotal - result.totalIncome
     }
-  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, solErdaFragmentPrice, normalDropItems, logDropItems])
+  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems])
 
 
 
@@ -2225,7 +2244,7 @@ export function BasicCalculator() {
                   메소 드롭률: <span className={`font-medium ${result.mesoDropRate < 100 ? 'text-red-500' : ''}`}>{formatDecimal(result.mesoDropRate, 1)}%</span>
                 </p>
                 <div className="flex items-center text-sm text-gray-600">
-                  <span>솔 에르다 조각 드롭률: <span className="font-medium">{formatDecimal(result.solErdaDropRate, 4)}%</span></span>
+                  <span>솔 에르다 조각 드롭률: <span className="font-medium">{formatDecimal(result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.actualDropRate || 0, 4)}%</span></span>
                   <div className="relative ml-1 group">
                     <div className="w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs cursor-help">
                       ?
@@ -2233,13 +2252,19 @@ export function BasicCalculator() {
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-3 py-2 whitespace-nowrap z-10">
                        {(() => {
                          const currentDropRate = calculateItemDropBonus()
-                         const solErdaDetails = getSolErdaFragmentCalculationDetails(currentDropRate)
+                         const solErdaResult = result?.dropItems.get(SOL_ERDA_FRAGMENT_ID)
+                         if (!solErdaResult) return null
+                         
+                         const originalRate = (solErdaResult.item.dropRate || 0) / 100 // 원본 확률
+                         const multiplier = solErdaResult.dropMultiplier // 배수
+                         const finalRate = solErdaResult.actualDropRate / 100 // 최종 확률
+                         
                          return (
                            <div className="text-center">
-                             <div>드랍률 {currentDropRate}% → 다조 드랍률 {Math.round((solErdaDetails.dropRateMultiplier - 1) * 100)}%</div>
-                             <div className="text-sm opacity-70 mt-0.5">
-                               (기본 드랍률 {solErdaDetails.baseSolErdaRate.toFixed(4)}% 및 드랍률 로그 추정치 적용)
-                             </div>
+                             <div className="mb-1">솔 에르다 조각 드랍률</div>
+                             <div>원본 확률: {(originalRate * 100).toFixed(4)}%</div>
+                             <div>배수: {multiplier.toFixed(3)}x (드랍률 +{currentDropRate}%)</div>
+                             <div>최종 확률: {(finalRate * 100).toFixed(4)}%</div>
                            </div>
                          )
                        })()}
@@ -2284,16 +2309,16 @@ export function BasicCalculator() {
                 기본 메소: <span className="font-medium text-blue-600">{formatMesoWithKorean(result.baseMeso)} 메소</span>
               </p>
               <p className="text-sm text-gray-600">
-                솔 에르다 조각: <span className="font-medium text-green-600">{formatDecimal(result.solErdaCount, 2)}개</span>
+                솔 에르다 조각: <span className="font-medium text-green-600">{formatDecimal(result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.expectedCount || 0, 2)}개</span>
               </p>
               <p className="text-sm text-gray-600">
-                다조 환산: <span className="font-medium text-green-600">{formatMesoWithKorean(result.solErdaProfit)} 메소</span>
+                다조 환산: <span className="font-medium text-green-600">{formatMesoWithKorean(result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.expectedValue || 0)} 메소</span>
               </p>
               {(() => {
                 // 솔 에르다 조각을 제외한 기타 아이템들의 총합 계산
                 const otherItemsTotal = result.dropItems 
-                  ? result.dropItems
-                      .filter(item => item.item.id !== 'sol-erda')
+                  ? Array.from(result.dropItems.values())
+                      .filter(item => item.item.id !== SOL_ERDA_FRAGMENT_ID)
                       .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0)
                   : 0
                 
@@ -2313,7 +2338,7 @@ export function BasicCalculator() {
             </div>
             
             {/* 드랍 아이템 결과 */}
-            {result.dropItems && result.dropItems.length > 0 && (
+            {result.dropItems && result.dropItems.size > 0 && (
               <div className="bg-purple-50 p-4 rounded-lg">
                 <button
                   onClick={() => setIsDropItemResultExpanded(!isDropItemResultExpanded)}
@@ -2324,7 +2349,10 @@ export function BasicCalculator() {
                 </button>
                 {isDropItemResultExpanded && (
                   <div className="space-y-2">
-                    {result.dropItems.map((dropResult, index) => (
+                    {/* 모든 드랍 아이템들 - 총 판매 가격순 내림차순 정렬 */}
+                    {Array.from(result.dropItems.values())
+                      .sort((a, b) => b.expectedValue - a.expectedValue)
+                      .map((dropResult, index) => (
                       <div key={dropResult.item.id} className="text-sm">
                         <div className="flex items-center justify-between">
                           <span className="text-gray-700">
@@ -2348,7 +2376,8 @@ export function BasicCalculator() {
                       <div className="flex items-center justify-between font-medium">
                         <span className="text-gray-700">드랍 아이템 총합</span>
                         <span className="text-purple-600">
-                          {formatMesoWithKorean(result.dropItems.reduce((sum, item) => sum + Math.floor(item.expectedValue), 0))} 메소
+                          {formatMesoWithKorean(Array.from(result.dropItems.values())
+                            .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0))} 메소
                         </span>
                       </div>
                     </div>

@@ -1,6 +1,9 @@
 // 사냥 기댓값 계산 유틸리티 함수들
 import { calculateLevelPenalty } from './levelPenalty'
 
+// 솔 에르다 조각 고정 ID (특별 처리용)
+export const SOL_ERDA_FRAGMENT_ID = '__sol_erda_fragment__'
+
 /**
  * 메소 드랍률 계산
  * @param dropRate 아이템 드랍률 (%)
@@ -10,15 +13,6 @@ export function calculateMesoDropRate(dropRate: number): number {
   return Math.min(1, (3/5) * (1 + dropRate / 100))
 }
 
-/**
- * 솔 에르다 조각 드랍률 계산
- * @param dropRate 아이템 드랍률 (%)
- * @returns 솔 에르다 조각 드랍률 (0-1 사이의 값)
- */
-export function calculateSolErdaFragmentDropRate(dropRate: number): number {
-  const baseSolErdaRate = 0.000425 // 0.0425%
-  return baseSolErdaRate * (1 + Math.log(1 + dropRate / 100))
-}
 
 /**
  * 메소 드랍량 계산 (1마리당)
@@ -53,21 +47,90 @@ export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: numbe
   }
 }
 
+
 /**
- * 솔 에르다 조각 드랍률 계산의 상세 정보 반환
- * @param dropRate 아이템 드랍률 (%)
- * @returns 솔 에르다 조각 드랍률 상세 정보
+ * 드랍 아이템들의 기댓값 계산
+ * @param totalMonsters 총 몬스터 수
+ * @param dropRate 아이템 드랍률 보너스 (%)
+ * @param feeRate 수수료율 (%)
+ * @param normalDropItems 일반 드랍률 아이템들
+ * @param logDropItems 로그 드랍률 아이템들
+ * @returns 드랍 아이템 계산 결과
  */
-export function getSolErdaFragmentCalculationDetails(dropRate: number) {
-  const baseSolErdaRate = 0.000425 // 0.0425%
-  const dropRateMultiplier = 1 + Math.log(1 + dropRate / 100)
-  const finalRate = baseSolErdaRate * dropRateMultiplier
-  
-  return {
-    baseSolErdaRate: baseSolErdaRate * 100, // %로 변환
-    dropRateMultiplier,
-    finalRate: finalRate * 100 // %로 변환
+export function calculateDropItems(
+  totalMonsters: number,
+  dropRate: number,
+  feeRate: number,
+  normalDropItems: DropItem[] = [],
+  logDropItems: DropItem[] = []
+): { dropItems: DropItemResult[], totalValue: number } {
+  const dropItems: DropItemResult[] = []
+  let totalValue = 0
+
+  // 일반 드롭 아이템들 계산
+  for (const item of normalDropItems) {
+    // 일반 드랍률: 드랍률 증가 효과를 그대로 받음
+    const dropMultiplier = 1 + dropRate / 100
+    const actualDropRate = (item.dropRate || 0) * dropMultiplier / 100
+    const expectedCount = totalMonsters * actualDropRate
+    const actualFeeRate = item.directUse ? 0 : feeRate
+    const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
+    
+    dropItems.push({
+      item: { ...item, type: 'normal' },
+      expectedCount,
+      expectedValue,
+      actualDropRate: actualDropRate * 100, // %로 변환
+      dropMultiplier
+    })
+    
+    totalValue += expectedValue
   }
+
+  // 로그 드롭 아이템들 계산
+  for (const item of logDropItems) {
+    // 로그 드랍률: 솔 에르다 조각과 동일한 방식
+    const dropMultiplier = 1 + Math.log(1 + dropRate / 100)
+    const actualDropRate = ((item.dropRate || 0) / 100) * dropMultiplier
+    const expectedCount = totalMonsters * actualDropRate
+    const actualFeeRate = item.directUse ? 0 : feeRate
+    const expectedValue = expectedCount * item.price * 10000 * (1 - actualFeeRate / 100)
+    
+    dropItems.push({
+      item: { ...item, type: 'log' },
+      expectedCount,
+      expectedValue,
+      actualDropRate: actualDropRate * 100, // %로 변환
+      dropMultiplier
+    })
+    
+    totalValue += expectedValue
+  }
+
+  return { dropItems, totalValue }
+}
+
+/**
+ * 드랍 아이템 인터페이스
+ */
+export interface DropItem {
+  id: string
+  name: string
+  price: number // 만 메소 단위
+  dropRate?: number // 드랍률 (%)
+  directUse?: boolean // 직접 사용 여부
+  type?: 'normal' | 'log' // 드랍률 타입 (기존 호환성을 위해 선택적)
+}
+
+/**
+ * 드랍 아이템 결과 인터페이스
+ */
+export interface DropItemResult {
+  item: DropItem
+  expectedCount: number
+  expectedValue: number
+  actualDropRate: number // 실제 드랍률 (드랍률 증가 효과 적용)
+  dropMultiplier: number // 드랍률 배수 (일반: 1 + dropRate/100, 로그: 1 + log(1 + dropRate/100))
 }
 
 /**
@@ -80,10 +143,11 @@ export interface HuntingExpectationParams {
   totalMonsters: number
   mesoBonus: number
   dropRate: number
-  solErdaFragmentPrice: number // 만 메소 단위
   feeRate: number // %
   spottingSmallChangeBonus?: number // Spotting Small Change 추가 메소 (기본 0)
   characterLevel?: number // 캐릭터 레벨 (레벨 패널티 계산용)
+  normalDropItems?: DropItem[] // 일반 드랍률 아이템 리스트
+  logDropItems?: DropItem[] // 로그 드랍률 아이템 리스트
 }
 
 export interface HuntingExpectationResult {
@@ -92,10 +156,9 @@ export interface HuntingExpectationResult {
   mesoPerDrop: number
   totalMeso: number
   
-  // 솔 에르다 조각 관련
-  solErdaDropRate: number // %
-  solErdaCount: number
-  solErdaProfit: number
+  // 드랍 아이템 관련
+  dropItems: DropItemResult[]
+  totalDropItemValue: number
   
   // 총합
   totalIncome: number
@@ -107,10 +170,11 @@ export function calculateHuntingExpectation(params: HuntingExpectationParams): H
     totalMonsters,
     mesoBonus,
     dropRate,
-    solErdaFragmentPrice,
     feeRate,
     spottingSmallChangeBonus = 0,
-    characterLevel
+    characterLevel,
+    normalDropItems = [],
+    logDropItems = []
   } = params
 
   // 레벨 패널티 계산
@@ -123,21 +187,24 @@ export function calculateHuntingExpectation(params: HuntingExpectationParams): H
   const mesoPerDrop = baseMesoPerDrop + spottingSmallChangeBonus
   const totalMeso = Math.floor(totalMonsters * mesoDropRate * mesoPerDrop)
 
-  // 솔 에르다 조각 계산
-  const solErdaDropRate = calculateSolErdaFragmentDropRate(dropRate)
-  const solErdaCount = totalMonsters * solErdaDropRate
-  const solErdaProfit = Math.floor(solErdaCount * solErdaFragmentPrice * 10000 * (1 - feeRate / 100))
+  // 드랍 아이템 계산
+  const { dropItems, totalValue: totalDropItemValue } = calculateDropItems(
+    totalMonsters,
+    dropRate,
+    feeRate,
+    normalDropItems,
+    logDropItems
+  )
 
   // 총 수익
-  const totalIncome = totalMeso + solErdaProfit
+  const totalIncome = totalMeso + totalDropItemValue
 
   return {
     mesoDropRate: mesoDropRate * 100, // %로 변환
     mesoPerDrop,
     totalMeso,
-    solErdaDropRate: solErdaDropRate * 100, // %로 변환
-    solErdaCount,
-    solErdaProfit,
+    dropItems,
+    totalDropItemValue,
     totalIncome
   }
 } 

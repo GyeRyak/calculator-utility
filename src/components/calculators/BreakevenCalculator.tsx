@@ -42,7 +42,6 @@ export function BreakevenCalculator() {
     totalMonsters: 18500, // 6분당 1850마리 = 시간당 18500마리
     mesoBonus: 20,
     dropRate: 71,
-    solErdaFragmentPrice: 600,
     feeRate: 3,
     characterLevel: 275
   }
@@ -203,7 +202,6 @@ export function BreakevenCalculator() {
         baseParams.totalMonsters !== loadedBaseParams.totalMonsters ||
         baseParams.mesoBonus !== loadedBaseParams.mesoBonus ||
         baseParams.dropRate !== loadedBaseParams.dropRate ||
-        baseParams.solErdaFragmentPrice !== loadedBaseParams.solErdaFragmentPrice ||
         baseParams.feeRate !== loadedBaseParams.feeRate ||
         wealthAcquisitionPotion !== loadedExtraSettings.wealthAcquisitionPotion ||
         currentDropFromPotential !== loadedExtraSettings.currentDropFromPotential ||
@@ -360,7 +358,6 @@ export function BreakevenCalculator() {
         totalMonsters: totalMonstersPerHour,
         mesoBonus: calculatedMesoBonus,
         dropRate: calculatedDropRate,
-        solErdaFragmentPrice: settings.solErdaFragmentPrice ?? 600,
         feeRate: settings.feeRate ?? 3,
         characterLevel: settings.characterLevel ?? 275
       })
@@ -376,7 +373,6 @@ export function BreakevenCalculator() {
         totalMonsters: totalMonstersPerHour,
         mesoBonus: calculatedMesoBonus,
         dropRate: calculatedDropRate,
-        solErdaFragmentPrice: settings.solErdaFragmentPrice ?? 600,
         feeRate: settings.feeRate ?? 3
       }
       setLoadedBaseParams(newBaseParams)
@@ -593,15 +589,6 @@ export function BreakevenCalculator() {
               min={0}
               max={400}
               step={1}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">솔 에르다 조각 가격 (만 메소)</label>
-            <NumberInput
-              value={baseParams.solErdaFragmentPrice}
-              onChange={(value) => setBaseParams({ ...baseParams, solErdaFragmentPrice: value })}
-              min={0}
-              step={10}
             />
           </div>
         </div>

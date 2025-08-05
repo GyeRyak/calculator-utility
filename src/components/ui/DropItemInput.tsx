@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import NumberInput from './NumberInput'
+import { SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
 
 export interface DropItem {
   id: string
@@ -75,7 +76,11 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
           <p className="text-xs text-gray-500 italic">아이템을 추가해주세요</p>
         ) : (
           <div className="space-y-2 max-h-60 overflow-y-auto" style={{ paddingRight: '8px' }}>
-            {items.map(item => (
+            {/* 솔 에르다 조각을 최상단에, 나머지는 그 아래에 표시 */}
+            {[
+              ...items.filter(item => item.id === SOL_ERDA_FRAGMENT_ID),
+              ...items.filter(item => item.id !== SOL_ERDA_FRAGMENT_ID)
+            ].map(item => (
             <div key={item.id} className="p-2 bg-gray-50 rounded border border-gray-200">
               <div className="flex items-start gap-2">
                 <div className="flex-1 space-y-1.5">
@@ -84,9 +89,9 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
                     value={item.name}
                     onChange={(e) => updateItem(item.id, 'name', e.target.value)}
                     placeholder={placeholder}
-                    readOnly={item.id === 'sol-erda'}
+                    readOnly={item.id === SOL_ERDA_FRAGMENT_ID}
                     className={`w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                      item.id === 'sol-erda' ? 'bg-gray-100 cursor-not-allowed' : ''
+                      item.id === SOL_ERDA_FRAGMENT_ID ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
                   />
                   
@@ -144,7 +149,7 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
                   </div>
                 </div>
                 
-                {item.id !== 'sol-erda' && (
+                {item.id !== SOL_ERDA_FRAGMENT_ID && (
                   <button
                     onClick={() => removeItem(item.id)}
                     className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0"

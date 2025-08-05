@@ -19,6 +19,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `npm run dev`는 실행하지 말고, 커밋하고 푸시하기 이전에 빌드하여 테스트할 것.
 
+### GitHub Pages 배포 관련 주의사항
+
+- **Internal Links**: 절대 경로(`href="/about"`) 대신 **반드시 Next.js `Link` 컴포넌트**를 사용해야 함
+  - ❌ 잘못된 예: `<a href="/about">링크</a>`
+  - ✅ 올바른 예: `<Link href="/about">링크</Link>`
+- **basePath 호환성**: GitHub Pages는 `/calculator-utility` basePath를 사용하므로 Next.js Link가 필수
+- **기존 하드코딩된 링크 발견 시**: `<a>` 태그를 `Link` 컴포넌트로 즉시 교체할 것
+
 ## Architecture Overview
 
 This is a Next.js 14 application using App Router for building calculator utilities. Key architectural patterns:
