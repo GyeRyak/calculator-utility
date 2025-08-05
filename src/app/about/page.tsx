@@ -11,7 +11,7 @@ export default function AboutPage() {
           
           <h3 className="text-xl font-semibold mb-3">현재 제공하는 계산기</h3>
           <ul className="list-disc list-inside text-gray-700 mb-6">
-            <li><strong>사냥 기댓값 계산기</strong>: 드랍률과 메소 획득량을 고려한 사냥 기댓값 계산</li>
+            <li><strong>사냥 기댓값 계산기</strong>: 아이템 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산</li>
             <li><strong>손익분기 계산기</strong>: 재획득의 비약 적용 전후 수익성 비교</li>
           </ul>
           
@@ -27,7 +27,7 @@ export default function AboutPage() {
               </div>
               
               <div>
-                <p className="font-medium">• 레벨 차이에 의한 메소 획득량 패널티</p>
+                <p className="font-medium">• 레벨 차이에 의한 메소 획득 패널티</p>
                 <p className="ml-4 text-xs">
                   <a href="https://namu.wiki/w/%EB%A9%94%EC%9D%B4%ED%94%8C%EC%8A%A4%ED%86%A0%EB%A6%AC/%EC%9E%AC%ED%99%94?uuid=a18e6599-1e1d-4b96-a6d0-67ea129e00d0" 
                      target="_blank" rel="noopener noreferrer" 
@@ -62,7 +62,7 @@ export default function AboutPage() {
               <div>
                 <p className="font-medium">• 아이템 드롭률 로그 적용식</p>
                 <p className="ml-4 text-xs">
-                  솔 에르다 조각의 드롭률을 자연로그식으로 추정한
+                  솔 에르다 조각의 아이템 드롭률을 자연로그식으로 추정한
                   <a href="https://www.inven.co.kr/board/maple/2304/37701" 
                      target="_blank" rel="noopener noreferrer" 
                      className="text-blue-600 hover:text-blue-800 underline ml-1">
@@ -72,12 +72,12 @@ export default function AboutPage() {
               </div>
               
               <div>
-                <p className="font-medium">• 젬스톤 및 심볼 드롭률 (로그식 적용 가정)</p>
+                <p className="font-medium">• 젬스톤 및 심볼 아이템 드롭률 (로그식 적용 가정)</p>
                 <p className="ml-4 text-xs">
                   <a href="https://www.inven.co.kr/board/maple/2304/19614" 
                      target="_blank" rel="noopener noreferrer" 
                      className="text-blue-600 hover:text-blue-800 underline">
-                    드롭률 359% 통계 자료
+                    아이템 드롭률 359% 통계 자료
                   </a>를 바탕으로 역산
                 </p>
               </div>
@@ -88,14 +88,14 @@ export default function AboutPage() {
                   <a href="https://www.inven.co.kr/board/maple/2304/19614" 
                      target="_blank" rel="noopener noreferrer" 
                      className="text-blue-600 hover:text-blue-800 underline">
-                    드롭률 359% 통계 자료
+                    아이템 드롭률 359% 통계 자료
                   </a>를 바탕으로 역산
                 </p>
               </div>
             </div>
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-4">
               <p className="text-xs text-yellow-800">
-                ⚠️ <strong>주의사항:</strong> 드롭률 값들은 엘리트 몬스터 등으로 인해 실제 드롭률과 차이가 있을 수 있으나, 
+                ⚠️ <strong>주의사항:</strong> 아이템 드롭률 값들은 엘리트 몬스터 등으로 인해 실제 아이템 드롭률과 차이가 있을 수 있으나, 
                 장기적인 사냥 시 해당 값과 유사한 흐름을 보일 것으로 예상되어 단순 역산 처리하였습니다.
               </p>
             </div>

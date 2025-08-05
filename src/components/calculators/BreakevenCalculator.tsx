@@ -572,7 +572,7 @@ export function BreakevenCalculator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 메획 (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">최종 메소 획득량 (%)</label>
             <NumberInput
               value={baseParams.mesoBonus}
               onChange={(value) => setBaseParams({ ...baseParams, mesoBonus: value })}
@@ -582,7 +582,7 @@ export function BreakevenCalculator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 아드 (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">최종 아이템 드롭률 (%)</label>
             <NumberInput
               value={baseParams.dropRate}
               onChange={(value) => setBaseParams({ ...baseParams, dropRate: value })}
@@ -611,7 +611,7 @@ export function BreakevenCalculator() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              현재 잠재능력 드롭률 (%)
+              현재 잠재능력 아이템 드롭률 (%)
             </label>
             <NumberInput
               value={currentDropFromPotential}
@@ -621,7 +621,7 @@ export function BreakevenCalculator() {
               step={20}
               placeholder="0"
             />
-            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 드롭률</div>
+            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 아이템 드롭률</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -672,7 +672,7 @@ export function BreakevenCalculator() {
       {/* 아이템 목록 */}
       <div className="bg-white border rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">드롭/메획 아이템</h2>
+          <h2 className="text-xl font-semibold">아이템 드롭률/메소 획득량 증가 아이템</h2>
           <button
             onClick={addItem}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
@@ -716,7 +716,7 @@ export function BreakevenCalculator() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      드롭률 증가 (줄)
+                      아이템 드롭률 증가 (줄)
                     </label>
                     <NumberInput
                       value={item.dropLines}
@@ -730,7 +730,7 @@ export function BreakevenCalculator() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      메획 증가 (줄)
+                      메소 획득량 증가 (줄)
                     </label>
                     <NumberInput
                       value={item.mesoLines}

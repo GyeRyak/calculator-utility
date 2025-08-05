@@ -1,7 +1,7 @@
 import { calculateHuntingExpectation, type HuntingExpectationParams } from './huntingExpectationCalculations'
 
 /**
- * 드랍/메획 아이템 정보
+ * 드롭/메획 아이템 정보
  */
 export interface BreakevenItem {
   id: string
@@ -49,9 +49,9 @@ export function calculateNetCost(item: BreakevenItem, feeRate: 3 | 5): number {
 }
 
 /**
- * 아이템으로 인한 드랍률/메소획득량 증가분 계산
+ * 아이템으로 인한 아이템 드롭률/메획 증가분 계산
  * @param item 아이템 정보
- * @returns 드랍률 증가%, 메소획득량 증가%
+ * @returns 드롭률 증가%, 메획 증가%
  */
 export function calculateItemBonus(item: BreakevenItem): { dropBonus: number; mesoBonus: number } {
   return {
@@ -81,10 +81,10 @@ export function formatPeriod(days: number): string {
 
 /**
  * 제한사항 검증
- * @param potentialDropBonus 잠재능력으로 인한 드랍률 증가
- * @param potentialMesoBonus 잠재능력으로 인한 메소획득량 증가
- * @param currentDropFromPotential 현재 잠재능력 드랍률
- * @param currentMesoFromPotential 현재 잠재능력 메소획득량
+ * @param potentialDropBonus 잠재능력으로 인한 드롭률 증가
+ * @param potentialMesoBonus 잠재능력으로 인한 메획 증가
+ * @param currentDropFromPotential 현재 잠재능력 드롭률
+ * @param currentMesoFromPotential 현재 잠재능력 메획
  * @returns 경고 메시지 배열
  */
 export function validateLimits(
@@ -99,11 +99,11 @@ export function validateLimits(
   const totalPotentialMeso = currentMesoFromPotential + potentialMesoBonus
   
   if (totalPotentialDrop > 200) {
-    warnings.push(`드랍률이 잠재능력 최대치(200%)를 초과했습니다. 현재 ${currentDropFromPotential}% + 추가 ${potentialDropBonus}% = ${totalPotentialDrop}%`)
+    warnings.push(`드롭률이 잠재능력 최대치(200%)를 초과했습니다. 현재 ${currentDropFromPotential}% + 추가 ${potentialDropBonus}% = ${totalPotentialDrop}%`)
   }
   
   if (totalPotentialMeso > 100) {
-    warnings.push(`메소획득량이 잠재능력 최대치(100%)를 초과했습니다. 현재 ${currentMesoFromPotential}% + 추가 ${potentialMesoBonus}% = ${totalPotentialMeso}%`)
+    warnings.push(`메획이 잠재능력 최대치(100%)를 초과했습니다. 현재 ${currentMesoFromPotential}% + 추가 ${potentialMesoBonus}% = ${totalPotentialMeso}%`)
   }
   
   return warnings
@@ -130,7 +130,7 @@ export function calculateItemBreakeven(
   // 제한사항 적용 (잠재능력 최대치)
   // 드랍률은 잠재능력으로 최대 200%까지
   const effectiveDropBonus = dropBonus
-  // 메소 획듍량은 잠재능력으로 최대 100%까지 (재획비 효과와 별개)
+  // 메획은 잠재능력으로 최대 100%까지 (재획비 효과와 별개)
   const effectiveMesoBonus = mesoBonus
   
   // 아이템 적용 후 수익 계산
@@ -179,9 +179,9 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
   // 재물 획득의 비약 효과 적용
   let adjustedHuntingParams = { ...huntingParams }
   if (wealthAcquisitionPotion) {
-    // 메소 획득량에 곱연산 1.2배
+    // 메획에 곱연산 1.2배
     adjustedHuntingParams.mesoBonus = (100 + huntingParams.mesoBonus) * 1.2 - 100
-    // 드랍률에 합연산 +20%
+    // 드롭률에 합연산 +20%
     adjustedHuntingParams.dropRate = huntingParams.dropRate + 20
   }
   

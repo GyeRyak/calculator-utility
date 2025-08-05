@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: '사냥 기댓값 계산기',
-  description: '드랍률과 메소 획득량을 고려한 사냥 기댓값 계산기'
+  description: '아이템 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산기'
 }
 
 export default function BasicCalculatorPage() {

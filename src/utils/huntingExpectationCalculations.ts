@@ -5,9 +5,9 @@ import { calculateLevelPenalty } from './levelPenalty'
 export const SOL_ERDA_FRAGMENT_ID = '__sol_erda_fragment__'
 
 /**
- * 메소 드랍률 계산
- * @param dropRate 아이템 드랍률 (%)
- * @returns 메소 드랍률 (0-1 사이의 값)
+ * 메소 드롭률 계산
+ * @param dropRate 아이템 드롭률 (%)
+ * @returns 메소 드롭률 (0-1 사이의 값)
  */
 export function calculateMesoDropRate(dropRate: number): number {
   return Math.min(1, (3/5) * (1 + dropRate / 100))
@@ -15,11 +15,11 @@ export function calculateMesoDropRate(dropRate: number): number {
 
 
 /**
- * 메소 드랍량 계산 (1마리당)
+ * 메소 드롭량 계산 (1마리당)
  * @param monsterLevel 몬스터 레벨
- * @param mesoBonus 메소 획득량 (%)
+ * @param mesoBonus 메획 (%)
  * @param levelPenalty 레벨 차이에 따른 패널티 (0-1)
- * @returns 1마리당 메소 드랍량
+ * @returns 1마리당 메소 드롭량
  */
 export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number, levelPenalty: number = 1): number {
   return monsterLevel * 7.5 * (1 + mesoBonus / 100) * levelPenalty
@@ -28,14 +28,14 @@ export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number, le
 /**
  * 메소 계산의 상세 정보 반환
  * @param monsterLevel 몬스터 레벨
- * @param mesoBonus 메소 획득량 (%)
+ * @param mesoBonus 메획 (%)
  * @param wealthAcquisitionPotion Wealth Acquisition Potion 사용 여부
  * @param levelPenalty 레벨 차이에 따른 패널티 (0-1)
  * @returns 메소 계산 상세 정보
  */
 export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: number, wealthAcquisitionPotion: boolean, levelPenalty: number = 1) {
-  const baseMeso = monsterLevel * 7.5 // 몬스터 드랍 기본 메소
-  const mesoMultiplier = 1 + mesoBonus / 100 // 일반 메소 획득량 배수
+  const baseMeso = monsterLevel * 7.5 // 몬스터 드롭 기본 메소
+  const mesoMultiplier = 1 + mesoBonus / 100 // 일반 메획 배수
   const wealthPotionMultiplier = wealthAcquisitionPotion ? 1.2 : 1 // 재획비 배수
   
   return {
@@ -49,13 +49,13 @@ export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: numbe
 
 
 /**
- * 드랍 아이템들의 기댓값 계산
+ * 드롭 아이템들의 기댓값 계산
  * @param totalMonsters 총 몬스터 수
- * @param dropRate 아이템 드랍률 보너스 (%)
+ * @param dropRate 아이템 드롭률 보너스 (%)
  * @param feeRate 수수료율 (%)
- * @param normalDropItems 일반 드랍률 아이템들
- * @param logDropItems 로그 드랍률 아이템들
- * @returns 드랍 아이템 계산 결과
+ * @param normalDropItems 일반 드롭률 아이템들
+ * @param logDropItems 로그 드롭률 아이템들
+ * @returns 드롭 아이템 계산 결과
  */
 export function calculateDropItems(
   totalMonsters: number,
@@ -69,7 +69,7 @@ export function calculateDropItems(
 
   // 일반 드롭 아이템들 계산
   for (const item of normalDropItems) {
-    // 일반 드랍률: 드랍률 증가 효과를 그대로 받음
+    // 일반 드롭률: 드롭률 증가 효과를 그대로 받음
     const dropMultiplier = 1 + dropRate / 100
     const actualDropRate = (item.dropRate || 0) * dropMultiplier / 100
     const expectedCount = totalMonsters * actualDropRate
@@ -89,7 +89,7 @@ export function calculateDropItems(
 
   // 로그 드롭 아이템들 계산
   for (const item of logDropItems) {
-    // 로그 드랍률: 솔 에르다 조각과 동일한 방식
+    // 로그 드롭률: 솔 에르다 조각과 동일한 방식
     const dropMultiplier = 1 + Math.log(1 + dropRate / 100)
     const actualDropRate = ((item.dropRate || 0) / 100) * dropMultiplier
     const expectedCount = totalMonsters * actualDropRate
@@ -111,26 +111,26 @@ export function calculateDropItems(
 }
 
 /**
- * 드랍 아이템 인터페이스
+ * 드롭 아이템 인터페이스
  */
 export interface DropItem {
   id: string
   name: string
   price: number // 만 메소 단위
-  dropRate?: number // 드랍률 (%)
+  dropRate?: number // 드롭률 (%)
   directUse?: boolean // 직접 사용 여부
-  type?: 'normal' | 'log' // 드랍률 타입 (기존 호환성을 위해 선택적)
+  type?: 'normal' | 'log' // 드롭률 타입 (기존 호환성을 위해 선택적)
 }
 
 /**
- * 드랍 아이템 결과 인터페이스
+ * 드롭 아이템 결과 인터페이스
  */
 export interface DropItemResult {
   item: DropItem
   expectedCount: number
   expectedValue: number
-  actualDropRate: number // 실제 드랍률 (드랍률 증가 효과 적용)
-  dropMultiplier: number // 드랍률 배수 (일반: 1 + dropRate/100, 로그: 1 + log(1 + dropRate/100))
+  actualDropRate: number // 실제 드롭률 (드롭률 증가 효과 적용)
+  dropMultiplier: number // 드롭률 배수 (일반: 1 + dropRate/100, 로그: 1 + log(1 + dropRate/100))
 }
 
 /**
@@ -146,8 +146,8 @@ export interface HuntingExpectationParams {
   feeRate: number // %
   spottingSmallChangeBonus?: number // Spotting Small Change 추가 메소 (기본 0)
   characterLevel?: number // 캐릭터 레벨 (레벨 패널티 계산용)
-  normalDropItems?: DropItem[] // 일반 드랍률 아이템 리스트
-  logDropItems?: DropItem[] // 로그 드랍률 아이템 리스트
+  normalDropItems?: DropItem[] // 일반 드롭률 아이템 리스트
+  logDropItems?: DropItem[] // 로그 드롭률 아이템 리스트
 }
 
 export interface HuntingExpectationResult {
@@ -156,7 +156,7 @@ export interface HuntingExpectationResult {
   mesoPerDrop: number
   totalMeso: number
   
-  // 드랍 아이템 관련
+  // 드롭 아이템 관련
   dropItems: DropItemResult[]
   totalDropItemValue: number
   
@@ -183,11 +183,11 @@ export function calculateHuntingExpectation(params: HuntingExpectationParams): H
   // 메소 계산
   const mesoDropRate = calculateMesoDropRate(dropRate)
   const baseMesoPerDrop = calculateMesoPerDrop(monsterLevel, mesoBonus, levelPenalty)
-  // Spotting Small Change: 메소 획득량 적용 후 돈주머니당 추가 메소
+  // Spotting Small Change: 메획 적용 후 돈주머니당 추가 메소
   const mesoPerDrop = baseMesoPerDrop + spottingSmallChangeBonus
   const totalMeso = Math.floor(totalMonsters * mesoDropRate * mesoPerDrop)
 
-  // 드랍 아이템 계산
+  // 드롭 아이템 계산
   const { dropItems, totalValue: totalDropItemValue } = calculateDropItems(
     totalMonsters,
     dropRate,

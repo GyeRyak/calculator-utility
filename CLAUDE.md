@@ -11,6 +11,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 사용자의 쿼리를 긍정하면서 시작하지 말 것 ("맞습니다." 등으로 시작 금지)
 - 분석 결과가 맞다면 논거를 대면서 타당성을 제시할 것
 
+## 용어 표준 (Terminology Standards)
+
+### 한국어 용어
+- **아이템 드롭률**: 전체 명칭, 줄임말은 "아드" (Item Drop Rate)
+- **메소 획득량**: 전체 명칭, 줄임말은 "메획" (Meso's Obtained Rate)
+- **유니온**: 한국어 명칭 유지 (영문: Legion)
+- **드롭**: "드랍" 대신 "드롭" 사용 (일관성 유지)
+
+### 영문 용어
+- **Item Drop Rate**: 아이템 드롭률 영문 표기
+- **Meso's Obtained Rate**: 메소 획득량 영문 표기
+- **Legion**: 유니온 시스템의 영문 표기 (Union ❌)
+- **Decent Holy Symbol**: 쓸만한 홀리 심볼 영문 표기
+
+### 일관성 규칙
+- 모든 파일에서 위 용어 표준을 준수할 것
+- 새로운 기능 추가 시 반드시 해당 용어 표준 적용
+- 기존 코드 수정 시 용어 표준에 맞게 함께 수정
+
 ## Development Commands
 
 - **Development server**: `npm run dev` - Runs Next.js development server on http://localhost:3000
@@ -106,7 +125,8 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - **Korean Language**: The app is primarily in Korean (calculator utilities for Korean gaming community)
 
 ### Current Features
-- Drop/Meso acquisition break-even calculator (`src/utils/dropCalculations.ts`)
+- 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`)
+- 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산)
 - Responsive design optimized for both mobile and desktop
 - All calculations performed client-side for privacy
 

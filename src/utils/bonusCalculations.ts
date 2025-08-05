@@ -24,7 +24,7 @@ export interface MesoCalculationParams {
   inputMode: 'direct' | 'detail'
   directValue: number
   globalBuffMode: 'legion' | 'challenger' | 'none'
-  unionBuff: boolean
+  legionBuff: boolean
   phantomLegionMeso: number
   potentialMode: 'lines' | 'direct'
   potentialLines: number
@@ -46,7 +46,7 @@ export interface ItemDropCalculationParams {
   inputMode: 'direct' | 'detail'
   directValue: number
   globalBuffMode: 'legion' | 'challenger' | 'none'
-  unionBuff: boolean
+  legionBuff: boolean
   potentialMode: 'lines' | 'direct'
   potentialLines: number
   potentialDirect: number
@@ -135,7 +135,7 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
   
   // 버프 계산 (유니온의 부만 포함, 최대 100%)
   // 유니온의 부
-  if (params.globalBuffMode !== 'challenger' && params.unionBuff) {
+  if (params.globalBuffMode !== 'challenger' && params.legionBuff) {
     buffBonus += 50
   }
   
@@ -252,7 +252,7 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
   
   // 버프 계산 (유니온의 행운만 포함, 최대 100%)
   // 유니온의 행운
-  if (params.globalBuffMode !== 'challenger' && params.unionBuff) {
+  if (params.globalBuffMode !== 'challenger' && params.legionBuff) {
     buffBonus += 50
   }
   

@@ -5,7 +5,7 @@ const calculatorCategories = [
   {
     id: 'hunting-expectation',
     title: '사냥 기댓값 계산기',
-    description: '드랍률과 메소 획득량을 고려한 사냥 기댓값 계산',
+    description: '아이템 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산',
     icon: Calculator,
     href: '/calculators/basic',
     color: 'bg-blue-500',
@@ -13,7 +13,7 @@ const calculatorCategories = [
   },
   {
     id: 'breakeven',
-    title: '드랍/메획 손익분기 계산기',
+    title: '아이템 드롭률/메소 획득량 증가 손익분기 계산기',
     description: '아이템 구매 시 투자 회수 기간 계산',
     icon: TrendingUp,
     href: '/calculators/breakeven',

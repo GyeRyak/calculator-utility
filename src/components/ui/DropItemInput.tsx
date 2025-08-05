@@ -7,14 +7,14 @@ export interface DropItem {
   id: string
   name: string
   price: number // 만 메소 단위
-  dropRate?: number // 일반 드랍률 (선택적)
+  dropRate?: number // 일반 아이템 드롭률 (선택적)
   directUse?: boolean // 직접 사용 여부 (선택적)
 }
 
 export interface DropItemInputProps {
   items: DropItem[]
   onItemsChange: (items: DropItem[]) => void
-  showDropRate?: boolean // 일반 드랍률 표시 여부
+  showDropRate?: boolean // 일반 아이템 드롭률 표시 여부
   title: string
   placeholder?: string
 }
