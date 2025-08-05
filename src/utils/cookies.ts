@@ -229,5 +229,37 @@ export function hasSlotData(slotNumber: number): boolean {
 // 모든 비필수 쿠키 삭제
 export function clearAllNonEssentialCookies(): void {
   clearCalculatorSettings()
+  clearDataSourceCardState()
   // 필요시 다른 기능성 쿠키들도 여기서 삭제
+}
+
+// 데이터 출처 카드 닫기 상태 관리
+const DATA_SOURCE_CARD_KEY = 'data_source_card_dismissed'
+
+export function setDataSourceCardDismissed(): void {
+  if (!canUseFunctionalCookies()) return
+  
+  try {
+    localStorage.setItem(DATA_SOURCE_CARD_KEY, 'true')
+  } catch (error) {
+    console.error('Failed to save data source card state:', error)
+  }
+}
+
+export function isDataSourceCardDismissed(): boolean {
+  if (!canUseFunctionalCookies()) return false
+  
+  try {
+    return localStorage.getItem(DATA_SOURCE_CARD_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function clearDataSourceCardState(): void {
+  try {
+    localStorage.removeItem(DATA_SOURCE_CARD_KEY)
+  } catch (error) {
+    console.error('Failed to clear data source card state:', error)
+  }
 }

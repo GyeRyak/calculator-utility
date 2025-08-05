@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
+import Link from 'next/link'
 import SlotHeader from '../ui/SlotHeader'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, getSolErdaFragmentCalculationDetails, type HuntingExpectationParams } from '../../utils/huntingExpectationCalculations'
 import { calculateLevelPenalty } from '../../utils/levelPenalty'
-import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
+import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
@@ -309,6 +310,7 @@ export function BasicCalculator() {
   })
   const [isDropItemResultExpanded, setIsDropItemResultExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isDataSourceCardDismissedState, setIsDataSourceCardDismissedState] = useState(true) // 초기에는 숨김
   
   // 입력 상태
   const [monsterLevel, setMonsterLevel] = useState<number>(275)
@@ -677,6 +679,8 @@ export function BasicCalculator() {
       setLastSavedSlotNames(newSlotNames)
       setLastSavedInputs(initialLastSavedInputs)
       
+      // 데이터 소스 카드 닫기 상태 로드
+      setIsDataSourceCardDismissedState(isDataSourceCardDismissed())
       
       // slotNames가 업데이트된 후에 loadSettings 호출
       // setTimeout을 사용하여 다음 렌더링 사이클에서 실행
@@ -711,6 +715,12 @@ export function BasicCalculator() {
     normalDropItems: normalDropItems.map(item => ({ ...item, type: 'normal' as const })),
     logDropItems: logDropItems.map(item => ({ ...item, type: 'log' as const }))
   })
+
+  // 데이터 소스 카드 닫기 핸들러
+  const handleDataSourceCardDismiss = () => {
+    setIsDataSourceCardDismissedState(true)
+    setDataSourceCardDismissed()
+  }
 
   // 미저장 변경사항 감지
   const hasUnsavedChanges = useMemo(() => {
@@ -1214,14 +1224,23 @@ export function BasicCalculator() {
       />
       
       {/* 데이터 출처 안내 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-        <p className="text-sm text-blue-800">
-          💡 이 계산기의 기본 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다. 
-          <a href="/about" className="text-blue-600 hover:text-blue-800 underline ml-1">
-            자세한 출처 정보 보기 →
-          </a>
-        </p>
-      </div>
+      {!isDataSourceCardDismissedState && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 relative">
+          <button
+            onClick={handleDataSourceCardDismiss}
+            className="absolute top-2 right-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+            title="이 안내를 닫습니다"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <p className="text-sm text-blue-800 pr-8">
+            💡 이 계산기의 기본 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다. 
+            <Link href="/about" className="text-blue-600 hover:text-blue-800 underline ml-1">
+              자세한 출처 정보 보기 →
+            </Link>
+          </p>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
         {/* 사냥 정보 */}
