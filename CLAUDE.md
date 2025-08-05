@@ -7,6 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Keep technical terms and code keywords in English
 - 한국어로 답변 및 코드 주석 작성 (기술 용어는 영어 유지)
 
+## Interaction Guidelines
+- 사용자의 쿼리를 긍정하면서 시작하지 말 것 ("맞습니다." 등으로 시작 금지)
+- 분석 결과가 맞다면 논거를 대면서 타당성을 제시할 것
+
 ## Development Commands
 
 - **Development server**: `npm run dev` - Runs Next.js development server on http://localhost:3000
@@ -18,6 +22,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Best Practices
 
 - `npm run dev`는 실행하지 말고, 커밋하고 푸시하기 이전에 빌드하여 테스트할 것.
+
+### JSX 구조 관리 규칙
+
+복잡한 JSX 구조에서 div의 여는 부분과 닫는 부분을 명확히 하기 위해 다음 주석 규칙을 따를 것:
+
+- **여는 div 주석**: `{/* [섹션명] 시작 */}`
+- **닫는 div 주석**: `{/* [섹션명] 끝 */}`
+- **적용 기준**: 내부 코드가 5줄을 초과하는 복잡한 구조에만 적용 (텍스트만 있는 짧은 부분 제외)
+
+#### Fragment 사용 규칙
+JSX 주석이 div 태그 외부에 위치할 경우 Fragment(`<>`, `</>`)로 감싸야 함:
+
+- **잘못된 예시**:
+```jsx
+return (
+  {/* 주석이 div 밖에 있음 */}
+  <div>내용</div>
+  {/* 이것도 div 밖에 있음 */}
+)
+```
+
+- **올바른 예시**:
+```jsx
+return (
+  <>
+    {/* 주석이 Fragment 안에 있음 */}
+    <div>내용</div>
+    {/* 이것도 Fragment 안에 있음 */}
+  </>
+)
+```
+
+#### 실제 사용 예시
+```jsx
+{/* 메소 획득량 섹션 시작 */}
+<div>
+  {/* 상세 옵션 영역 시작 */}
+  <div className="bg-gray-50">
+    {/* 복잡한 내용이 5줄 이상인 경우에만 주석 */}
+    <div>내용1</div>
+    <div>내용2</div>
+    <div>내용3</div>
+    <div>내용4</div>
+    <div>내용5</div>
+    <div>내용6</div>
+  </div>
+  {/* 상세 옵션 영역 끝 */}
+  
+  <div>간단한 텍스트</div> {/* 짧은 부분은 주석 불필요 */}
+</div>
+{/* 메소 획득량 섹션 끝 */}
+```
+
+이 규칙은 특히 복잡한 중첩 구조에서 괄호 완결성을 확인할 때 유용함.
 
 ### GitHub Pages 배포 관련 주의사항
 

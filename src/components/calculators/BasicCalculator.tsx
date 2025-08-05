@@ -1,16 +1,16 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
 import Link from 'next/link'
 import SlotHeader from '../ui/SlotHeader'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
-import { calculateLevelPenalty } from '../../utils/levelPenalty'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
+import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 
 // 드랍 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
@@ -134,6 +134,7 @@ const DEFAULT_VALUES = {
   spottingSmallChangeLevel: 3,
   showWealthPotionCost: true,
   wealthAcquisitionPotionPrice: 300,
+  tallahartSymbolLevel: 0,
   autoCalculate: true,
   characterLevel: 275,
   dropItems: [] as DropItem[],
@@ -255,20 +256,6 @@ const LabeledNumberInput: React.FC<LabeledNumberInputProps> = ({
   </div>
 )
 
-// 메소 제한 시간 계산 함수
-const calculateMesoLimitTime = (
-  characterLevel: number,
-  monsterLevel: number,
-  monsterCount: number,
-  huntTime: number,
-  calculateMesoLimit: (level: number) => number
-): number => {
-  const mesoLimit = calculateMesoLimit(characterLevel)
-  const baseMesoPerMob = monsterLevel * 7.5
-  const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
-  const mobsPerMinute = monsterCount / huntTime
-  return mobsForMesoLimit / mobsPerMinute
-}
 
 export function BasicCalculator() {
   const { showNotification } = useNotification()
@@ -312,6 +299,7 @@ export function BasicCalculator() {
   const [monsterLevel, setMonsterLevel] = useState<number>(275)
   const [mesoBonus, setMesoBonus] = useState<number>(40)
   const [dropRate, setDropRate] = useState<number>(60)
+  const [tallahartSymbolLevel, setTallahartSymbolLevel] = useState<number>(0)
   
   // 입력 방식 선택
   const [mesoInputMode, setMesoInputMode] = useState<'direct' | 'detail'>('detail')
@@ -324,20 +312,25 @@ export function BasicCalculator() {
   const [mesoPotentialLines, setMesoPotentialLines] = useState<number>(0)
   const [mesoPotentialDirect, setMesoPotentialDirect] = useState<number>(0)
   const [mesoAbility, setMesoAbility] = useState<number>(20)
-  const [globalBuffMode, setGlobalBuffMode] = useState<'none' | 'normal' | 'challenger' | 'union'>('union')
+  const [globalBuffMode, setGlobalBuffMode] = useState<'none' | 'challenger' | 'union'>('union')
   const [mesoArtifactLevel, setMesoArtifactLevel] = useState<number>(10)
-  const [mesoArtifactMode, setMesoArtifactMode] = useState<'level' | 'direct'>('level')
+  const [mesoArtifactMode, setMesoArtifactMode] = useState<'level' | 'percent'>('level')
   const [mesoArtifactLevelInput, setMesoArtifactLevelInput] = useState<number>(10)
   const [mesoArtifactPercentInput, setMesoArtifactPercentInput] = useState<number>(12)
+  const [mesoOtherBuff, setMesoOtherBuff] = useState<number>(0) // 메소 기타 버프
+  const [mesoOtherNonBuff, setMesoOtherNonBuff] = useState<number>(0) // 메소 기타 증가량
   const [dropRateUnionBuff, setDropRateUnionBuff] = useState<boolean>(false) // 유니온의 행운
+  const [pcRoomMode, setPcRoomMode] = useState<boolean>(false) // PC방 드롭률 10%
   const [dropRatePotentialMode, setDropRatePotentialMode] = useState<'lines' | 'direct'>('lines')
   const [dropRatePotentialLines, setDropRatePotentialLines] = useState<number>(0) // Drop Rate 0줄
   const [dropRatePotentialDirect, setDropRatePotentialDirect] = useState<number>(0) 
   const [dropRateAbility, setDropRateAbility] = useState<number>(15) // 유니크 15%
   const [dropRateArtifactLevel, setDropRateArtifactLevel] = useState<number>(10)
-  const [dropRateArtifactMode, setDropRateArtifactMode] = useState<'level' | 'direct'>('level')
+  const [dropRateArtifactMode, setDropRateArtifactMode] = useState<'level' | 'percent'>('level')
   const [dropRateArtifactLevelInput, setDropRateArtifactLevelInput] = useState<number>(10)
   const [dropRateArtifactPercentInput, setDropRateArtifactPercentInput] = useState<number>(12)
+  const [dropRateOtherBuff, setDropRateOtherBuff] = useState<number>(0) // 드랍률 기타 버프
+  const [dropRateOtherNonBuff, setDropRateOtherNonBuff] = useState<number>(0) // 드랍률 기타 증가량
   const [holySymbol, setHolySymbol] = useState<boolean>(false)
   const [usefulHolySymbol, setUsefulHolySymbol] = useState<boolean>(true)
   const [usefulHolySymbolLevel, setUsefulHolySymbolLevel] = useState<number>(30)
@@ -427,6 +420,7 @@ export function BasicCalculator() {
     feeRate: setFeeRate,
     showWealthPotionCost: setShowWealthPotionCost,
     wealthAcquisitionPotionPrice: setWealthAcquisitionPotionPrice,
+    tallahartSymbolLevel: setTallahartSymbolLevel,
     autoCalculate: setAutoCalculate,
     characterLevel: setCharacterLevel,
     normalDropItems: setNormalDropItems,
@@ -744,7 +738,7 @@ export function BasicCalculator() {
     dropRateArtifactLevelInput, dropRateArtifactPercentInput, holySymbol,
     usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion,
     showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
-    spottingSmallChangeLevel, dropItems,
+    spottingSmallChangeLevel, tallahartSymbolLevel, dropItems,
     normalDropItems: normalDropItems
       .map(({ name, price, dropRate, directUse }) => ({ name, price, dropRate, directUse, type: 'normal' as const })),
     logDropItems: logDropItems
@@ -862,120 +856,61 @@ export function BasicCalculator() {
     return bonus
   }
 
-  // 캐릭터 레벨에 따른 메소 제한량 계산 (메소 단위)
-  const calculateMesoLimit = (level: number): number => {
-    if (level >= 1 && level <= 99) {
-      return 20000000 // 2000만 메소
-    } else if (level >= 100 && level <= 199) {
-      return 40000000 // 4000만 메소
-    } else if (level >= 200 && level <= 259) {
-      const exceededLevels = level - 200
-      const additionalMeso = Math.floor(exceededLevels / 5) * 5000000
-      return 80000000 + additionalMeso // 8000만 메소 + 5레벨당 500만 메소
-    } else if (level >= 260 && level <= 300) {
-      const exceededLevels = level - 260
-      const additionalMeso = Math.floor(exceededLevels / 5) * 10000000
-      return 150000000 + additionalMeso // 1억 5천만 메소 + 5레벨당 1000만 메소
-    }
-    return 0
-  }
 
-  // 메소 획득량 계산
-  const calculateMesoBonus = () => {
-    if (mesoInputMode === 'direct') {
-      return mesoBonus
-    }
-    
-    let total = 0
-    
-    // 유니온의 부
-    if (globalBuffMode !== 'challenger' && mesoUnionBuff) total += 50;
-    
-    // 팬텀 유니온 (일반 월드에서만)
-    if (globalBuffMode === 'union') {
-      total += phantomUnionMeso
-    }
-    
-    // 잠재능력
-    const mesoPotential = mesoPotentialMode === 'lines' ? mesoPotentialLines * 20 : mesoPotentialDirect
-    total += mesoPotential
-    
-    // 어빌리티
-    total += mesoAbility
-    
-    // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
-    if (globalBuffMode === 'challenger') {
-      total += 20
-    } else if (globalBuffMode === 'union') {
-      total += calculateArtifactBonus(
-        mesoArtifactMode === 'level' ? mesoArtifactLevelInput : 0,
-        mesoArtifactMode,
-        mesoArtifactPercentInput
-      )
-    }
+  // 메소 획득량 계산 파라미터 생성
+  const getMesoCalculationParams = (): MesoCalculationParams => ({
+    inputMode: mesoInputMode,
+    directValue: mesoBonus,
+    globalBuffMode: globalBuffMode,
+    unionBuff: mesoUnionBuff,
+    phantomUnionMeso: phantomUnionMeso,
+    potentialMode: mesoPotentialMode,
+    potentialLines: mesoPotentialLines,
+    potentialDirect: mesoPotentialDirect,
+    ability: mesoAbility,
+    artifactMode: mesoArtifactMode,
+    artifactLevel: mesoArtifactLevelInput,
+    artifactPercent: mesoArtifactPercentInput,
+    tallahartSymbolLevel: tallahartSymbolLevel,
+    wealthAcquisitionPotion: wealthAcquisitionPotion,
+    otherBuff: mesoOtherBuff,
+    otherNonBuff: mesoOtherNonBuff,
+    characterLevel: characterLevel,
+    monsterLevel: monsterLevel
+  })
 
-    if (wealthAcquisitionPotion) {
-      total = (100 + total) * 12 - 1000 // 소숫점 연산 회피
-      total /= 10
-    }
-    
-    return total
-  }
-  
-  // 아이템 드랍률 계산
-  const calculateItemDropBonus = () => {
-    if (dropRateInputMode === 'direct') {
-      return dropRate
-    }
-    
-    let total = 0
-    
-    // 유니온의 행운
-    if (globalBuffMode !== 'challenger' && dropRateUnionBuff) total += 50;
-    
-    // 잠재능력
-    const itemPotential = dropRatePotentialMode === 'lines' ? dropRatePotentialLines * 20 : dropRatePotentialDirect
-    total += itemPotential
-    
-    // 어빌리티
-    total += dropRateAbility
-    
-    // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
-    if (globalBuffMode === 'challenger') {
-      total += 20
-    } else if (globalBuffMode === 'union') {
-      total += calculateArtifactBonus(
-        dropRateArtifactMode === 'level' ? dropRateArtifactLevelInput : 0,
-        dropRateArtifactMode,
-        dropRateArtifactPercentInput
-      )
-    }
-    
-    // 홀리 심볼 (둘 중 하나만 사용 가능)
-    if (holySymbol && !usefulHolySymbol) {
-      total += 30
-    } else if (usefulHolySymbol && !holySymbol) {
-      // 쓸만한 홀리 심볼: 1레벨=14%, 3레벨당 1% 추가
-      const basePercent = 14
-      const additionalPercent = Math.floor(usefulHolySymbolLevel / 3)
-      total += basePercent + additionalPercent
-    }
-    
-    // 재물 획득의 비약 (합연산)
-    if (wealthAcquisitionPotion) {
-      total += 20
-    }
-    
-    return total
-  }
+  // 아이템 드랍률 계산 파라미터 생성
+  const getItemDropCalculationParams = (): ItemDropCalculationParams => ({
+    inputMode: dropRateInputMode,
+    directValue: dropRate,
+    globalBuffMode: globalBuffMode,
+    unionBuff: dropRateUnionBuff,
+    potentialMode: dropRatePotentialMode,
+    potentialLines: dropRatePotentialLines,
+    potentialDirect: dropRatePotentialDirect,
+    ability: dropRateAbility,
+    artifactMode: dropRateArtifactMode,
+    artifactLevel: dropRateArtifactLevelInput,
+    artifactPercent: dropRateArtifactPercentInput,
+    tallahartSymbolLevel: tallahartSymbolLevel,
+    holySymbol: holySymbol,
+    usefulHolySymbol: usefulHolySymbol,
+    usefulHolySymbolLevel: usefulHolySymbolLevel,
+    wealthAcquisitionPotion: wealthAcquisitionPotion,
+    pcRoomMode: pcRoomMode,
+    otherBuff: dropRateOtherBuff,
+    otherNonBuff: dropRateOtherNonBuff
+  })
 
   // calculateDrops 함수 내부
   const calculateDrops = () => {
     const inputs = getCurrentInputs()
     
-    // 계산된 메소 획득량과 아이템 드랍률
-    const calculatedMesoBonus = calculateMesoBonus()
-    const calculatedItemDropBonus = calculateItemDropBonus()
+    // 현재 파라미터들 저장
+    const currentMesoParams = getMesoCalculationParams()
+    const currentItemDropParams = getItemDropCalculationParams()
+    const calculatedMesoBonus = calculateMesoBonus(currentMesoParams).totalBonus
+    const calculatedItemDropBonus = calculateItemDropBonus(currentItemDropParams).totalBonus
     
     // 단위 시간당 처치 수
     const mobsPerMinute = inputs.monsterCount / inputs.huntTime
@@ -1004,8 +939,8 @@ export function BasicCalculator() {
     // 잔돈이 눈에 띄네 보너스 계산
     const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
 
-    // 재물 획득의 비약 적용된 상태의 드랍 데이터 계산
-    const dropResultWithPotion = calculateHuntingExpectation({
+    // 현재 헌팅 파라미터들 저장
+    const currentHuntingParams = {
       monsterLevel: inputs.monsterLevel,
       totalMonsters,
       mesoBonus: calculatedMesoBonus,
@@ -1015,44 +950,34 @@ export function BasicCalculator() {
       characterLevel: inputs.characterLevel,
       normalDropItems: dropItems.filter(item => item.type === 'normal'),
       logDropItems: dropItems.filter(item => item.type === 'log')
-    })
+    }
+
+    // 재물 획득의 비약 적용된 상태의 드랍 데이터 계산
+    const dropResultWithPotion = calculateHuntingExpectation(currentHuntingParams)
     
     // 시간당 계산 (재물 획득의 비약 적용된 상태)
-    const dropResultPerHourWithPotion = calculateHuntingExpectation({
-      monsterLevel: inputs.monsterLevel,
-      totalMonsters: mobsPerHour,
-      mesoBonus: calculatedMesoBonus,
-      dropRate: calculatedItemDropBonus,
-      feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel,
-      normalDropItems: dropItems.filter(item => item.type === 'normal'),
-      logDropItems: dropItems.filter(item => item.type === 'log')
-    })
+    const perHourHuntingParams = { ...currentHuntingParams, totalMonsters: mobsPerHour }
+    const dropResultPerHourWithPotion = calculateHuntingExpectation(perHourHuntingParams)
     
-    // 재물 획득의 비약 없을 때의 드랍 데이터 계산 (20% 곱연산/합연산 전 상태)
-    let mesoAcquisitionRateWithoutPotion = calculatedMesoBonus
-    let itemDropRateWithoutPotion = calculatedItemDropBonus
+    // 재물 획득의 비약 없을 때의 파라미터 계산
+    let futureMesoParams = { ...currentMesoParams }
+    let futureItemDropParams = { ...currentItemDropParams }
     
     if (wealthAcquisitionPotion) {
       // 재물 획득의 비약 효과 제거
-      itemDropRateWithoutPotion = calculatedItemDropBonus - 20 // 합연산 20% 제거
-      // 메소 획득량에서 20% 곱연산 효과 제거
-      mesoAcquisitionRateWithoutPotion = (1 + calculatedMesoBonus / 100) / 1.2 - 1
-      mesoAcquisitionRateWithoutPotion *= 100
+      futureMesoParams.wealthAcquisitionPotion = false
+      futureItemDropParams.wealthAcquisitionPotion = false
     }
     
-    const dropResultWithoutPotion = calculateHuntingExpectation({
-      monsterLevel: inputs.monsterLevel,
-      totalMonsters,
+    const mesoAcquisitionRateWithoutPotion = calculateMesoBonus(futureMesoParams).totalBonus
+    const itemDropRateWithoutPotion = calculateItemDropBonus(futureItemDropParams).totalBonus
+    
+    const withoutPotionHuntingParams = {
+      ...currentHuntingParams,
       mesoBonus: mesoAcquisitionRateWithoutPotion,
-      dropRate: itemDropRateWithoutPotion,
-      feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel,
-      normalDropItems: dropItems.filter(item => item.type === 'normal'),
-      logDropItems: dropItems.filter(item => item.type === 'log')
-    })
+      dropRate: itemDropRateWithoutPotion
+    }
+    const dropResultWithoutPotion = calculateHuntingExpectation(withoutPotionHuntingParams)
     
     // 드랍 아이템 결과를 Map으로 변환 (ID를 키로 사용)
     const dropItemResults = new Map(
@@ -1158,11 +1083,45 @@ export function BasicCalculator() {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, pcRoomMode])
 
 
-  // 드메 효과 계산
-  const calculateDragonMercenaryEffect = useMemo(() => {
+  // 유니온 버프 효과를 고려한 계산 헬퍼 함수
+  const calculateWithUnionEffect = useCallback((
+    withUnionBuff: boolean, 
+    effectType: 'drop' | 'meso',
+    currentHuntingParams: any,
+    currentMesoParams: MesoCalculationParams,
+    currentItemDropParams: ItemDropCalculationParams
+  ) => {
+    if (!result) return null
+
+    // future params 생성
+    let futureMesoParams = { ...currentMesoParams }
+    let futureItemDropParams = { ...currentItemDropParams }
+
+    if (effectType === 'drop' && withUnionBuff && globalBuffMode !== 'challenger') {
+      // 드랍률: 유니온의 행운 상태를 토글
+      futureItemDropParams.unionBuff = !dropRateUnionBuff
+    }
+
+    if (effectType === 'meso' && withUnionBuff && globalBuffMode !== 'challenger') {
+      // 메소: 유니온의 부 상태를 토글
+      futureMesoParams.unionBuff = !mesoUnionBuff
+    }
+
+    // future hunting params 생성
+    const futureHuntingParams = {
+      ...currentHuntingParams,
+      mesoBonus: calculateMesoBonus(futureMesoParams).totalBonus,
+      dropRate: calculateItemDropBonus(futureItemDropParams).totalBonus
+    }
+
+    return calculateHuntingExpectation(futureHuntingParams)
+  }, [result, globalBuffMode, dropRateUnionBuff, mesoUnionBuff])
+
+  // TMI 정보 계산
+  const calculateTMIInfo = useMemo(() => {
     if (!result) return null
 
     const inputs = getCurrentInputs()
@@ -1171,60 +1130,287 @@ export function BasicCalculator() {
     // 메소 제한 옵션인 경우 실제 시간 계산
     let actualResultTime = inputs.resultTime
     if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
-      actualResultTime = calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime, calculateMesoLimit)
+      actualResultTime = calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime)
     }
     
     const totalMonsters = mobsPerMinute * actualResultTime
 
-    // 현재 계산된 보너스 값들
-    const currentMesoBonus = calculateMesoBonus()
-    const currentItemDropBonus = calculateItemDropBonus()
+    // 현재 파라미터들 저장
+    const currentMesoParams = getMesoCalculationParams()
+    const currentItemDropParams = getItemDropCalculationParams()
+    const currentMesoBonus = calculateMesoBonus(currentMesoParams).totalBonus
+    const currentItemDropBonus = calculateItemDropBonus(currentItemDropParams).totalBonus
 
     // 잔돈이 눈에 띄네 보너스 계산
     const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
 
-
-    // 드랍률 20% 증가 효과 - 전체 기댓값 계산
-    const dropCalcWithDropBonus = calculateHuntingExpectation({
+    // 현재 헌팅 파라미터들 저장
+    const currentHuntingParams = {
       monsterLevel: inputs.monsterLevel,
       totalMonsters,
       mesoBonus: currentMesoBonus,
-      dropRate: currentItemDropBonus + 20, // 기존 드랍률에 20% 추가
-      feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus,
-      characterLevel: inputs.characterLevel,
-      normalDropItems: dropItems.filter(item => item.type === 'normal'),
-      logDropItems: dropItems.filter(item => item.type === 'log')
-    })
-    const dragonDropRateTotal = dropCalcWithDropBonus.totalIncome
-    
-    // 메소 획득량 20% 증가 효과 - 전체 기댓값 계산
-    const additionalMesoBonus = wealthAcquisitionPotion ? 24 : 20
-    const dropCalcWithMesoBonus = calculateHuntingExpectation({
-      monsterLevel: inputs.monsterLevel,
-      totalMonsters,
-      mesoBonus: currentMesoBonus + additionalMesoBonus,
       dropRate: currentItemDropBonus,
       feeRate: inputs.feeRate,
       spottingSmallChangeBonus: spottingSmallChangeBonus,
       characterLevel: inputs.characterLevel,
       normalDropItems: dropItems.filter(item => item.type === 'normal'),
       logDropItems: dropItems.filter(item => item.type === 'log')
-    })
+    }
+
+    // 드랍률 20% 증가 효과 - 전체 기댓값 계산
+    const dropBonusHuntingParams = {
+      ...currentHuntingParams,
+      dropRate: currentItemDropBonus + 20 // 기존 드랍률에 20% 추가
+    }
+    const dropCalcWithDropBonus = calculateHuntingExpectation(dropBonusHuntingParams)
+    const dragonDropRateTotal = dropCalcWithDropBonus.totalIncome
+    
+    // 메소 획득량 20% 증가 효과 - 전체 기댓값 계산
+    const additionalMesoBonus = wealthAcquisitionPotion ? 24 : 20
+    const mesoBonusHuntingParams = {
+      ...currentHuntingParams,
+      mesoBonus: currentMesoBonus + additionalMesoBonus
+    }
+    const dropCalcWithMesoBonus = calculateHuntingExpectation(mesoBonusHuntingParams)
     const dragonMesoRateTotal = dropCalcWithMesoBonus.totalIncome
+
+    // 잠재능력 0줄 대비 현재 이득 계산
+    const calculateZeroPotentialBenefit = (type: 'drop' | 'meso') => {
+      // future params 생성
+      let futureMesoParams = { ...currentMesoParams }
+      let futureItemDropParams = { ...currentItemDropParams }
+      
+      if (type === 'drop') {
+        // 드랍률 잠재능력만 0으로 설정
+        futureItemDropParams.potentialLines = 0
+        futureItemDropParams.potentialDirect = 0
+      } else {
+        // 메소 잠재능력만 0으로 설정  
+        futureMesoParams.potentialLines = 0
+        futureMesoParams.potentialDirect = 0
+      }
+      
+      const futureHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(futureMesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(futureItemDropParams).totalBonus
+      }
+      
+      const zeroCalc = calculateHuntingExpectation(futureHuntingParams)
+      
+      return result.totalIncome - zeroCalc.totalIncome
+    }
+
+    // 유니온 아티팩트 & 팬텀 유니온 개별 계산
+    const calculateUnionArtifactBenefit = () => {
+      // 드랍률 유니온 아티팩트 10레벨 (12%)
+      const maxDropArtifactBonus = 12
+      let futureDropParams = { ...currentItemDropParams }
+      futureDropParams.artifactLevel = 10
+      futureDropParams.artifactMode = 'percent'
+      futureDropParams.artifactPercent = maxDropArtifactBonus
+      
+      const maxDropArtifactHuntingParams = {
+        ...currentHuntingParams,
+        dropRate: calculateItemDropBonus(futureDropParams).totalBonus
+      }
+      const maxDropArtifactCalc = calculateHuntingExpectation(maxDropArtifactHuntingParams)
+
+      // 메획 유니온 아티팩트 10레벨 (12%)
+      const maxMesoArtifactBonus = 12
+      let futureMesoParams = { ...currentMesoParams }
+      futureMesoParams.artifactLevel = 10
+      futureMesoParams.artifactMode = 'percent'
+      futureMesoParams.artifactPercent = maxMesoArtifactBonus
+      
+      const maxMesoArtifactHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(futureMesoParams).totalBonus
+      }
+      const maxMesoArtifactCalc = calculateHuntingExpectation(maxMesoArtifactHuntingParams)
+
+      // 팬텀 유니온 5%
+      const maxPhantomUnionBonus = 5
+      let futurePhantomMesoParams = { ...currentMesoParams }
+      futurePhantomMesoParams.phantomUnionMeso = maxPhantomUnionBonus
+      
+      const maxPhantomUnionHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(futurePhantomMesoParams).totalBonus
+      }
+      const maxPhantomUnionCalc = calculateHuntingExpectation(maxPhantomUnionHuntingParams)
+
+      // 0레벨/0% 대비 현재 이득 계산 - 현재 설정값이 얼마나 도움이 되는지 측정
+      
+      // 드랍률 유니온 아티팩트 0레벨/0% 상태로 계산
+      let zeroDropArtifactParams = { ...currentItemDropParams }
+      zeroDropArtifactParams.artifactLevel = 0
+      zeroDropArtifactParams.artifactPercent = 0
+      
+      const zeroDropArtifactHuntingParams = {
+        ...currentHuntingParams,
+        dropRate: calculateItemDropBonus(zeroDropArtifactParams).totalBonus
+      }
+      const zeroDropArtifactCalc = calculateHuntingExpectation(zeroDropArtifactHuntingParams)
+
+      // 메소 유니온 아티팩트 0레벨/0% 상태로 계산
+      let zeroMesoArtifactParams = { ...currentMesoParams }
+      zeroMesoArtifactParams.artifactLevel = 0
+      zeroMesoArtifactParams.artifactPercent = 0
+      
+      const zeroMesoArtifactHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(zeroMesoArtifactParams).totalBonus
+      }
+      const zeroMesoArtifactCalc = calculateHuntingExpectation(zeroMesoArtifactHuntingParams)
+
+      // 팬텀 유니온 0% 상태로 계산
+      let zeroPhantomUnionParams = { ...currentMesoParams }
+      zeroPhantomUnionParams.phantomUnionMeso = 0
+      
+      const zeroPhantomUnionHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(zeroPhantomUnionParams).totalBonus
+      }
+      const zeroPhantomUnionCalc = calculateHuntingExpectation(zeroPhantomUnionHuntingParams)
+
+      return {
+        // 최대 레벨/% 달성 시 현재 대비 추가 이득
+        maxDropArtifactIncrease: maxDropArtifactCalc.totalIncome - result.totalIncome,
+        maxMesoArtifactIncrease: maxMesoArtifactCalc.totalIncome - result.totalIncome,
+        maxPhantomUnionIncrease: maxPhantomUnionCalc.totalIncome - result.totalIncome,
+        // 현재 설정값이 0레벨/0% 대비 제공하는 이득
+        currentDropArtifactBenefit: result.totalIncome - zeroDropArtifactCalc.totalIncome,
+        currentMesoArtifactBenefit: result.totalIncome - zeroMesoArtifactCalc.totalIncome,
+        currentPhantomUnionBenefit: result.totalIncome - zeroPhantomUnionCalc.totalIncome
+      }
+    }
+
+    const unionBenefits = calculateUnionArtifactBenefit()
+
+    // 어빌리티 종결 계산
+    const calculateAbilityFinishBenefit = () => {
+      // 드랍 종결: 드랍률 어빌리티 20%, 메소 어빌리티 15%
+      let dropFinishMesoParams = { ...currentMesoParams }
+      let dropFinishDropParams = { ...currentItemDropParams }
+      dropFinishMesoParams.ability = 15
+      dropFinishDropParams.ability = 20
+      
+      const dropFinishHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(dropFinishMesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(dropFinishDropParams).totalBonus
+      }
+      const dropFinishCalc = calculateHuntingExpectation(dropFinishHuntingParams)
+
+      // 메소 종결: 메소 어빌리티 20%, 드랍률 어빌리티 15%
+      let mesoFinishMesoParams = { ...currentMesoParams }
+      let mesoFinishDropParams = { ...currentItemDropParams }
+      mesoFinishMesoParams.ability = 20
+      mesoFinishDropParams.ability = 15
+      
+      const mesoFinishHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(mesoFinishMesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(mesoFinishDropParams).totalBonus
+      }
+      const mesoFinishCalc = calculateHuntingExpectation(mesoFinishHuntingParams)
+
+      // 어빌리티 없는 경우 대비 계산
+      let noAbilityMesoParams = { ...currentMesoParams }
+      let noAbilityDropParams = { ...currentItemDropParams }
+      noAbilityMesoParams.ability = 0
+      noAbilityDropParams.ability = 0
+      
+      const noAbilityHuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(noAbilityMesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(noAbilityDropParams).totalBonus
+      }
+      const noAbilityCalc = calculateHuntingExpectation(noAbilityHuntingParams)
+
+      return {
+        dropFinishIncrease: dropFinishCalc.totalIncome - result.totalIncome,
+        mesoFinishIncrease: mesoFinishCalc.totalIncome - result.totalIncome,
+        currentAbilityBenefit: result.totalIncome - noAbilityCalc.totalIncome
+      }
+    }
+
+    const abilityBenefits = calculateAbilityFinishBenefit()
+
+    // 탈라하트 심볼 계산
+    const calculateTallahartSymbolBenefit = () => {
+      // 탈라하트 심볼 1레벨 시 계산 (미개방 -> 1레벨)
+      let tallahartLevel1MesoParams = { ...currentMesoParams }
+      let tallahartLevel1DropParams = { ...currentItemDropParams }
+      tallahartLevel1MesoParams.tallahartSymbolLevel = 1
+      tallahartLevel1DropParams.tallahartSymbolLevel = 1
+      
+      const tallahartLevel1HuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(tallahartLevel1MesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(tallahartLevel1DropParams).totalBonus
+      }
+      const tallahartLevel1Calc = calculateHuntingExpectation(tallahartLevel1HuntingParams)
+
+      // 탈라하트 심볼 10레벨 시 계산 (만렙)
+      let tallahartLevel10MesoParams = { ...currentMesoParams }
+      let tallahartLevel10DropParams = { ...currentItemDropParams }
+      tallahartLevel10MesoParams.tallahartSymbolLevel = 10
+      tallahartLevel10DropParams.tallahartSymbolLevel = 10
+      
+      const tallahartLevel10HuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(tallahartLevel10MesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(tallahartLevel10DropParams).totalBonus
+      }
+      const tallahartLevel10Calc = calculateHuntingExpectation(tallahartLevel10HuntingParams)
+
+      // 탈라하트 심볼 0레벨 시 계산 (미개방)
+      let tallahartLevel0MesoParams = { ...currentMesoParams }
+      let tallahartLevel0DropParams = { ...currentItemDropParams }
+      tallahartLevel0MesoParams.tallahartSymbolLevel = 0
+      tallahartLevel0DropParams.tallahartSymbolLevel = 0
+      
+      const tallahartLevel0HuntingParams = {
+        ...currentHuntingParams,
+        mesoBonus: calculateMesoBonus(tallahartLevel0MesoParams).totalBonus,
+        dropRate: calculateItemDropBonus(tallahartLevel0DropParams).totalBonus
+      }
+      const tallahartLevel0Calc = calculateHuntingExpectation(tallahartLevel0HuntingParams)
+
+      return {
+        level1Increase: tallahartLevel1Calc.totalIncome - tallahartLevel0Calc.totalIncome, // 미개방 대비 1레벨 이득
+        level10Increase: tallahartLevel10Calc.totalIncome - result.totalIncome, // 현재 대비 10레벨 이득  
+        currentBenefit: result.totalIncome - tallahartLevel0Calc.totalIncome, // 현재 레벨 대비 0레벨(미개방) 이득
+        maxBenefit: tallahartLevel10Calc.totalIncome - tallahartLevel1Calc.totalIncome // 1레벨 대비 10레벨 이득
+      }
+    }
+
+    const tallahartBenefits = calculateTallahartSymbolBenefit()
 
     return {
       dropRateIncrease: dragonDropRateTotal - result.totalIncome,
-      mesoRateIncrease: dragonMesoRateTotal - result.totalIncome
+      mesoRateIncrease: dragonMesoRateTotal - result.totalIncome,
+      dropRateBenefitFromZero: calculateZeroPotentialBenefit('drop'),
+      mesoRateBenefitFromZero: calculateZeroPotentialBenefit('meso'),
+      ...unionBenefits,
+      ...abilityBenefits,
+      ...tallahartBenefits,
+      // 현재 파라미터들 노출
+      currentHuntingParams,
+      currentMesoParams,
+      currentItemDropParams
     }
-  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems])
+  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems, dropRatePotentialDirect, dropRatePotentialLines, dropRatePotentialMode, mesoPotentialDirect, mesoPotentialLines, mesoPotentialMode, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, phantomUnionMeso, dropItems, getCurrentInputs, dropRateAbility, mesoAbility, tallahartSymbolLevel, pcRoomMode, getMesoCalculationParams, getItemDropCalculationParams])
 
 
 
 
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
+    <>
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">{/* 메인 계산기 컨테이너 시작 */}
       {/* 슬롯 선택 UI */}
       <SlotHeader
         currentSlot={currentSlot}
@@ -1259,8 +1445,9 @@ export function BasicCalculator() {
         </div>
       )}
       
+      {/* 메인 그리드 컨테이너 시작 */}
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
-        {/* 사냥 정보 */}
+        {/* 사냥 정보 섹션 시작 */}
         <div className="lg:col-span-3 space-y-4">
           <h3 className="text-base font-semibold text-gray-800 border-b pb-2">사냥 정보</h3>
           
@@ -1282,6 +1469,7 @@ export function BasicCalculator() {
           />
 
           {/* 사냥량 설정 */}
+          {/* 사냥량 설정 영역 시작 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               사냥량
@@ -1506,10 +1694,10 @@ export function BasicCalculator() {
                  </div>
                </div>
              )}
-           </div>
+           </div>{/* 사냥량 설정 영역 끝 */}
 
           
-          {/* 드랍 아이템 관리 */}
+          {/* 드랍 아이템 관리 영역 시작 */}
           <div className="space-y-4 border-t pt-4 mt-4">
             {/* 경매장 수수료 */}
             <div>
@@ -1542,10 +1730,11 @@ export function BasicCalculator() {
               title="일반 드랍률 아이템"
               placeholder="아이템 이름"
             />
-          </div>
+          </div>{/* 드랍 아이템 관리 영역 끝 */}
         </div>
+        {/* 사냥 정보 섹션 끝 */}
 
-        {/* 스탯 정보 */}
+        {/* 스탯 정보 섹션 시작 */}
         <div className="lg:col-span-4 space-y-4">
           <h3 className="text-base font-semibold text-gray-800 border-b pb-2">스탯 정보</h3>
           
@@ -1616,7 +1805,7 @@ export function BasicCalculator() {
             )}
           </div>
 
-          {/* 아이템 드랍률 */}
+          {/* 아이템 드랍률 섹션 시작 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
@@ -1634,7 +1823,7 @@ export function BasicCalculator() {
                 />
                 <input
                   type="number"
-                  value={dropRateInputMode === 'direct' ? dropRate : calculateItemDropBonus()}
+                  value={dropRateInputMode === 'direct' ? dropRate : calculateItemDropBonus(getItemDropCalculationParams()).totalBonus}
                   onChange={(e) => {
                     if (dropRateInputMode === 'direct') {
                       setDropRate(Number(e.target.value))
@@ -1642,7 +1831,7 @@ export function BasicCalculator() {
                   }}
                   onClick={() => {
                     if (dropRateInputMode === 'detail') {
-                      setDropRate(calculateItemDropBonus())
+                      setDropRate(calculateItemDropBonus(getItemDropCalculationParams()).totalBonus)
                       setDropRateInputMode('direct')
                     }
                   }}
@@ -1656,7 +1845,7 @@ export function BasicCalculator() {
               </div>
             </div>
 
-            {/* 상세 옵션들 */}
+            {/* 아이템 드롭률 상세 옵션 영역 시작 */}
             <div className={`p-4 rounded-lg space-y-3 ${
               dropRateInputMode === 'direct' 
                 ? 'bg-gray-200 opacity-60' 
@@ -1772,8 +1961,8 @@ export function BasicCalculator() {
       </button>
       <button
         type="button"
-        onClick={() => setDropRateArtifactMode('direct')}
-        className={`px-2 py-1 text-sm rounded ${dropRateArtifactMode === 'direct' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+        onClick={() => setDropRateArtifactMode('percent')}
+        className={`px-2 py-1 text-sm rounded ${dropRateArtifactMode === 'percent' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
       >
         %
       </button>
@@ -1865,10 +2054,59 @@ export function BasicCalculator() {
                   orientation="horizontal"
                 />
               </div>
-            </div>
-          </div>
+              <div className="flex items-center justify-between"> {/* 탈라하트 심볼 섹션 시작 */}
+                <label className="text-sm text-gray-700">탈라하트 심볼</label>
+                <div className="flex items-center space-x-2">
+                  <NumberInput
+                    value={tallahartSymbolLevel}
+                    onChange={(value) => {
+                      setTallahartSymbolLevel(value)
+                      if (dropRateInputMode === 'direct') {
+                        setDropRateInputMode('detail')
+                      }
+                      if (mesoInputMode === 'direct') {
+                        setMesoInputMode('detail')
+                      }
+                    }}
+                    min={0}
+                    max={11}
+                    className="w-16"
+                  />
+                  <span className="text-sm text-gray-500">레벨</span>
+                  <span className="text-xs text-gray-400 w-12">
+                    ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
+                  </span>
+                </div>
+              </div> {/* 탈라하트 심볼 섹션 끝 */}
+              
+              {/* PC방 옵션 */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">PC방</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={pcRoomMode}
+                    onChange={(e) => {
+                      setPcRoomMode(e.target.checked)
+                      if (dropRateInputMode === 'direct') {
+                        setDropRateInputMode('detail')
+                      }
+                      if (mesoInputMode === 'direct') {
+                        setMesoInputMode('detail')
+                      }
+                    }}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-xs text-gray-400 w-12">
+                    10%
+                  </span>
+                </div>
+              </div>
+              
+            </div>{/* 아이템 드롭률 상세 옵션 영역 끝 */}  
+          </div>{/* 아이템 드랍률 섹션 끝 */}
 
-          {/* 메소 획득량 */}
+          {/* 메소 획득량 섹션 시작 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
@@ -1886,7 +2124,7 @@ export function BasicCalculator() {
                 />
                 <input
                   type="number"
-                  value={mesoInputMode === 'direct' ? mesoBonus : calculateMesoBonus()}
+                  value={mesoInputMode === 'direct' ? mesoBonus : calculateMesoBonus(getMesoCalculationParams()).totalBonus}
                   onChange={(e) => {
                     if (mesoInputMode === 'direct') {
                       setMesoBonus(Number(e.target.value))
@@ -1894,7 +2132,7 @@ export function BasicCalculator() {
                   }}
                   onClick={() => {
                     if (mesoInputMode === 'detail') {
-                      setMesoBonus(calculateMesoBonus())
+                      setMesoBonus(calculateMesoBonus(getMesoCalculationParams()).totalBonus)
                       setMesoInputMode('direct')
                     }
                   }}
@@ -1908,7 +2146,7 @@ export function BasicCalculator() {
               </div>
             </div>
 
-            {/* 상세 옵션들 */}
+            {/* 메소 획득량 상세 옵션 영역 시작 */}
             <div className={`p-4 rounded-lg space-y-3 ${
               mesoInputMode === 'direct' 
                 ? 'bg-gray-200 opacity-60' 
@@ -2032,7 +2270,7 @@ export function BasicCalculator() {
                 </div>
               </div>
 
-              {/* 유니온 아티팩트(메소) 레벨 */}
+              {/* 유니온 아티팩트(메획) 레벨 */}
               {globalBuffMode === 'union' && (
   <div className="flex items-center justify-between">
     <label className="text-sm text-gray-700">유니온 아티팩트</label>
@@ -2046,8 +2284,8 @@ export function BasicCalculator() {
       </button>
       <button
         type="button"
-        onClick={() => setMesoArtifactMode('direct')}
-        className={`px-2 py-1 text-sm rounded ${mesoArtifactMode === 'direct' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
+        onClick={() => setMesoArtifactMode('percent')}
+        className={`px-2 py-1 text-sm rounded ${mesoArtifactMode === 'percent' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'}`}
       >
         %
       </button>
@@ -2139,12 +2377,38 @@ export function BasicCalculator() {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+              <div className="flex items-center justify-between"> {/* 탈라하트 심볼 섹션 시작 */}
+                <label className="text-sm text-gray-700">탈라하트 심볼</label>
+                <div className="flex items-center space-x-2">
+                  <NumberInput
+                    value={tallahartSymbolLevel}
+                    onChange={(value) => {
+                      setTallahartSymbolLevel(value)
+                      if (mesoInputMode === 'direct') {
+                        setMesoInputMode('detail')
+                      }
+                      if (dropRateInputMode === 'direct') {
+                        setDropRateInputMode('detail')
+                      }
+                    }}
+                    min={0}
+                    max={11}
+                    className="w-16"
+                  />
+                  <span className="text-sm text-gray-500">레벨</span>
+                  <span className="text-xs text-gray-400 w-12">
+                    ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
+                  </span>
+                </div>
+              </div> {/* 탈라하트 심볼 섹션 끝 */}
+              
+            </div> {/* 메소 획득량 상세 옵션 영역 끝 */}
+          </div>{/* 메소 획득량 섹션 끝 */}
+        </div>{/* 스탯 정보 섹션 끝 */}
 
-        {/* 계산 결과 */}
+        {/* 계산 결과 섹션 시작 */}
         <div className="lg:col-span-4 space-y-4">
+          {/* 계산 결과 헤더 영역 시작 */}
           <div className="flex items-center justify-between border-b pb-2">
             <h3 className="text-base font-semibold text-gray-800">계산 결과</h3>
             <div className="flex items-center gap-3">
@@ -2166,10 +2430,10 @@ export function BasicCalculator() {
                 </button>
               )}
             </div>
-          </div>
+          </div>{/* 계산 결과 헤더 영역 끝 */}
         
-          {result ? (
-          <div className="space-y-4">
+          {result ? (<>
+          <div className="space-y-4"> {/* 계산 결과 내용 영역 시작 */}
             {/* 입력값 변경 경고 */}
             {!autoCalculate && hasInputsChanged() && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -2192,12 +2456,12 @@ export function BasicCalculator() {
             </div>
             <div className="text-center">
               <div className="text-gray-600">아이템 드롭률</div>
-              <div className="font-medium text-green-600">{calculateItemDropBonus()}%</div>
+              <div className="font-medium text-green-600">{calculateItemDropBonus(getItemDropCalculationParams()).totalBonus}%</div>
             </div>
             <div className="text-center">
               <div className="text-gray-600">메소 획득량</div>
               <div className="font-medium text-purple-600">
-                {calculateMesoBonus()}%
+                {calculateMesoBonus(getMesoCalculationParams()).totalBonus}%
               </div>
             </div>
           </div>
@@ -2218,19 +2482,12 @@ export function BasicCalculator() {
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
                        {(() => {
                          const inputs = getCurrentInputs()
-                         // 재획비를 제외한 메소 획득량 계산
-                         let mesoRateWithoutWealth = calculateMesoBonus()
-                         if (wealthAcquisitionPotion) {
-                           // 재획비 20% 곱연산 효과 제거
-                           mesoRateWithoutWealth = (1 + calculateMesoBonus() / 100) / 1.2 - 1
-                           mesoRateWithoutWealth *= 100
-                         }
-                         const levelPenalty = calculateLevelPenalty(inputs.characterLevel, inputs.monsterLevel)
+                         const mesoResult = calculateMesoBonus(getMesoCalculationParams())
                          const mesoDetails = getMesoCalculationDetails(
                            inputs.monsterLevel,
-                           mesoRateWithoutWealth,
+                           mesoResult.bonusWithoutWealth || 0,
                            wealthAcquisitionPotion,
-                           levelPenalty
+                           mesoResult.levelPenalty || 1
                          )
                          const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
                          return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)}${mesoDetails.levelPenalty !== 1 ? ` × ${mesoDetails.levelPenalty.toFixed(2)}(레벨 패널티)` : ''} × ${mesoDetails.wealthPotionMultiplier}${spottingSmallChangeBonus > 0 ? ` + ${spottingSmallChangeBonus}` : ''}`
@@ -2249,7 +2506,7 @@ export function BasicCalculator() {
                     </div>
                     <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-3 py-2 whitespace-nowrap z-10">
                        {(() => {
-                         const currentDropRate = calculateItemDropBonus()
+                         const currentDropRate = calculateItemDropBonus(getItemDropCalculationParams()).totalBonus
                          const solErdaResult = result?.dropItems.get(SOL_ERDA_FRAGMENT_ID)
                          if (!solErdaResult) return null
                          
@@ -2278,7 +2535,7 @@ export function BasicCalculator() {
                   // 메소 제한인 경우 실제 계산된 시간 사용
                   let displayTime = resultTime;
                   if (isCustomResultTime && resultTimeUnit === 'meso_limit') {
-                    displayTime = calculateMesoLimitTime(characterLevel, monsterLevel, monsterCount, huntTime, calculateMesoLimit)
+                    displayTime = calculateMesoLimitTime(characterLevel, monsterLevel, monsterCount, huntTime)
                   }
                   
                   return displayTime >= 60 && displayTime % 60 === 0 
@@ -2296,7 +2553,7 @@ export function BasicCalculator() {
                   
                   // 메소 제한인 경우 실제 계산된 몬스터 수 사용
                   if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
-    const mesoLimitTime = calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime, calculateMesoLimit)
+    const mesoLimitTime = calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime)
     return Math.floor(inputs.monsterCount / inputs.huntTime * mesoLimitTime)
   }
                   
@@ -2405,10 +2662,10 @@ export function BasicCalculator() {
               )}
             </div>
 
-            {/* 드메 추가 효과 */}
+            {/* TMI */}
             {(() => {
-              const dragonEffect = calculateDragonMercenaryEffect
-              if (!dragonEffect) return null
+              const tmiInfo = calculateTMIInfo
+              if (!tmiInfo) return null
 
               // 잠재능력 줄 수 기준으로 최대치 확인
               const currentItemPotentialLines = dropRatePotentialMode === 'lines' ? dropRatePotentialLines : Math.floor(dropRatePotentialDirect / 20)
@@ -2416,77 +2673,423 @@ export function BasicCalculator() {
               const isDropRateMaxed = currentItemPotentialLines >= 10 // 10줄
               const isMesoRateMaxed = currentMesoPotentialLines >= 5 // 5줄
 
-              // UI 표시용 현재 값들
-              const currentDropRate = calculateItemDropBonus()
-              const currentMesoRate = calculateMesoBonus()
+              // 유니온 아티팩트 & 팬텀 유니온 최대치 확인
+              const isDropArtifactMaxed = dropRateArtifactLevelInput >= 10 // 10레벨
+              const isMesoArtifactMaxed = mesoArtifactLevelInput >= 10 // 10레벨
+              const isPhantomUnionMaxed = phantomUnionMeso >= 5 // 5%
 
-              // 둘 다 최대치면 카드 자체를 숨김
-              if (isDropRateMaxed && isMesoRateMaxed) return null
+              // 어빌리티 종결 확인
+              const isDropAbilityFinished = dropRateAbility >= 20 && mesoAbility >= 15 // 드랍20% + 메소15%
+              const isMesoAbilityFinished = mesoAbility >= 20 && dropRateAbility >= 15 // 메소20% + 드랍15%
+              
+              // 어빌리티 종결 이익/손해 체크
+              const isDropAbilityLoss = tmiInfo.dropFinishIncrease < 0
+              const isMesoAbilityLoss = tmiInfo.mesoFinishIncrease < 0
 
-              const showDropRateSection = !isDropRateMaxed
-              const showMesoRateSection = !isMesoRateMaxed
-              const showRecommendation = showDropRateSection && showMesoRateSection
+              const showUnionEffects = globalBuffMode !== 'challenger'
 
               return (
-                <div className="bg-orange-50 p-4 rounded-lg border-2 border-orange-200">
-                  <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
-                    🐉 드메 추가?
+                <div className="bg-orange-50 p-3 rounded-lg border-2 border-orange-200">
+                  <h4 className="font-semibold text-orange-800 mb-2 flex items-center">
+                    💡 TMI
                   </h4>
-                  <div className="space-y-3">
-                    {showDropRateSection && (
-                      <div className="bg-white p-3 rounded-md border border-orange-200">
-                        <h5 className="text-sm font-medium text-orange-700 mb-1">아이템 드랍률 +20%</h5>
-                        <p className="text-sm text-orange-600">
-                          현재 드랍률: <span className="font-medium">{formatDecimal(currentDropRate, 0)}%</span> → <span className="font-medium">{formatDecimal(currentDropRate + 20, 0)}%</span>
-                        </p>
-                        <p className="text-lg font-bold text-orange-600 mt-1">
-                          수익 증가: <span className={dragonEffect.dropRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            {dragonEffect.dropRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(dragonEffect.dropRateIncrease)} 메소
-                          </span>
-                        </p>
+                  <div className="space-y-2">
+                    {/* 잠재 줄 - 드랍/메획 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 드랍률 잠재 카드 */}
+                      <div className={`p-2 rounded border ${isDropRateMaxed ? 'bg-gray-100 border-gray-300' : 'bg-white border-orange-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${isDropRateMaxed ? 'text-gray-500' : 'text-orange-700'}`}>
+                          아이템 드랍 잠재 {isDropRateMaxed ? '(완료)' : '+1줄'}
+                        </h5>
+                        {isDropRateMaxed ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">
+                              이미 최대치 달성
+                            </p>
+                            <p className="text-sm font-bold text-gray-500">
+                              0줄 대비 +{formatMesoWithKorean(tmiInfo.dropRateBenefitFromZero)} 이득
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">
+                              채용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.dropRateIncrease)}
+                            </p>
+                            <p className="text-sm font-bold">
+                              <span className={tmiInfo.dropRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {tmiInfo.dropRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.dropRateIncrease)} 증가
+                              </span>
+                            </p>
+                          </>
+                        )}
                       </div>
-                    )}
-                    
-                    {showMesoRateSection && (
-                      <div className="bg-white p-3 rounded-md border border-orange-200">
-                        <h5 className="text-sm font-medium text-orange-700 mb-1">메소 획득량 +20%</h5>
-                        <p className="text-sm text-orange-600">
-                          현재 메소 획득량: <span className="font-medium">{formatDecimal(currentMesoRate, 0)}%</span> → <span className="font-medium">{formatDecimal(currentMesoRate + (wealthAcquisitionPotion ? 24 : 20), 0)}%</span>
-                        </p>
-                        <p className="text-lg font-bold text-orange-600 mt-1">
-                          수익 증가: <span className={dragonEffect.mesoRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                            {dragonEffect.mesoRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(dragonEffect.mesoRateIncrease)} 메소
-                          </span>
-                        </p>
+
+                      {/* 메소 잠재 카드 */}
+                      <div className={`p-2 rounded border ${isMesoRateMaxed ? 'bg-gray-100 border-gray-300' : 'bg-white border-orange-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${isMesoRateMaxed ? 'text-gray-500' : 'text-orange-700'}`}>
+                          메소 획득량 잠재 {isMesoRateMaxed ? '(완료)' : '+1줄'}
+                        </h5>
+                        {isMesoRateMaxed ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">
+                              이미 최대치 달성
+                            </p>
+                            <p className="text-sm font-bold text-gray-500">
+                              0줄 대비 +{formatMesoWithKorean(tmiInfo.mesoRateBenefitFromZero)} 이득
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">
+                              채용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.mesoRateIncrease)}
+                            </p>
+                            <p className="text-sm font-bold">
+                              <span className={tmiInfo.mesoRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {tmiInfo.mesoRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.mesoRateIncrease)} 증가
+                              </span>
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 잠재 추천 */}
+                    <div className="bg-gradient-to-r from-orange-100 to-yellow-100 p-2 rounded border border-orange-300">
+                      <h5 className="text-xs font-medium text-orange-800 mb-1">💡 추천</h5>
+                      <p className="text-xs text-orange-700">
+                        {isDropRateMaxed && isMesoRateMaxed 
+                          ? "와, 이미 풀드메네요! 🎉"
+                          : isDropRateMaxed && !isMesoRateMaxed
+                          ? "드랍률은 완료! 이제 메소 획득량을 챙겨보세요"
+                          : !isDropRateMaxed && isMesoRateMaxed  
+                          ? "메소 획득량은 완료! 이제 드랍률을 챙겨보세요"
+                          : tmiInfo.dropRateIncrease > tmiInfo.mesoRateIncrease 
+                          ? "드랍률 증가가 더 효율적" 
+                          : tmiInfo.mesoRateIncrease > tmiInfo.dropRateIncrease
+                          ? "메소 획득량 증가가 더 효율적"
+                          : "두 효과 수익 비슷"}
+                      </p>
+                    </div>
+
+                    {/* 유니온 줄 - 행운/부 */}
+                    {showUnionEffects && (() => {
+                      const unionDropEffect = calculateWithUnionEffect(true, 'drop', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
+                      const unionMesoEffect = calculateWithUnionEffect(true, 'meso', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
+                      
+                      if (!unionDropEffect || !unionMesoEffect) return null
+                      
+                      const unionDropBenefit = unionDropEffect.totalIncome - result.totalIncome
+                      const unionMesoBenefit = unionMesoEffect.totalIncome - result.totalIncome
+                      
+                      return (
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* 유니온의 행운 카드 */}
+                          <div className={`p-2 rounded border ${dropRateUnionBuff ? 'bg-gray-100 border-gray-300' : 'bg-blue-50 border-blue-200'}`}>
+                            <h5 className={`text-xs font-medium mb-1 ${dropRateUnionBuff ? 'text-gray-500' : 'text-blue-700'}`}>
+                              💫 유니온의 행운 {dropRateUnionBuff ? '(사용중)' : ''}
+                            </h5>
+                            {dropRateUnionBuff ? (
+                              <>
+                                <p className="text-xs text-gray-500 mb-1">
+                                  현재 사용 중
+                                </p>
+                                <p className="text-sm font-bold text-gray-500">
+                                  미사용 대비 +{formatMesoWithKorean(Math.abs(unionDropBenefit))} 이득
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs text-gray-600 mb-1">
+                                  사용 시 기댓값: {formatMesoWithKorean(unionDropEffect.totalIncome)}
+                                </p>
+                                <p className="text-sm font-bold">
+                                  <span className={unionDropBenefit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    사용하면 {unionDropBenefit >= 0 ? '+' : ''}{formatMesoWithKorean(unionDropBenefit)} 증가
+                                  </span>
+                                </p>
+                              </>
+                            )}
+                          </div>
+
+                          {/* 유니온의 부 카드 */}
+                          <div className={`p-2 rounded border ${mesoUnionBuff ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
+                            <h5 className={`text-xs font-medium mb-1 ${mesoUnionBuff ? 'text-gray-500' : 'text-purple-700'}`}>
+                              💰 유니온의 부 {mesoUnionBuff ? '(사용중)' : ''}
+                            </h5>
+                            {mesoUnionBuff ? (
+                              <>
+                                <p className="text-xs text-gray-500 mb-1">
+                                  현재 사용 중
+                                </p>
+                                <p className="text-sm font-bold text-gray-500">
+                                  미사용 대비 +{formatMesoWithKorean(Math.abs(unionMesoBenefit))} 이득
+                                </p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs text-gray-600 mb-1">
+                                  사용 시 기댓값: {formatMesoWithKorean(unionMesoEffect.totalIncome)}
+                                </p>
+                                <p className="text-sm font-bold">
+                                  <span className={unionMesoBenefit >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                    사용하면 {unionMesoBenefit >= 0 ? '+' : ''}{formatMesoWithKorean(unionMesoBenefit)} 증가
+                                  </span>
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* 유니온 아티팩트 줄 - 드랍/메소 */}
+                    {showUnionEffects && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* 드랍률 유니온 아티팩트 카드 */}
+                        <div className={`p-2 rounded border ${isDropArtifactMaxed ? 'bg-gray-100 border-gray-300' : 'bg-green-50 border-green-200'}`}>
+                          <h5 className={`text-xs font-medium mb-1 ${isDropArtifactMaxed ? 'text-gray-500' : 'text-green-700'}`}>
+                            🔮 유니온 아티팩트(드랍) {isDropArtifactMaxed ? '(완료)' : ''}
+                          </h5>
+                          {isDropArtifactMaxed ? (
+                            <>
+                              <p className="text-xs text-gray-500 mb-1">
+                                이미 10레벨 달성
+                              </p>
+                              <p className="text-sm font-bold text-gray-500">
+                                0레벨 대비 +{formatMesoWithKorean(tmiInfo.currentDropArtifactBenefit)} 이득
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs text-gray-600 mb-1">
+                                10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxDropArtifactIncrease)}
+                              </p>
+                              <p className="text-sm font-bold">
+                                <span className={tmiInfo.maxDropArtifactIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  10레벨 달성 시 {tmiInfo.maxDropArtifactIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxDropArtifactIncrease)} 증가
+                                </span>
+                              </p>
+                            </>
+                          )}
+                        </div>
+
+                        {/* 메획 유니온 아티팩트 카드 */}
+                        <div className={`p-2 rounded border ${isMesoArtifactMaxed ? 'bg-gray-100 border-gray-300' : 'bg-yellow-50 border-yellow-200'}`}>
+                          <h5 className={`text-xs font-medium mb-1 ${isMesoArtifactMaxed ? 'text-gray-500' : 'text-yellow-700'}`}>
+                            🔮 유니온 아티팩트(메획) {isMesoArtifactMaxed ? '(완료)' : ''}
+                          </h5>
+                          {isMesoArtifactMaxed ? (
+                            <>
+                              <p className="text-xs text-gray-500 mb-1">
+                                이미 10레벨 달성
+                              </p>
+                              <p className="text-sm font-bold text-gray-500">
+                                0레벨 대비 +{formatMesoWithKorean(tmiInfo.currentMesoArtifactBenefit)} 이득
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs text-gray-600 mb-1">
+                                10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxMesoArtifactIncrease)}
+                              </p>
+                              <p className="text-sm font-bold">
+                                <span className={tmiInfo.maxMesoArtifactIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  10레벨 달성 시 {tmiInfo.maxMesoArtifactIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxMesoArtifactIncrease)} 증가
+                                </span>
+                              </p>
+                            </>
+                          )}
+                        </div>
                       </div>
                     )}
 
-                    {showRecommendation && (
-                      <div className="bg-gradient-to-r from-orange-100 to-yellow-100 p-3 rounded-md border border-orange-300">
-                        <h5 className="text-sm font-medium text-orange-800 mb-1">💡 추천</h5>
-                        <p className="text-sm text-orange-700">
-                          {dragonEffect.dropRateIncrease > dragonEffect.mesoRateIncrease 
-                            ? "드랍률 증가가 더 효율적입니다!" 
-                            : dragonEffect.mesoRateIncrease > dragonEffect.dropRateIncrease
-                            ? "메소 획득량 증가가 더 효율적입니다! 보스 전리품 드랍의 가치는 배제된 것임에 유의하세요."
-                            : "두 효과의 수익이 비슷합니다. 취향에 따라 선택하세요!"}
-                        </p>
+                    {/* 팬텀 유니온 줄 */}
+                    {showUnionEffects && (
+                      <div className="grid grid-cols-1 gap-2">
+                        {/* 팬텀 유니온 카드 */}
+                        <div className={`p-2 rounded border ${isPhantomUnionMaxed ? 'bg-gray-100 border-gray-300' : 'bg-pink-50 border-pink-200'}`}>
+                          <h5 className={`text-xs font-medium mb-1 ${isPhantomUnionMaxed ? 'text-gray-500' : 'text-pink-700'}`}>
+                            👻 팬텀 유니온 {isPhantomUnionMaxed ? '(완료)' : ''}
+                          </h5>
+                          {isPhantomUnionMaxed ? (
+                            <>
+                              <p className="text-xs text-gray-500 mb-1">
+                                이미 5% 달성
+                              </p>
+                              <p className="text-sm font-bold text-gray-500">
+                                0% 대비 +{formatMesoWithKorean(tmiInfo.currentPhantomUnionBenefit)} 이득
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs text-gray-600 mb-1">
+                                5% 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxPhantomUnionIncrease)}
+                              </p>
+                              <p className="text-sm font-bold">
+                                <span className={tmiInfo.maxPhantomUnionIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  최대치(5%) 달성 시 {tmiInfo.maxPhantomUnionIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxPhantomUnionIncrease)} 증가
+                                </span>
+                              </p>
+                            </>
+                          )}
+                        </div>
                       </div>
                     )}
+
+                    {/* 어빌리티 종결 줄 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 어빌리티 종결(드랍) 카드 */}
+                      <div className={`p-2 rounded border ${
+                        isDropAbilityFinished || isDropAbilityLoss
+                          ? 'bg-gray-100 border-gray-300' 
+                          : 'bg-indigo-50 border-indigo-200'
+                      }`}>
+                        <h5 className={`text-xs font-medium mb-1 flex items-center ${
+                          isDropAbilityFinished || isDropAbilityLoss
+                            ? 'text-gray-500' 
+                            : 'text-indigo-700'
+                        }`}>
+                          ⚡ 어빌리티 종결(드랍) {isDropAbilityFinished ? '(완료)' : ''}
+                          <div className="relative ml-1 group">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs cursor-help ${
+                              isDropAbilityFinished || isDropAbilityLoss
+                                ? 'bg-gray-400 text-white' 
+                                : 'bg-blue-500 text-white'
+                            }`}>
+                              ?
+                            </div>
+                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-max max-w-48 z-10">
+                              드랍률 어빌리티 20%<br />+ 메소 획득량 어빌리티 15%
+                            </div>
+                          </div>
+                        </h5>
+                        {isDropAbilityFinished ? (
+                          <p className="text-sm font-bold text-gray-500">
+                            어빌리티로 {formatMesoWithKorean(tmiInfo.currentAbilityBenefit)} 이득
+                          </p>
+                        ) : isDropAbilityLoss ? (
+                          <p className="text-sm font-bold" style={{color: '#8b6b6b'}}>
+                            변경 시 {formatMesoWithKorean(Math.abs(tmiInfo.dropFinishIncrease))} 손해
+                          </p>
+                        ) : (
+                          <p className="text-sm font-bold text-green-600">
+                            달성 시 {formatMesoWithKorean(tmiInfo.dropFinishIncrease)} 이득
+                          </p>
+                        )}
+                      </div>
+
+                      {/* 어빌리티 종결(메획) 카드 */}
+                      <div className={`p-2 rounded border ${
+                        isMesoAbilityFinished || isMesoAbilityLoss
+                          ? 'bg-gray-100 border-gray-300' 
+                          : 'bg-teal-50 border-teal-200'
+                      }`}>
+                        <h5 className={`text-xs font-medium mb-1 flex items-center ${
+                          isMesoAbilityFinished || isMesoAbilityLoss
+                            ? 'text-gray-500' 
+                            : 'text-teal-700'
+                        }`}>
+                          ⚡ 어빌리티 종결(메획) {isMesoAbilityFinished ? '(완료)' : ''}
+                          <div className="relative ml-1 group">
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs cursor-help ${
+                              isMesoAbilityFinished || isMesoAbilityLoss
+                                ? 'bg-gray-400 text-white' 
+                                : 'bg-blue-500 text-white'
+                            }`}>
+                              ?
+                            </div>
+                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-max max-w-48 z-10">
+                              메소 획득량 어빌리티 20%<br />+ 드랍률 어빌리티 15%
+                            </div>
+                          </div>
+                        </h5>
+                        {isMesoAbilityFinished ? (
+                          <p className="text-sm font-bold text-gray-500">
+                            어빌리티로 {formatMesoWithKorean(tmiInfo.currentAbilityBenefit)} 이득
+                          </p>
+                        ) : isMesoAbilityLoss ? (
+                          <p className="text-sm font-bold" style={{color: '#8b6b6b'}}>
+                            변경 시 {formatMesoWithKorean(Math.abs(tmiInfo.mesoFinishIncrease))} 손해
+                          </p>
+                        ) : (
+                          <p className="text-sm font-bold text-green-600">
+                            달성 시 {formatMesoWithKorean(tmiInfo.mesoFinishIncrease)} 이득
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 탈라하트 심볼 줄 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 탈라하트 심볼 개방 시 카드 */}
+                      <div className={`p-2 rounded border ${tallahartSymbolLevel > 0 ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel > 0 ? 'text-gray-500' : 'text-purple-700'}`}>
+                          🌟 탈라하트 심볼 개방 {tallahartSymbolLevel > 0 ? '(완료)' : ''}
+                        </h5>
+                        {tallahartSymbolLevel > 0 ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">
+                              이미 {tallahartSymbolLevel}레벨 달성
+                            </p>
+                            <p className="text-sm font-bold text-gray-500">
+                              미개방 대비 +{formatMesoWithKorean(tmiInfo.currentBenefit)} 이득
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">
+                              1레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.level1Increase)}
+                            </p>
+                            <p className="text-sm font-bold">
+                              <span className={tmiInfo.level1Increase >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                개방 시 {tmiInfo.level1Increase >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.level1Increase)} 증가
+                              </span>
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* 탈라하트 심볼 만렙 카드 */}
+                      <div className={`p-2 rounded border ${tallahartSymbolLevel >= 10 ? 'bg-gray-100 border-gray-300' : 'bg-amber-50 border-amber-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel >= 10 ? 'text-gray-500' : 'text-amber-700'}`}>
+                          ⭐ 탈라하트 심볼 만렙 {tallahartSymbolLevel >= 10 ? '(완료)' : ''}
+                        </h5>
+                        {tallahartSymbolLevel >= 10 ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">
+                              이미 10레벨 달성
+                            </p>
+                            <p className="text-sm font-bold text-gray-500">
+                              1레벨 대비 +{formatMesoWithKorean(tmiInfo.maxBenefit)} 이득
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">
+                              10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.level10Increase)}
+                            </p>
+                            <p className="text-sm font-bold">
+                              <span className={tmiInfo.level10Increase >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                만렙 달성 시 {tmiInfo.level10Increase >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.level10Increase)} 증가
+                              </span>
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )
             })()}
-          </div>
-        ) : (
-          <div className="text-center text-gray-500 py-8">
+          </div>{/* 계산 결과 내용 영역 끝 */}
+        </>) : (
+          <div className="text-center text-gray-500 py-8"> {/* 계산 결과 없음 표시 영역 */}
             <p>{autoCalculate ? '값을 입력하면 자동으로 계산됩니다' : '계산하기 버튼을 눌러서 결과를 확인하세요'}</p>
           </div>
         )}
-        </div>
-      </div>
+        </div> {/* 계산 결과 섹션 끝 */}
+      </div> {/* 메인 그리드 컨테이너 끝 */}
 
-      {/* 미저장 변경사항 경고 모달 */}
       {showUnsavedWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -2520,6 +3123,9 @@ export function BasicCalculator() {
           </div>
         </div>
       )}
-    </div>
+      </div>{/* 메인 계산기 컨테이너 끝 */}
+    </>
   )
-} 
+}
+
+export default BasicCalculator 
