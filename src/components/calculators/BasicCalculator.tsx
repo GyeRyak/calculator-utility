@@ -1213,6 +1213,15 @@ export function BasicCalculator() {
         onReset={resetAll}
       />
       
+      {/* 데이터 출처 안내 */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <p className="text-sm text-blue-800">
+          💡 이 계산기의 기본 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다. 
+          <a href="/about" className="text-blue-600 hover:text-blue-800 underline ml-1">
+            자세한 출처 정보 보기 →
+          </a>
+        </p>
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">
         {/* 사냥 정보 */}
