@@ -12,10 +12,10 @@ import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem 
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 
-// 드랍 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
+// 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
-  type: 'normal' | 'log' // 일반 드랍률 또는 로그 드랍률
-  dropRate: number // 로그 드랍률 아이템에도 필수로 추가
+  type: 'normal' | 'log' // 일반 드롭률 또는 로그 드롭률
+  dropRate: number // 로그 드롭률 아이템에도 필수로 추가
 }
 
 
@@ -34,8 +34,8 @@ interface CalculationResult {
     item: DropItem
     expectedCount: number
     expectedValue: number
-    actualDropRate: number // 실제 드랍률 (드랍률 증가 효과 적용)
-    dropMultiplier: number // 드랍률 배수
+    actualDropRate: number // 실제 드롭률 (드롭률 증가 효과 적용)
+    dropMultiplier: number // 드롭률 배수
   }>
 }
 
@@ -56,8 +56,8 @@ interface CalculationInputs {
   characterLevel: number
   mesoInputMode: string
   dropRateInputMode: string
-  mesoUnionBuff: boolean
-  phantomUnionMeso: number
+  mesoLegionBuff: boolean
+  phantomLegionMeso: number
   mesoPotentialMode: string
   mesoPotentialLines: number
   mesoPotentialDirect: number
@@ -67,7 +67,7 @@ interface CalculationInputs {
   mesoArtifactMode: string
   mesoArtifactLevelInput: number
   mesoArtifactPercentInput: number
-  dropRateUnionBuff: boolean
+  dropRateLegionBuff: boolean
   dropRatePotentialMode: string
   dropRatePotentialLines: number
   dropRatePotentialDirect: number
@@ -77,8 +77,8 @@ interface CalculationInputs {
   dropRateArtifactLevelInput: number
   dropRateArtifactPercentInput: number
   holySymbol: boolean
-  usefulHolySymbol: boolean
-  usefulHolySymbolLevel: number
+  decentHolySymbol: boolean
+  decentHolySymbolLevel: number
   wealthAcquisitionPotion: boolean
   showWealthPotionCost: boolean
   wealthAcquisitionPotionPrice: number
@@ -106,8 +106,8 @@ const DEFAULT_VALUES = {
   customResultTimeValue: 30,
   mesoInputMode: 'detail',
   dropRateInputMode: 'detail',
-  mesoUnionBuff: false,
-  phantomUnionMeso: 4,
+  mesoLegionBuff: false,
+  phantomLegionMeso: 4,
   mesoPotentialMode: 'lines',
   mesoPotentialLines: 0,
   mesoPotentialDirect: 0,
@@ -117,7 +117,7 @@ const DEFAULT_VALUES = {
   mesoArtifactMode: 'level',
   mesoArtifactLevelInput: 10,
   mesoArtifactPercentInput: 12,
-  dropRateUnionBuff: false,
+  dropRateLegionBuff: false,
   dropRatePotentialMode: 'lines',
   dropRatePotentialLines: 0,
   dropRatePotentialDirect: 0,
@@ -127,8 +127,8 @@ const DEFAULT_VALUES = {
   dropRateArtifactLevelInput: 10,
   dropRateArtifactPercentInput: 12,
   holySymbol: false,
-  usefulHolySymbol: true,
-  usefulHolySymbolLevel: 30,
+  decentHolySymbol: true,
+  decentHolySymbolLevel: 30,
   wealthAcquisitionPotion: true,
   spottingSmallChange: true,
   spottingSmallChangeLevel: 3,
@@ -168,8 +168,8 @@ const createCalculationInputsFromSettings = (settings: any): CalculationInputs =
     customResultTimeValue: settings.customResultTimeValue ?? DEFAULT_VALUES.customResultTimeValue,
     mesoInputMode: settings.mesoInputMode ?? DEFAULT_VALUES.mesoInputMode,
     dropRateInputMode: settings.dropRateInputMode ?? settings.itemDropInputMode ?? DEFAULT_VALUES.dropRateInputMode,
-    mesoUnionBuff: settings.mesoUnionBuff ?? DEFAULT_VALUES.mesoUnionBuff,
-    phantomUnionMeso: settings.phantomUnionMeso ?? DEFAULT_VALUES.phantomUnionMeso,
+    mesoLegionBuff: settings.mesoLegionBuff ?? DEFAULT_VALUES.mesoLegionBuff,
+    phantomLegionMeso: settings.phantomLegionMeso ?? DEFAULT_VALUES.phantomLegionMeso,
     mesoPotentialMode: settings.mesoPotentialMode ?? DEFAULT_VALUES.mesoPotentialMode,
     mesoPotentialLines: settings.mesoPotentialLines ?? DEFAULT_VALUES.mesoPotentialLines,
     mesoPotentialDirect: settings.mesoPotentialDirect ?? DEFAULT_VALUES.mesoPotentialDirect,
@@ -179,7 +179,7 @@ const createCalculationInputsFromSettings = (settings: any): CalculationInputs =
     mesoArtifactMode: settings.mesoArtifactMode ?? DEFAULT_VALUES.mesoArtifactMode,
     mesoArtifactLevelInput: settings.mesoArtifactLevelInput ?? DEFAULT_VALUES.mesoArtifactLevelInput,
     mesoArtifactPercentInput: settings.mesoArtifactPercentInput ?? DEFAULT_VALUES.mesoArtifactPercentInput,
-    dropRateUnionBuff: settings.dropRateUnionBuff ?? DEFAULT_VALUES.dropRateUnionBuff,
+    dropRateLegionBuff: settings.dropRateLegionBuff ?? DEFAULT_VALUES.dropRateLegionBuff,
     dropRatePotentialMode: settings.dropRatePotentialMode ?? DEFAULT_VALUES.dropRatePotentialMode,
     dropRatePotentialLines: settings.dropRatePotentialLines ?? DEFAULT_VALUES.dropRatePotentialLines,
     dropRatePotentialDirect: settings.dropRatePotentialDirect ?? DEFAULT_VALUES.dropRatePotentialDirect,
@@ -189,8 +189,8 @@ const createCalculationInputsFromSettings = (settings: any): CalculationInputs =
     dropRateArtifactLevelInput: settings.dropRateArtifactLevelInput ?? DEFAULT_VALUES.dropRateArtifactLevelInput,
     dropRateArtifactPercentInput: settings.dropRateArtifactPercentInput ?? DEFAULT_VALUES.dropRateArtifactPercentInput,
     holySymbol: settings.holySymbol ?? DEFAULT_VALUES.holySymbol,
-    usefulHolySymbol: settings.usefulHolySymbol ?? DEFAULT_VALUES.usefulHolySymbol,
-    usefulHolySymbolLevel: settings.usefulHolySymbolLevel ?? DEFAULT_VALUES.usefulHolySymbolLevel,
+    decentHolySymbol: settings.decentHolySymbol ?? DEFAULT_VALUES.decentHolySymbol,
+    decentHolySymbolLevel: settings.decentHolySymbolLevel ?? DEFAULT_VALUES.decentHolySymbolLevel,
     wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? DEFAULT_VALUES.wealthAcquisitionPotion,
     showWealthPotionCost: settings.showWealthPotionCost ?? DEFAULT_VALUES.showWealthPotionCost,
     wealthAcquisitionPotionPrice: settings.wealthAcquisitionPotionPrice ?? DEFAULT_VALUES.wealthAcquisitionPotionPrice,
@@ -305,9 +305,9 @@ export function BasicCalculator() {
   const [mesoInputMode, setMesoInputMode] = useState<'direct' | 'detail'>('detail')
   const [dropRateInputMode, setDropRateInputMode] = useState<'direct' | 'detail'>('detail')
   
-  // 메소 획득량 상세 옵션
-  const [mesoUnionBuff, setMesoUnionBuff] = useState<boolean>(false) // 유니온의 부
-  const [phantomUnionMeso, setPhantomUnionMeso] = useState<number>(4) // 팬텀 유니온 (0~5%, 기본 4%)
+  // 메획 상세 옵션
+  const [mesoLegionBuff, setMesoLegionBuff] = useState<boolean>(false) // 유니온의 부
+  const [phantomLegionMeso, setPhantomLegionMeso] = useState<number>(4) // 팬텀 유니온 (0~5%, 기본 4%)
   const [mesoPotentialMode, setMesoPotentialMode] = useState<'lines' | 'direct'>('lines')
   const [mesoPotentialLines, setMesoPotentialLines] = useState<number>(0)
   const [mesoPotentialDirect, setMesoPotentialDirect] = useState<number>(0)
@@ -319,7 +319,7 @@ export function BasicCalculator() {
   const [mesoArtifactPercentInput, setMesoArtifactPercentInput] = useState<number>(12)
   const [mesoOtherBuff, setMesoOtherBuff] = useState<number>(0) // 메소 기타 버프
   const [mesoOtherNonBuff, setMesoOtherNonBuff] = useState<number>(0) // 메소 기타 증가량
-  const [dropRateUnionBuff, setDropRateUnionBuff] = useState<boolean>(false) // 유니온의 행운
+  const [dropRateLegionBuff, setDropRateLegionBuff] = useState<boolean>(false) // 유니온의 행운
   const [pcRoomMode, setPcRoomMode] = useState<boolean>(false) // PC방 드롭률 10%
   const [dropRatePotentialMode, setDropRatePotentialMode] = useState<'lines' | 'direct'>('lines')
   const [dropRatePotentialLines, setDropRatePotentialLines] = useState<number>(0) // Drop Rate 0줄
@@ -329,11 +329,11 @@ export function BasicCalculator() {
   const [dropRateArtifactMode, setDropRateArtifactMode] = useState<'level' | 'percent'>('level')
   const [dropRateArtifactLevelInput, setDropRateArtifactLevelInput] = useState<number>(10)
   const [dropRateArtifactPercentInput, setDropRateArtifactPercentInput] = useState<number>(12)
-  const [dropRateOtherBuff, setDropRateOtherBuff] = useState<number>(0) // 드랍률 기타 버프
-  const [dropRateOtherNonBuff, setDropRateOtherNonBuff] = useState<number>(0) // 드랍률 기타 증가량
+  const [dropRateOtherBuff, setDropRateOtherBuff] = useState<number>(0) // 드롭률 기타 버프
+  const [dropRateOtherNonBuff, setDropRateOtherNonBuff] = useState<number>(0) // 드롭률 기타 증가량
   const [holySymbol, setHolySymbol] = useState<boolean>(false)
-  const [usefulHolySymbol, setUsefulHolySymbol] = useState<boolean>(true)
-  const [usefulHolySymbolLevel, setUsefulHolySymbolLevel] = useState<number>(30)
+  const [decentHolySymbol, setDecentHolySymbol] = useState<boolean>(true)
+  const [decentHolySymbolLevel, setDecentHolySymbolLevel] = useState<number>(30)
   
   // Spotting Small Change
   const [spottingSmallChange, setSpottingSmallChange] = useState<boolean>(true)
@@ -365,11 +365,11 @@ export function BasicCalculator() {
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [calculatedInputs, setCalculatedInputs] = useState<CalculationInputs | null>(null)
   
-  // 드랍 아이템 상태 (일반 드랍률과 로그 드랍률로 분리)
+  // 드롭 아이템 상태 (일반 드롭률과 로그 드롭률로 분리)
   const [normalDropItems, setNormalDropItems] = useState<UIDropItem[]>(DEFAULT_VALUES.normalDropItems)
   const [logDropItems, setLogDropItems] = useState<UIDropItem[]>(DEFAULT_VALUES.logDropItems)
   
-  // 전체 드랍 아이템 (계산용)
+  // 전체 드롭 아이템 (계산용)
   const dropItems: DropItem[] = useMemo(() => [
     ...normalDropItems.map(item => ({ ...item, type: 'normal' as const, dropRate: item.dropRate || 0 })),
     ...logDropItems.map(item => ({ ...item, type: 'log' as const, dropRate: item.dropRate || 0 }))
@@ -382,8 +382,8 @@ export function BasicCalculator() {
     dropRate: setDropRate,
     mesoInputMode: setMesoInputMode,
     dropRateInputMode: setDropRateInputMode,
-    mesoUnionBuff: setMesoUnionBuff,
-    phantomUnionMeso: setPhantomUnionMeso,
+    mesoLegionBuff: setMesoLegionBuff,
+    phantomLegionMeso: setPhantomLegionMeso,
     mesoPotentialMode: setMesoPotentialMode,
     mesoPotentialLines: setMesoPotentialLines,
     mesoPotentialDirect: setMesoPotentialDirect,
@@ -393,7 +393,7 @@ export function BasicCalculator() {
     mesoArtifactMode: setMesoArtifactMode,
     mesoArtifactLevelInput: setMesoArtifactLevelInput,
     mesoArtifactPercentInput: setMesoArtifactPercentInput,
-    dropRateUnionBuff: setDropRateUnionBuff,
+    dropRateLegionBuff: setDropRateLegionBuff,
     dropRatePotentialMode: setDropRatePotentialMode,
     dropRatePotentialLines: setDropRatePotentialLines,
     dropRatePotentialDirect: setDropRatePotentialDirect,
@@ -403,8 +403,8 @@ export function BasicCalculator() {
     dropRateArtifactLevelInput: setDropRateArtifactLevelInput,
     dropRateArtifactPercentInput: setDropRateArtifactPercentInput,
     holySymbol: setHolySymbol,
-    usefulHolySymbol: setUsefulHolySymbol,
-    usefulHolySymbolLevel: setUsefulHolySymbolLevel,
+    decentHolySymbol: setDecentHolySymbol,
+    decentHolySymbolLevel: setDecentHolySymbolLevel,
     wealthAcquisitionPotion: setWealthAcquisitionPotion,
     spottingSmallChange: setSpottingSmallChange,
     spottingSmallChangeLevel: setSpottingSmallChangeLevel,
@@ -729,14 +729,14 @@ export function BasicCalculator() {
     monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime,
     feeRate, isCustomHuntTime, huntTimeUnit,
     customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue,
-    characterLevel, mesoInputMode, dropRateInputMode, mesoUnionBuff,
-    phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect,
+    characterLevel, mesoInputMode, dropRateInputMode, mesoLegionBuff,
+    phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect,
     mesoAbility, globalBuffMode, mesoArtifactLevel, mesoArtifactMode,
-    mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateUnionBuff,
+    mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateLegionBuff,
     dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect,
     dropRateAbility, dropRateArtifactLevel, dropRateArtifactMode,
     dropRateArtifactLevelInput, dropRateArtifactPercentInput, holySymbol,
-    usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion,
+    decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion,
     showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
     spottingSmallChangeLevel, tallahartSymbolLevel, dropItems,
     normalDropItems: normalDropItems
@@ -794,7 +794,7 @@ export function BasicCalculator() {
     })
     
     return nameChanged || valuesChanged
-  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, isLoadingSlot, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
+  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, isLoadingSlot, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
 
   // 슬롯 전환 처리 함수
   const handleSlotChange = (slotNumber: number) => {
@@ -857,13 +857,13 @@ export function BasicCalculator() {
   }
 
 
-  // 메소 획득량 계산 파라미터 생성
+  // 메획 계산 파라미터 생성
   const getMesoCalculationParams = (): MesoCalculationParams => ({
     inputMode: mesoInputMode,
     directValue: mesoBonus,
     globalBuffMode: globalBuffMode,
-    unionBuff: mesoUnionBuff,
-    phantomUnionMeso: phantomUnionMeso,
+    unionBuff: mesoLegionBuff,
+    phantomLegionMeso: phantomLegionMeso,
     potentialMode: mesoPotentialMode,
     potentialLines: mesoPotentialLines,
     potentialDirect: mesoPotentialDirect,
@@ -879,12 +879,12 @@ export function BasicCalculator() {
     monsterLevel: monsterLevel
   })
 
-  // 아이템 드랍률 계산 파라미터 생성
+  // 아드 계산 파라미터 생성
   const getItemDropCalculationParams = (): ItemDropCalculationParams => ({
     inputMode: dropRateInputMode,
     directValue: dropRate,
     globalBuffMode: globalBuffMode,
-    unionBuff: dropRateUnionBuff,
+    unionBuff: dropRateLegionBuff,
     potentialMode: dropRatePotentialMode,
     potentialLines: dropRatePotentialLines,
     potentialDirect: dropRatePotentialDirect,
@@ -894,8 +894,8 @@ export function BasicCalculator() {
     artifactPercent: dropRateArtifactPercentInput,
     tallahartSymbolLevel: tallahartSymbolLevel,
     holySymbol: holySymbol,
-    usefulHolySymbol: usefulHolySymbol,
-    usefulHolySymbolLevel: usefulHolySymbolLevel,
+    decentHolySymbol: decentHolySymbol,
+    decentHolySymbolLevel: decentHolySymbolLevel,
     wealthAcquisitionPotion: wealthAcquisitionPotion,
     pcRoomMode: pcRoomMode,
     otherBuff: dropRateOtherBuff,
@@ -923,7 +923,7 @@ export function BasicCalculator() {
       // 메소 제한량 계산
       const mesoLimit = calculateMesoLimit(characterLevel)
       
-      // 몬스터 1마리당 기본 메소 드랍량 계산 (메소 획득량 보너스 적용 전)
+      // 몬스터 1마리당 기본 메소 드롭량 계산 (메획 보너스 적용 전)
       const baseMesoPerMob = inputs.monsterLevel * 7.5
       
       // 메소 제한량에 도달하는데 필요한 몬스터 수
@@ -952,7 +952,7 @@ export function BasicCalculator() {
       logDropItems: dropItems.filter(item => item.type === 'log')
     }
 
-    // 재물 획득의 비약 적용된 상태의 드랍 데이터 계산
+    // 재물 획득의 비약 적용된 상태의 드롭 데이터 계산
     const dropResultWithPotion = calculateHuntingExpectation(currentHuntingParams)
     
     // 시간당 계산 (재물 획득의 비약 적용된 상태)
@@ -979,7 +979,7 @@ export function BasicCalculator() {
     }
     const dropResultWithoutPotion = calculateHuntingExpectation(withoutPotionHuntingParams)
     
-    // 드랍 아이템 결과를 Map으로 변환 (ID를 키로 사용)
+    // 드롭 아이템 결과를 Map으로 변환 (ID를 키로 사용)
     const dropItemResults = new Map(
       dropResultWithPotion.dropItems.map(dropResult => [
         dropResult.item.id,
@@ -1083,12 +1083,12 @@ export function BasicCalculator() {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, pcRoomMode])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, pcRoomMode])
 
 
   // 유니온 버프 효과를 고려한 계산 헬퍼 함수
-  const calculateWithUnionEffect = useCallback((
-    withUnionBuff: boolean, 
+  const calculateWithLegionEffect = useCallback((
+    withLegionBuff: boolean, 
     effectType: 'drop' | 'meso',
     currentHuntingParams: any,
     currentMesoParams: MesoCalculationParams,
@@ -1100,14 +1100,14 @@ export function BasicCalculator() {
     let futureMesoParams = { ...currentMesoParams }
     let futureItemDropParams = { ...currentItemDropParams }
 
-    if (effectType === 'drop' && withUnionBuff && globalBuffMode !== 'challenger') {
-      // 드랍률: 유니온의 행운 상태를 토글
-      futureItemDropParams.unionBuff = !dropRateUnionBuff
+    if (effectType === 'drop' && withLegionBuff && globalBuffMode !== 'challenger') {
+      // 드롭률: 유니온의 행운 상태를 토글
+      futureItemDropParams.unionBuff = !dropRateLegionBuff
     }
 
-    if (effectType === 'meso' && withUnionBuff && globalBuffMode !== 'challenger') {
+    if (effectType === 'meso' && withLegionBuff && globalBuffMode !== 'challenger') {
       // 메소: 유니온의 부 상태를 토글
-      futureMesoParams.unionBuff = !mesoUnionBuff
+      futureMesoParams.unionBuff = !mesoLegionBuff
     }
 
     // future hunting params 생성
@@ -1118,7 +1118,7 @@ export function BasicCalculator() {
     }
 
     return calculateHuntingExpectation(futureHuntingParams)
-  }, [result, globalBuffMode, dropRateUnionBuff, mesoUnionBuff])
+  }, [result, globalBuffMode, dropRateLegionBuff, mesoLegionBuff])
 
   // TMI 정보 계산
   const calculateTMIInfo = useMemo(() => {
@@ -1157,15 +1157,15 @@ export function BasicCalculator() {
       logDropItems: dropItems.filter(item => item.type === 'log')
     }
 
-    // 드랍률 20% 증가 효과 - 전체 기댓값 계산
+    // 드롭률 20% 증가 효과 - 전체 기댓값 계산
     const dropBonusHuntingParams = {
       ...currentHuntingParams,
-      dropRate: currentItemDropBonus + 20 // 기존 드랍률에 20% 추가
+      dropRate: currentItemDropBonus + 20 // 기존 드롭률에 20% 추가
     }
     const dropCalcWithDropBonus = calculateHuntingExpectation(dropBonusHuntingParams)
     const dragonDropRateTotal = dropCalcWithDropBonus.totalIncome
     
-    // 메소 획득량 20% 증가 효과 - 전체 기댓값 계산
+    // 메획 20% 증가 효과 - 전체 기댓값 계산
     const additionalMesoBonus = wealthAcquisitionPotion ? 24 : 20
     const mesoBonusHuntingParams = {
       ...currentHuntingParams,
@@ -1181,7 +1181,7 @@ export function BasicCalculator() {
       let futureItemDropParams = { ...currentItemDropParams }
       
       if (type === 'drop') {
-        // 드랍률 잠재능력만 0으로 설정
+        // 드롭률 잠재능력만 0으로 설정
         futureItemDropParams.potentialLines = 0
         futureItemDropParams.potentialDirect = 0
       } else {
@@ -1202,8 +1202,8 @@ export function BasicCalculator() {
     }
 
     // 유니온 아티팩트 & 팬텀 유니온 개별 계산
-    const calculateUnionArtifactBenefit = () => {
-      // 드랍률 유니온 아티팩트 10레벨 (12%)
+    const calculateLegionArtifactBenefit = () => {
+      // 드롭률 유니온 아티팩트 10레벨 (12%)
       const maxDropArtifactBonus = 12
       let futureDropParams = { ...currentItemDropParams }
       futureDropParams.artifactLevel = 10
@@ -1230,19 +1230,19 @@ export function BasicCalculator() {
       const maxMesoArtifactCalc = calculateHuntingExpectation(maxMesoArtifactHuntingParams)
 
       // 팬텀 유니온 5%
-      const maxPhantomUnionBonus = 5
+      const maxPhantomLegionBonus = 5
       let futurePhantomMesoParams = { ...currentMesoParams }
-      futurePhantomMesoParams.phantomUnionMeso = maxPhantomUnionBonus
+      futurePhantomMesoParams.phantomLegionMeso = maxPhantomLegionBonus
       
-      const maxPhantomUnionHuntingParams = {
+      const maxPhantomLegionHuntingParams = {
         ...currentHuntingParams,
         mesoBonus: calculateMesoBonus(futurePhantomMesoParams).totalBonus
       }
-      const maxPhantomUnionCalc = calculateHuntingExpectation(maxPhantomUnionHuntingParams)
+      const maxPhantomLegionCalc = calculateHuntingExpectation(maxPhantomLegionHuntingParams)
 
       // 0레벨/0% 대비 현재 이득 계산 - 현재 설정값이 얼마나 도움이 되는지 측정
       
-      // 드랍률 유니온 아티팩트 0레벨/0% 상태로 계산
+      // 드롭률 유니온 아티팩트 0레벨/0% 상태로 계산
       let zeroDropArtifactParams = { ...currentItemDropParams }
       zeroDropArtifactParams.artifactLevel = 0
       zeroDropArtifactParams.artifactPercent = 0
@@ -1265,32 +1265,32 @@ export function BasicCalculator() {
       const zeroMesoArtifactCalc = calculateHuntingExpectation(zeroMesoArtifactHuntingParams)
 
       // 팬텀 유니온 0% 상태로 계산
-      let zeroPhantomUnionParams = { ...currentMesoParams }
-      zeroPhantomUnionParams.phantomUnionMeso = 0
+      let zeroPhantomLegionParams = { ...currentMesoParams }
+      zeroPhantomLegionParams.phantomLegionMeso = 0
       
-      const zeroPhantomUnionHuntingParams = {
+      const zeroPhantomLegionHuntingParams = {
         ...currentHuntingParams,
-        mesoBonus: calculateMesoBonus(zeroPhantomUnionParams).totalBonus
+        mesoBonus: calculateMesoBonus(zeroPhantomLegionParams).totalBonus
       }
-      const zeroPhantomUnionCalc = calculateHuntingExpectation(zeroPhantomUnionHuntingParams)
+      const zeroPhantomLegionCalc = calculateHuntingExpectation(zeroPhantomLegionHuntingParams)
 
       return {
         // 최대 레벨/% 달성 시 현재 대비 추가 이득
         maxDropArtifactIncrease: maxDropArtifactCalc.totalIncome - result.totalIncome,
         maxMesoArtifactIncrease: maxMesoArtifactCalc.totalIncome - result.totalIncome,
-        maxPhantomUnionIncrease: maxPhantomUnionCalc.totalIncome - result.totalIncome,
+        maxPhantomLegionIncrease: maxPhantomLegionCalc.totalIncome - result.totalIncome,
         // 현재 설정값이 0레벨/0% 대비 제공하는 이득
         currentDropArtifactBenefit: result.totalIncome - zeroDropArtifactCalc.totalIncome,
         currentMesoArtifactBenefit: result.totalIncome - zeroMesoArtifactCalc.totalIncome,
-        currentPhantomUnionBenefit: result.totalIncome - zeroPhantomUnionCalc.totalIncome
+        currentPhantomLegionBenefit: result.totalIncome - zeroPhantomLegionCalc.totalIncome
       }
     }
 
-    const unionBenefits = calculateUnionArtifactBenefit()
+    const unionBenefits = calculateLegionArtifactBenefit()
 
     // 어빌리티 종결 계산
     const calculateAbilityFinishBenefit = () => {
-      // 드랍 종결: 드랍률 어빌리티 20%, 메소 어빌리티 15%
+      // 드롭 종결: 드롭률 어빌리티 20%, 메소 어빌리티 15%
       let dropFinishMesoParams = { ...currentMesoParams }
       let dropFinishDropParams = { ...currentItemDropParams }
       dropFinishMesoParams.ability = 15
@@ -1303,7 +1303,7 @@ export function BasicCalculator() {
       }
       const dropFinishCalc = calculateHuntingExpectation(dropFinishHuntingParams)
 
-      // 메소 종결: 메소 어빌리티 20%, 드랍률 어빌리티 15%
+      // 메소 종결: 메소 어빌리티 20%, 드롭률 어빌리티 15%
       let mesoFinishMesoParams = { ...currentMesoParams }
       let mesoFinishDropParams = { ...currentItemDropParams }
       mesoFinishMesoParams.ability = 20
@@ -1402,7 +1402,7 @@ export function BasicCalculator() {
       currentMesoParams,
       currentItemDropParams
     }
-  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems, dropRatePotentialDirect, dropRatePotentialLines, dropRatePotentialMode, mesoPotentialDirect, mesoPotentialLines, mesoPotentialMode, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, phantomUnionMeso, dropItems, getCurrentInputs, dropRateAbility, mesoAbility, tallahartSymbolLevel, pcRoomMode, getMesoCalculationParams, getItemDropCalculationParams])
+  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems, dropRatePotentialDirect, dropRatePotentialLines, dropRatePotentialMode, mesoPotentialDirect, mesoPotentialLines, mesoPotentialMode, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, phantomLegionMeso, dropItems, getCurrentInputs, dropRateAbility, mesoAbility, tallahartSymbolLevel, pcRoomMode, getMesoCalculationParams, getItemDropCalculationParams])
 
 
 
@@ -1697,7 +1697,7 @@ export function BasicCalculator() {
            </div>{/* 사냥량 설정 영역 끝 */}
 
           
-          {/* 드랍 아이템 관리 영역 시작 */}
+          {/* 드롭 아이템 관리 영역 시작 */}
           <div className="space-y-4 border-t pt-4 mt-4">
             {/* 경매장 수수료 */}
             <div>
@@ -1719,7 +1719,7 @@ export function BasicCalculator() {
               items={logDropItems}
               onItemsChange={setLogDropItems}
               showDropRate={true}
-              title="로그 드랍률 아이템"
+              title="로그 드롭률 아이템"
               placeholder="아이템 이름"
             />
             
@@ -1727,10 +1727,10 @@ export function BasicCalculator() {
               items={normalDropItems}
               onItemsChange={setNormalDropItems}
               showDropRate={true}
-              title="일반 드랍률 아이템"
+              title="일반 드롭률 아이템"
               placeholder="아이템 이름"
             />
-          </div>{/* 드랍 아이템 관리 영역 끝 */}
+          </div>{/* 드롭 아이템 관리 영역 끝 */}
         </div>
         {/* 사냥 정보 섹션 끝 */}
 
@@ -1805,11 +1805,11 @@ export function BasicCalculator() {
             )}
           </div>
 
-          {/* 아이템 드랍률 섹션 시작 */}
+          {/* 아드 섹션 시작 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
-                아이템 드롭률
+                아드
               </label>
               <div className="flex items-center space-x-2">
                 <ToggleButton
@@ -1845,7 +1845,7 @@ export function BasicCalculator() {
               </div>
             </div>
 
-            {/* 아이템 드롭률 상세 옵션 영역 시작 */}
+            {/* 아드 상세 옵션 영역 시작 */}
             <div className={`p-4 rounded-lg space-y-3 ${
               dropRateInputMode === 'direct' 
                 ? 'bg-gray-200 opacity-60' 
@@ -1859,9 +1859,9 @@ export function BasicCalculator() {
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={dropRateUnionBuff}
+                      checked={dropRateLegionBuff}
                       onChange={(e) => {
-                        setDropRateUnionBuff(e.target.checked)
+                        setDropRateLegionBuff(e.target.checked)
                         if (dropRateInputMode === 'direct') {
                           setDropRateInputMode('detail')
                         }
@@ -1947,7 +1947,7 @@ export function BasicCalculator() {
                 </div>
               </div>
 
-              {/* 유니온 아티팩트(드랍) 레벨 */}
+              {/* 유니온 아티팩트(드롭) 레벨 */}
               {globalBuffMode === 'union' && (
   <div className="flex items-center justify-between">
     <label className="text-sm text-gray-700">유니온 아티팩트</label>
@@ -1995,9 +1995,9 @@ export function BasicCalculator() {
               {/* 홀리 심볼 */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm text-gray-700">홀리 심볼</label>
+                  <label className="text-sm text-gray-700">쓸만한 홀리 심볼</label>
                   <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                    {holySymbol ? '30%' : usefulHolySymbol ? `${14 + Math.floor(usefulHolySymbolLevel / 3)}%` : '0%'}
+                    {holySymbol ? '30%' : decentHolySymbol ? `${14 + Math.floor(decentHolySymbolLevel / 3)}%` : '0%'}
                   </div>
                 </div>
                 <RadioGroupWithInput
@@ -2012,15 +2012,15 @@ export function BasicCalculator() {
                     },
                     { 
                       value: 'useful', 
-                      label: '쓸만한 홀리 심볼',
+                      label: 'Decent Holy Symbol',
                       hasInput: true,
                       inputProps: {
-                        value: usefulHolySymbolLevel,
+                        value: decentHolySymbolLevel,
                         onChange: (value) => {
                           const level = Math.min(30, Math.max(1, value))
-                          setUsefulHolySymbolLevel(level)
-                          if (!usefulHolySymbol) {
-                            setUsefulHolySymbol(true)
+                          setDecentHolySymbolLevel(level)
+                          if (!decentHolySymbol) {
+                            setDecentHolySymbol(true)
                             setHolySymbol(false)
                           }
                           if (dropRateInputMode === 'direct') {
@@ -2034,17 +2034,17 @@ export function BasicCalculator() {
                       }
                     }
                   ]}
-                  value={holySymbol ? 'regular' : usefulHolySymbol ? 'useful' : 'none'}
+                  value={holySymbol ? 'regular' : decentHolySymbol ? 'useful' : 'none'}
                   onChange={(value) => {
                     if (value === 'none') {
                       setHolySymbol(false)
-                      setUsefulHolySymbol(false)
+                      setDecentHolySymbol(false)
                     } else if (value === 'regular') {
                       setHolySymbol(true)
-                      setUsefulHolySymbol(false)
+                      setDecentHolySymbol(false)
                     } else if (value === 'useful') {
                       setHolySymbol(false)
-                      setUsefulHolySymbol(true)
+                      setDecentHolySymbol(true)
                     }
                     if (dropRateInputMode === 'direct') {
                       setDropRateInputMode('detail')
@@ -2103,14 +2103,14 @@ export function BasicCalculator() {
                 </div>
               </div>
               
-            </div>{/* 아이템 드롭률 상세 옵션 영역 끝 */}  
-          </div>{/* 아이템 드랍률 섹션 끝 */}
+            </div>{/* 아드 상세 옵션 영역 끝 */}  
+          </div>{/* 아드 섹션 끝 */}
 
-          {/* 메소 획득량 섹션 시작 */}
+          {/* 메획 섹션 시작 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
-                메소 획득량
+                메획
               </label>
               <div className="flex items-center space-x-2">
                 <ToggleButton
@@ -2146,7 +2146,7 @@ export function BasicCalculator() {
               </div>
             </div>
 
-            {/* 메소 획득량 상세 옵션 영역 시작 */}
+            {/* 메획 상세 옵션 영역 시작 */}
             <div className={`p-4 rounded-lg space-y-3 ${
               mesoInputMode === 'direct' 
                 ? 'bg-gray-200 opacity-60' 
@@ -2160,9 +2160,9 @@ export function BasicCalculator() {
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={mesoUnionBuff}
+                      checked={mesoLegionBuff}
                       onChange={(e) => {
-                        setMesoUnionBuff(e.target.checked)
+                        setMesoLegionBuff(e.target.checked)
                         if (mesoInputMode === 'direct') {
                           setMesoInputMode('detail')
                         }
@@ -2180,9 +2180,9 @@ export function BasicCalculator() {
                   <label className="text-sm text-gray-700">팬텀 유니온</label>
                   <div className="flex items-center space-x-2">
                     <NumberInput
-                      value={phantomUnionMeso}
+                      value={phantomLegionMeso}
                       onChange={(value) => {
-                        setPhantomUnionMeso(value)
+                        setPhantomLegionMeso(value)
                         if (mesoInputMode === 'direct') {
                           setMesoInputMode('detail')
                         }
@@ -2321,7 +2321,7 @@ export function BasicCalculator() {
                 <div className="flex items-center justify-between">
                   <label className="text-sm text-gray-700">잔돈이 눈에 띄네</label>
                   <div className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                    {spottingSmallChange ? `+${spottingSmallChangeLevel * 2 + 2}메소/드랍` : '사용 안함'}
+                    {spottingSmallChange ? `+${spottingSmallChangeLevel * 2 + 2}메소/드롭` : '사용 안함'}
                   </div>
                 </div>
                 <div className="flex items-center space-x-4">
@@ -2402,8 +2402,8 @@ export function BasicCalculator() {
                 </div>
               </div> {/* 탈라하트 심볼 섹션 끝 */}
               
-            </div> {/* 메소 획득량 상세 옵션 영역 끝 */}
-          </div>{/* 메소 획득량 섹션 끝 */}
+            </div> {/* 메획 상세 옵션 영역 끝 */}
+          </div>{/* 메획 섹션 끝 */}
         </div>{/* 스탯 정보 섹션 끝 */}
 
         {/* 계산 결과 섹션 시작 */}
@@ -2455,11 +2455,11 @@ export function BasicCalculator() {
               <div className="font-medium text-blue-600">{monsterLevel}</div>
             </div>
             <div className="text-center">
-              <div className="text-gray-600">아이템 드롭률</div>
+              <div className="text-gray-600">아드</div>
               <div className="font-medium text-green-600">{calculateItemDropBonus(getItemDropCalculationParams()).totalBonus}%</div>
             </div>
             <div className="text-center">
-              <div className="text-gray-600">메소 획득량</div>
+              <div className="text-gray-600">메획</div>
               <div className="font-medium text-purple-600">
                 {calculateMesoBonus(getMesoCalculationParams()).totalBonus}%
               </div>
@@ -2516,9 +2516,9 @@ export function BasicCalculator() {
                          
                          return (
                            <div className="text-center">
-                             <div className="mb-1">솔 에르다 조각 드랍률</div>
+                             <div className="mb-1">솔 에르다 조각 드롭률</div>
                              <div>원본 확률: {(originalRate * 100).toFixed(4)}%</div>
-                             <div>배수: {multiplier.toFixed(3)}x (드랍률 +{currentDropRate}%)</div>
+                             <div>배수: {multiplier.toFixed(3)}x (드롭률 +{currentDropRate}%)</div>
                              <div>최종 확률: {(finalRate * 100).toFixed(4)}%</div>
                            </div>
                          )
@@ -2592,7 +2592,7 @@ export function BasicCalculator() {
               )}
             </div>
             
-            {/* 드랍 아이템 결과 */}
+            {/* 드롭 아이템 결과 */}
             {result.dropItems && result.dropItems.size > 0 && (
               <div className="bg-purple-50 p-4 rounded-lg">
                 <button
@@ -2600,11 +2600,11 @@ export function BasicCalculator() {
                   className="flex items-center gap-1 font-medium text-gray-900 hover:text-gray-700 transition-colors mb-2"
                 >
                   {isDropItemResultExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                  드랍 아이템 정산
+                  드롭 아이템 정산
                 </button>
                 {isDropItemResultExpanded && (
                   <div className="space-y-2">
-                    {/* 모든 드랍 아이템들 - 총 판매 가격순 내림차순 정렬 */}
+                    {/* 모든 드롭 아이템들 - 총 판매 가격순 내림차순 정렬 */}
                     {Array.from(result.dropItems.values())
                       .sort((a, b) => b.expectedValue - a.expectedValue)
                       .map((dropResult, index) => (
@@ -2629,7 +2629,7 @@ export function BasicCalculator() {
                     ))}
                     <div className="border-t pt-2 mt-2">
                       <div className="flex items-center justify-between font-medium">
-                        <span className="text-gray-700">드랍 아이템 총합</span>
+                        <span className="text-gray-700">드롭 아이템 총합</span>
                         <span className="text-purple-600">
                           {formatMesoWithKorean(Array.from(result.dropItems.values())
                             .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0))} 메소
@@ -2676,17 +2676,17 @@ export function BasicCalculator() {
               // 유니온 아티팩트 & 팬텀 유니온 최대치 확인
               const isDropArtifactMaxed = dropRateArtifactLevelInput >= 10 // 10레벨
               const isMesoArtifactMaxed = mesoArtifactLevelInput >= 10 // 10레벨
-              const isPhantomUnionMaxed = phantomUnionMeso >= 5 // 5%
+              const isPhantomLegionMaxed = phantomLegionMeso >= 5 // 5%
 
               // 어빌리티 종결 확인
-              const isDropAbilityFinished = dropRateAbility >= 20 && mesoAbility >= 15 // 드랍20% + 메소15%
-              const isMesoAbilityFinished = mesoAbility >= 20 && dropRateAbility >= 15 // 메소20% + 드랍15%
+              const isDropAbilityFinished = dropRateAbility >= 20 && mesoAbility >= 15 // 드롭20% + 메소15%
+              const isMesoAbilityFinished = mesoAbility >= 20 && dropRateAbility >= 15 // 메소20% + 드롭15%
               
               // 어빌리티 종결 이익/손해 체크
               const isDropAbilityLoss = tmiInfo.dropFinishIncrease < 0
               const isMesoAbilityLoss = tmiInfo.mesoFinishIncrease < 0
 
-              const showUnionEffects = globalBuffMode !== 'challenger'
+              const showLegionEffects = globalBuffMode !== 'challenger'
 
               return (
                 <div className="bg-orange-50 p-3 rounded-lg border-2 border-orange-200">
@@ -2694,12 +2694,12 @@ export function BasicCalculator() {
                     💡 TMI
                   </h4>
                   <div className="space-y-2">
-                    {/* 잠재 줄 - 드랍/메획 */}
+                    {/* 잠재 줄 - 드롭/메획 */}
                     <div className="grid grid-cols-2 gap-2">
-                      {/* 드랍률 잠재 카드 */}
+                      {/* 드롭률 잠재 카드 */}
                       <div className={`p-2 rounded border ${isDropRateMaxed ? 'bg-gray-100 border-gray-300' : 'bg-white border-orange-200'}`}>
                         <h5 className={`text-xs font-medium mb-1 ${isDropRateMaxed ? 'text-gray-500' : 'text-orange-700'}`}>
-                          아이템 드랍 잠재 {isDropRateMaxed ? '(완료)' : '+1줄'}
+                          아이템 드롭 잠재 {isDropRateMaxed ? '(완료)' : '+1줄'}
                         </h5>
                         {isDropRateMaxed ? (
                           <>
@@ -2727,7 +2727,7 @@ export function BasicCalculator() {
                       {/* 메소 잠재 카드 */}
                       <div className={`p-2 rounded border ${isMesoRateMaxed ? 'bg-gray-100 border-gray-300' : 'bg-white border-orange-200'}`}>
                         <h5 className={`text-xs font-medium mb-1 ${isMesoRateMaxed ? 'text-gray-500' : 'text-orange-700'}`}>
-                          메소 획득량 잠재 {isMesoRateMaxed ? '(완료)' : '+1줄'}
+                          메획 잠재 {isMesoRateMaxed ? '(완료)' : '+1줄'}
                         </h5>
                         {isMesoRateMaxed ? (
                           <>
@@ -2760,21 +2760,21 @@ export function BasicCalculator() {
                         {isDropRateMaxed && isMesoRateMaxed 
                           ? "와, 이미 풀드메네요! 🎉"
                           : isDropRateMaxed && !isMesoRateMaxed
-                          ? "드랍률은 완료! 이제 메소 획득량을 챙겨보세요"
+                          ? "드롭률은 완료! 이제 메획을 챙겨보세요"
                           : !isDropRateMaxed && isMesoRateMaxed  
-                          ? "메소 획득량은 완료! 이제 드랍률을 챙겨보세요"
+                          ? "메획은 완료! 이제 드롭률을 챙겨보세요"
                           : tmiInfo.dropRateIncrease > tmiInfo.mesoRateIncrease 
-                          ? "드랍률 증가가 더 효율적" 
+                          ? "드롭률 증가가 더 효율적" 
                           : tmiInfo.mesoRateIncrease > tmiInfo.dropRateIncrease
-                          ? "메소 획득량 증가가 더 효율적"
+                          ? "메획 증가가 더 효율적"
                           : "두 효과 수익 비슷"}
                       </p>
                     </div>
 
                     {/* 유니온 줄 - 행운/부 */}
-                    {showUnionEffects && (() => {
-                      const unionDropEffect = calculateWithUnionEffect(true, 'drop', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
-                      const unionMesoEffect = calculateWithUnionEffect(true, 'meso', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
+                    {showLegionEffects && (() => {
+                      const unionDropEffect = calculateWithLegionEffect(true, 'drop', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
+                      const unionMesoEffect = calculateWithLegionEffect(true, 'meso', tmiInfo.currentHuntingParams, tmiInfo.currentMesoParams, tmiInfo.currentItemDropParams)
                       
                       if (!unionDropEffect || !unionMesoEffect) return null
                       
@@ -2784,11 +2784,11 @@ export function BasicCalculator() {
                       return (
                         <div className="grid grid-cols-2 gap-2">
                           {/* 유니온의 행운 카드 */}
-                          <div className={`p-2 rounded border ${dropRateUnionBuff ? 'bg-gray-100 border-gray-300' : 'bg-blue-50 border-blue-200'}`}>
-                            <h5 className={`text-xs font-medium mb-1 ${dropRateUnionBuff ? 'text-gray-500' : 'text-blue-700'}`}>
-                              💫 유니온의 행운 {dropRateUnionBuff ? '(사용중)' : ''}
+                          <div className={`p-2 rounded border ${dropRateLegionBuff ? 'bg-gray-100 border-gray-300' : 'bg-blue-50 border-blue-200'}`}>
+                            <h5 className={`text-xs font-medium mb-1 ${dropRateLegionBuff ? 'text-gray-500' : 'text-blue-700'}`}>
+                              💫 유니온의 행운 {dropRateLegionBuff ? '(사용중)' : ''}
                             </h5>
-                            {dropRateUnionBuff ? (
+                            {dropRateLegionBuff ? (
                               <>
                                 <p className="text-xs text-gray-500 mb-1">
                                   현재 사용 중
@@ -2812,11 +2812,11 @@ export function BasicCalculator() {
                           </div>
 
                           {/* 유니온의 부 카드 */}
-                          <div className={`p-2 rounded border ${mesoUnionBuff ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
-                            <h5 className={`text-xs font-medium mb-1 ${mesoUnionBuff ? 'text-gray-500' : 'text-purple-700'}`}>
-                              💰 유니온의 부 {mesoUnionBuff ? '(사용중)' : ''}
+                          <div className={`p-2 rounded border ${mesoLegionBuff ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
+                            <h5 className={`text-xs font-medium mb-1 ${mesoLegionBuff ? 'text-gray-500' : 'text-purple-700'}`}>
+                              💰 유니온의 부 {mesoLegionBuff ? '(사용중)' : ''}
                             </h5>
-                            {mesoUnionBuff ? (
+                            {mesoLegionBuff ? (
                               <>
                                 <p className="text-xs text-gray-500 mb-1">
                                   현재 사용 중
@@ -2842,13 +2842,13 @@ export function BasicCalculator() {
                       )
                     })()}
 
-                    {/* 유니온 아티팩트 줄 - 드랍/메소 */}
-                    {showUnionEffects && (
+                    {/* 유니온 아티팩트 줄 - 드롭/메소 */}
+                    {showLegionEffects && (
                       <div className="grid grid-cols-2 gap-2">
-                        {/* 드랍률 유니온 아티팩트 카드 */}
+                        {/* 드롭률 유니온 아티팩트 카드 */}
                         <div className={`p-2 rounded border ${isDropArtifactMaxed ? 'bg-gray-100 border-gray-300' : 'bg-green-50 border-green-200'}`}>
                           <h5 className={`text-xs font-medium mb-1 ${isDropArtifactMaxed ? 'text-gray-500' : 'text-green-700'}`}>
-                            🔮 유니온 아티팩트(드랍) {isDropArtifactMaxed ? '(완료)' : ''}
+                            🔮 유니온 아티팩트(드롭) {isDropArtifactMaxed ? '(완료)' : ''}
                           </h5>
                           {isDropArtifactMaxed ? (
                             <>
@@ -2904,30 +2904,30 @@ export function BasicCalculator() {
                     )}
 
                     {/* 팬텀 유니온 줄 */}
-                    {showUnionEffects && (
+                    {showLegionEffects && (
                       <div className="grid grid-cols-1 gap-2">
                         {/* 팬텀 유니온 카드 */}
-                        <div className={`p-2 rounded border ${isPhantomUnionMaxed ? 'bg-gray-100 border-gray-300' : 'bg-pink-50 border-pink-200'}`}>
-                          <h5 className={`text-xs font-medium mb-1 ${isPhantomUnionMaxed ? 'text-gray-500' : 'text-pink-700'}`}>
-                            👻 팬텀 유니온 {isPhantomUnionMaxed ? '(완료)' : ''}
+                        <div className={`p-2 rounded border ${isPhantomLegionMaxed ? 'bg-gray-100 border-gray-300' : 'bg-pink-50 border-pink-200'}`}>
+                          <h5 className={`text-xs font-medium mb-1 ${isPhantomLegionMaxed ? 'text-gray-500' : 'text-pink-700'}`}>
+                            👻 팬텀 유니온 {isPhantomLegionMaxed ? '(완료)' : ''}
                           </h5>
-                          {isPhantomUnionMaxed ? (
+                          {isPhantomLegionMaxed ? (
                             <>
                               <p className="text-xs text-gray-500 mb-1">
                                 이미 5% 달성
                               </p>
                               <p className="text-sm font-bold text-gray-500">
-                                0% 대비 +{formatMesoWithKorean(tmiInfo.currentPhantomUnionBenefit)} 이득
+                                0% 대비 +{formatMesoWithKorean(tmiInfo.currentPhantomLegionBenefit)} 이득
                               </p>
                             </>
                           ) : (
                             <>
                               <p className="text-xs text-gray-600 mb-1">
-                                5% 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxPhantomUnionIncrease)}
+                                5% 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxPhantomLegionIncrease)}
                               </p>
                               <p className="text-sm font-bold">
-                                <span className={tmiInfo.maxPhantomUnionIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  최대치(5%) 달성 시 {tmiInfo.maxPhantomUnionIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxPhantomUnionIncrease)} 증가
+                                <span className={tmiInfo.maxPhantomLegionIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  최대치(5%) 달성 시 {tmiInfo.maxPhantomLegionIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxPhantomLegionIncrease)} 증가
                                 </span>
                               </p>
                             </>
@@ -2938,7 +2938,7 @@ export function BasicCalculator() {
 
                     {/* 어빌리티 종결 줄 */}
                     <div className="grid grid-cols-2 gap-2">
-                      {/* 어빌리티 종결(드랍) 카드 */}
+                      {/* 어빌리티 종결(드롭) 카드 */}
                       <div className={`p-2 rounded border ${
                         isDropAbilityFinished || isDropAbilityLoss
                           ? 'bg-gray-100 border-gray-300' 
@@ -2949,7 +2949,7 @@ export function BasicCalculator() {
                             ? 'text-gray-500' 
                             : 'text-indigo-700'
                         }`}>
-                          ⚡ 어빌리티 종결(드랍) {isDropAbilityFinished ? '(완료)' : ''}
+                          ⚡ 어빌리티 종결(드롭) {isDropAbilityFinished ? '(완료)' : ''}
                           <div className="relative ml-1 group">
                             <div className={`w-4 h-4 rounded-full flex items-center justify-center text-xs cursor-help ${
                               isDropAbilityFinished || isDropAbilityLoss
@@ -2959,7 +2959,7 @@ export function BasicCalculator() {
                               ?
                             </div>
                             <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-max max-w-48 z-10">
-                              드랍률 어빌리티 20%<br />+ 메소 획득량 어빌리티 15%
+                              드롭률 어빌리티 20%<br />+ 메획 어빌리티 15%
                             </div>
                           </div>
                         </h5>
@@ -2999,7 +2999,7 @@ export function BasicCalculator() {
                               ?
                             </div>
                             <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 w-max max-w-48 z-10">
-                              메소 획득량 어빌리티 20%<br />+ 드랍률 어빌리티 15%
+                              메획 어빌리티 20%<br />+ 드롭률 어빌리티 15%
                             </div>
                           </div>
                         </h5>

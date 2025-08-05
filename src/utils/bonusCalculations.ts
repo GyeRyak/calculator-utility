@@ -1,5 +1,5 @@
 /**
- * 메소 획득량과 아이템 드랍률 계산 유틸리티 함수들
+ * 메획과 아드 계산 유틸리티 함수들
  */
 import { calculateLevelPenalty } from './levelPenalty'
 
@@ -19,13 +19,13 @@ export interface BonusCalculationResult {
   finalMesoBonus?: number // 레벨 패널티 적용 후 최종 보너스
 }
 
-// 메소 획득량 계산에 필요한 인터페이스
+// 메획 계산에 필요한 인터페이스
 export interface MesoCalculationParams {
   inputMode: 'direct' | 'detail'
   directValue: number
-  globalBuffMode: 'union' | 'challenger' | 'none'
+  globalBuffMode: 'legion' | 'challenger' | 'none'
   unionBuff: boolean
-  phantomUnionMeso: number
+  phantomLegionMeso: number
   potentialMode: 'lines' | 'direct'
   potentialLines: number
   potentialDirect: number
@@ -41,11 +41,11 @@ export interface MesoCalculationParams {
   monsterLevel?: number // 몬스터 레벨 (레벨 패널티 계산용)
 }
 
-// 아이템 드랍률 계산에 필요한 인터페이스
+// 아드 계산에 필요한 인터페이스
 export interface ItemDropCalculationParams {
   inputMode: 'direct' | 'detail'
   directValue: number
-  globalBuffMode: 'union' | 'challenger' | 'none'
+  globalBuffMode: 'legion' | 'challenger' | 'none'
   unionBuff: boolean
   potentialMode: 'lines' | 'direct'
   potentialLines: number
@@ -56,8 +56,8 @@ export interface ItemDropCalculationParams {
   artifactPercent: number
   tallahartSymbolLevel: number
   holySymbol: boolean
-  usefulHolySymbol: boolean
-  usefulHolySymbolLevel: number
+  decentHolySymbol: boolean
+  decentHolySymbolLevel: number
   wealthAcquisitionPotion: boolean
   pcRoomMode: boolean
   otherBuff: number // 기타 버프 (합연산)
@@ -65,7 +65,7 @@ export interface ItemDropCalculationParams {
 }
 
 /**
- * 아티팩트 보너스 계산 (유니온 아티팩트)
+ * 아티팩트 보너스 계산 (Legion 아티팩트)
  * 레벨당 1%p씩 증가, 5레벨과 10레벨에서는 2%p씩 증가
  * 예: 1레벨=1%, 5레벨=6%, 10레벨=12%
  */
@@ -105,7 +105,7 @@ export function calculateMesoLimit(level: number): number {
 }
 
 /**
- * 메소 획득량 보너스 계산
+ * 메획 보너스 계산
  */
 export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculationResult {
   if (params.inputMode === 'direct') {
@@ -150,18 +150,18 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
   // 기타 증가량 계산 (버프 제한 외부)
   let otherBonus = 0
   
-  // 팬텀 유니온 (일반 월드에서만)
-  if (params.globalBuffMode === 'union') {
-    otherBonus += params.phantomUnionMeso
+  // 팬텀 Legion (일반 월드에서만)
+  if (params.globalBuffMode === 'legion') {
+    otherBonus += params.phantomLegionMeso
   }
   
   // 어빌리티
   otherBonus += params.ability
   
-  // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
+  // 글로벌 버프 (챌린저스 월드 다이아 또는 Legion 아티팩트)
   if (params.globalBuffMode === 'challenger') {
     otherBonus += 20
-  } else if (params.globalBuffMode === 'union') {
+  } else if (params.globalBuffMode === 'legion') {
     otherBonus += calculateArtifactBonus(
       params.artifactLevel,
       params.artifactMode,
@@ -222,7 +222,7 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
 }
 
 /**
- * 아이템 드랍률 보너스 계산
+ * 아드 보너스 계산
  */
 export function calculateItemDropBonus(params: ItemDropCalculationParams): BonusCalculationResult {
   if (params.inputMode === 'direct') {
@@ -270,10 +270,10 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
   // 어빌리티
   otherBonus += params.ability
   
-  // 글로벌 버프 (챌린저스 월드 다이아 또는 유니온 아티팩트)
+  // 글로벌 버프 (챌린저스 월드 다이아 또는 Legion 아티팩트)
   if (params.globalBuffMode === 'challenger') {
     otherBonus += 20
-  } else if (params.globalBuffMode === 'union') {
+  } else if (params.globalBuffMode === 'legion') {
     otherBonus += calculateArtifactBonus(
       params.artifactLevel,
       params.artifactMode,
@@ -282,12 +282,12 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
   }
   
   // 홀리 심볼 (둘 중 하나만 사용 가능)
-  if (params.holySymbol && !params.usefulHolySymbol) {
+  if (params.holySymbol && !params.decentHolySymbol) {
     otherBonus += 30
-  } else if (params.usefulHolySymbol && !params.holySymbol) {
-    // 쓸만한 홀리 심볼: 1레벨=14%, 3레벨당 1% 추가
+  } else if (params.decentHolySymbol && !params.holySymbol) {
+    // Decent Holy Symbol: 1레벨=14%, 3레벨당 1% 추가
     const basePercent = 14
-    const additionalPercent = Math.floor(params.usefulHolySymbolLevel / 3)
+    const additionalPercent = Math.floor(params.decentHolySymbolLevel / 3)
     otherBonus += basePercent + additionalPercent
   }
   

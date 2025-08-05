@@ -17,7 +17,7 @@ interface BreakevenSettings {
   baseParams: HuntingExpectationParams
   realTimeCalculation: boolean
   wealthAcquisitionPotion: boolean
-  currentDropFromPotential: number  // 현재 잠재능력 드랍률
+  currentDropFromPotential: number  // 현재 잠재능력 드롭률
   currentMesoFromPotential: number  // 현재 잠재능력 메소획득량
   globalFeeRate: 3 | 5  // 전역 경매장 수수료
   linkedPrices?: { [itemId: string]: boolean }  // 구매가-판매가 연동 상태
@@ -224,22 +224,22 @@ export function BreakevenCalculator() {
       if (settings.slotName) {
         setBasicSlotNames(prev => ({ ...prev, [slotNumber]: settings.slotName }))
       }
-      // 메소 획득량 계산 (기본 계산기와 동일한 로직)
+      // 메획 계산 (기본 계산기와 동일한 로직)
       let calculatedMesoBonus = 0
       
       // 메소 입력 모드에 따른 계산
       if (settings.mesoInputMode === 'detail') {
         // 유니온 점령 효과
-        if (settings.mesoUnionBuff) {
+        if (settings.mesoLegionBuff) {
           if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
             calculatedMesoBonus += 2.5
           }
         }
         
         // 팬텀 유니온원 효과
-        if (settings.phantomUnionMeso && settings.phantomUnionMeso > 0) {
+        if (settings.phantomLegionMeso && settings.phantomLegionMeso > 0) {
           if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
-            calculatedMesoBonus += settings.phantomUnionMeso
+            calculatedMesoBonus += settings.phantomLegionMeso
           }
         }
         
@@ -274,12 +274,12 @@ export function BreakevenCalculator() {
         calculatedMesoBonus = settings.mesoBonus ?? 0
       }
       
-      // 아이템 드랍률 계산
+      // 아드 계산
       let calculatedDropRate = 0
       
       if (settings.dropRateInputMode === 'detail' || settings.itemDropInputMode === 'detail') {
         // 유니온 점령 효과
-        if (settings.dropRateUnionBuff) {
+        if (settings.dropRateLegionBuff) {
           if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
             calculatedDropRate += 10
           }
@@ -312,14 +312,14 @@ export function BreakevenCalculator() {
           calculatedDropRate += 50
         }
         
-        // 쓸만한 홀리 심볼
-        if (settings.usefulHolySymbol && settings.usefulHolySymbolLevel > 0) {
+        // Decent Holy Symbol
+        if (settings.decentHolySymbol && settings.decentHolySymbolLevel > 0) {
           const baseBonus = 24
-          const levelBonus = (settings.usefulHolySymbolLevel - 1) * 1
+          const levelBonus = (settings.decentHolySymbolLevel - 1) * 1
           calculatedDropRate += baseBonus + levelBonus
         }
         
-        // 재물 획득의 비약 (드랍률에 합연산 +20%)
+        // 재물 획득의 비약 (드롭률에 합연산 +20%)
         if (settings.wealthAcquisitionPotion) {
           calculatedDropRate += 20
         }
@@ -336,7 +336,7 @@ export function BreakevenCalculator() {
       const monstersPer6Minutes = Math.round(monstersPerMinute * 6)
       const totalMonstersPerHour = monstersPerMinute * 60
       
-      // 현재 잠재능력 드랍률/메소획득량 설정
+      // 현재 잠재능력 드롭률/메소획득량 설정
       let potentialDrop = 0
       let potentialMeso = 0
       
@@ -572,7 +572,7 @@ export function BreakevenCalculator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 메소 획득량 (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">최종 메획 (%)</label>
             <NumberInput
               value={baseParams.mesoBonus}
               onChange={(value) => setBaseParams({ ...baseParams, mesoBonus: value })}
@@ -582,7 +582,7 @@ export function BreakevenCalculator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 아이템 드랍률 (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">최종 아드 (%)</label>
             <NumberInput
               value={baseParams.dropRate}
               onChange={(value) => setBaseParams({ ...baseParams, dropRate: value })}
@@ -611,7 +611,7 @@ export function BreakevenCalculator() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              현재 잠재능력 드랍률 (%)
+              현재 잠재능력 드롭률 (%)
             </label>
             <NumberInput
               value={currentDropFromPotential}
@@ -621,7 +621,7 @@ export function BreakevenCalculator() {
               step={20}
               placeholder="0"
             />
-            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 드랍률</div>
+            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 드롭률</div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -672,7 +672,7 @@ export function BreakevenCalculator() {
       {/* 아이템 목록 */}
       <div className="bg-white border rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">드랍/메획 아이템</h2>
+          <h2 className="text-xl font-semibold">드롭/메획 아이템</h2>
           <button
             onClick={addItem}
             className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
@@ -716,7 +716,7 @@ export function BreakevenCalculator() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      드랍률 증가 (줄)
+                      드롭률 증가 (줄)
                     </label>
                     <NumberInput
                       value={item.dropLines}
@@ -730,7 +730,7 @@ export function BreakevenCalculator() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      메소 획득량 증가 (줄)
+                      메획 증가 (줄)
                     </label>
                     <NumberInput
                       value={item.mesoLines}
