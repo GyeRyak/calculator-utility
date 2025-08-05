@@ -305,6 +305,7 @@ export function BasicCalculator() {
   })
   const [isDropItemResultExpanded, setIsDropItemResultExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isLoadingSlot, setIsLoadingSlot] = useState(false)
   const [isDataSourceCardDismissedState, setIsDataSourceCardDismissedState] = useState(true) // 초기에는 숨김
   
   // 입력 상태
@@ -519,6 +520,8 @@ export function BasicCalculator() {
       return
     }
     
+    setIsLoadingSlot(true)
+    
     const settings = loadCalculatorSettings(slotNumber)
     
     if (!settings) {
@@ -535,18 +538,12 @@ export function BasicCalculator() {
       setAutoCalculate(true)
       setCharacterLevel(275)
       
-          // 빈 슬롯의 기본값으로 lastSavedInputs 설정
-      const defaultInputs = createCalculationInputsFromSettings({})
-      
-      setLastSavedInputs(prev => ({
-        ...prev,
-        [slotNumber]: defaultInputs
-      }))
       setLastSavedSlotNames(prev => ({
         ...prev,
         [slotNumber]: slotNames[slotNumber] || `슬롯 ${slotNumber}`
       }))
       
+      setIsLoadingSlot(false)
       return
     }
     
@@ -674,13 +671,6 @@ export function BasicCalculator() {
       showNotification('success', `슬롯 ${slotNumber}의 설정을 불러왔습니다.`)
     }
     
-    // 저장된 설정값을 직접 lastSavedInputs로 설정
-    const savedInputs = createCalculationInputsFromSettings(settings)
-    
-    setLastSavedInputs(prev => ({
-      ...prev,
-      [slotNumber]: savedInputs
-    }))
     setLastSavedSlotNames(prev => ({
       ...prev,
       [slotNumber]: settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
@@ -688,6 +678,8 @@ export function BasicCalculator() {
     
     // 설정 복원 메시지를 3초 후 숨김
     setTimeout(() => setSettingsLoaded(false), 3000)
+    
+    setIsLoadingSlot(false)
   }
   
   // 컴포넌트 마운트 시 설정 로드
@@ -699,12 +691,6 @@ export function BasicCalculator() {
       const newSlotNames: {[key: number]: string} = {}
       const newSlotHasData: {[key: number]: boolean} = {}
       
-      const initialLastSavedInputs: {[key: number]: CalculationInputs | null} = {
-        1: null,
-        2: null,
-        3: null
-      }
-      
       for (let i = 1; i <= 3; i++) {
         const settings = loadCalculatorSettings(i)
         
@@ -715,21 +701,16 @@ export function BasicCalculator() {
           } else {
             newSlotNames[i] = `슬롯 ${i}`
           }
-          
-          // 초기 로드 시 저장된 값을 lastSavedInputs에 설정
-          initialLastSavedInputs[i] = createCalculationInputsFromSettings(settings)
         } else {
           newSlotHasData[i] = false
           newSlotNames[i] = `슬롯 ${i}`
-          // 빈 슬롯은 null로 유지
         }
       }
       setSlotNames(newSlotNames)
       setSlotHasData(newSlotHasData)
       setTempSlotName(newSlotNames[1] || '슬롯 1')
-      // 초기 로드 시 저장된 슬롯 이름과 입력값 설정
+      // 초기 로드 시 슬롯 이름만 먼저 설정
       setLastSavedSlotNames(newSlotNames)
-      setLastSavedInputs(initialLastSavedInputs)
       
       // 데이터 소스 카드 닫기 상태 로드
       setIsDataSourceCardDismissedState(isDataSourceCardDismissed())
@@ -789,8 +770,8 @@ export function BasicCalculator() {
 
   // 미저장 변경사항 감지
   const hasUnsavedChanges = useMemo(() => {
-    // 초기 로드 중이면 변경사항 없음
-    if (!mounted) {
+    // 초기 로드 중이거나 슬롯 로딩 중이면 변경사항 없음
+    if (!mounted || isLoadingSlot) {
       return false
     }
     
@@ -809,11 +790,17 @@ export function BasicCalculator() {
     const valuesChanged = Object.keys(current).some(key => {
       const currentValue = current[key as keyof CalculationInputs]
       const savedValue = currentSlotSavedInputs[key as keyof CalculationInputs]
+      
+      // 배열이나 객체인 경우 JSON 문자열로 변환하여 비교
+      if (typeof currentValue === 'object' && currentValue !== null) {
+        return JSON.stringify(currentValue) !== JSON.stringify(savedValue)
+      }
+      
       return currentValue !== savedValue
     })
     
     return nameChanged || valuesChanged
-  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
+  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, isLoadingSlot, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
 
   // 슬롯 전환 처리 함수
   const handleSlotChange = (slotNumber: number) => {
@@ -1155,12 +1142,23 @@ export function BasicCalculator() {
     setCalculatedInputs(inputs)
   }
 
+  // 슬롯 로딩 완료 시 현재 상태를 저장
+  useEffect(() => {
+    if (!isLoadingSlot && mounted) {
+      const currentInputs = getCurrentInputs()
+      setLastSavedInputs(prev => ({
+        ...prev,
+        [currentSlot]: currentInputs
+      }))
+    }
+  }, [isLoadingSlot, mounted, currentSlot])
+
   // 자동 연산이 켜져있을 때 입력값 변경 감지
   useEffect(() => {
     if (autoCalculate) {
       calculateDrops()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, dropItems])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoUnionBuff, phantomUnionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateUnionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, usefulHolySymbol, usefulHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
 
 
   // 드메 효과 계산
