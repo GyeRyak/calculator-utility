@@ -112,7 +112,7 @@ const DEFAULT_VALUES = {
   mesoPotentialLines: 0,
   mesoPotentialDirect: 0,
   mesoAbility: 20,
-  globalBuffMode: 'union',
+  globalBuffMode: 'legion',
   mesoArtifactLevel: 10,
   mesoArtifactMode: 'level',
   mesoArtifactLevelInput: 10,
