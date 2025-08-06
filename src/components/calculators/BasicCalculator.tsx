@@ -11,6 +11,7 @@ import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
+import { validateAllInputs, type ValidationError } from '../../utils/validations'
 
 // 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
@@ -294,6 +295,9 @@ export function BasicCalculator() {
   const [mounted, setMounted] = useState(false)
   const [isLoadingSlot, setIsLoadingSlot] = useState(false)
   const [isDataSourceCardDismissedState, setIsDataSourceCardDismissedState] = useState(true) // 초기에는 숨김
+  
+  // 입력 검증 에러 상태
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   
   // 입력 상태
   const [monsterLevel, setMonsterLevel] = useState<number>(275)
@@ -1089,6 +1093,17 @@ export function BasicCalculator() {
       calculateDrops()
     }
   }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, pcRoomMode])
+
+  // 입력값 유효성 검사
+  useEffect(() => {
+    const errors = validateAllInputs({
+      dropRateAbility,
+      mesoAbility,
+      characterLevel,
+      tallahartSymbolLevel
+    })
+    setValidationErrors(errors)
+  }, [dropRateAbility, mesoAbility, characterLevel, tallahartSymbolLevel])
 
 
   // 유니온 버프 효과를 고려한 계산 헬퍼 함수
@@ -1940,14 +1955,22 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">어빌리티</label>
                 <div className="flex items-center space-x-2">
-                  <NumberInput
-                    value={dropRateAbility}
-                    onChange={(value) => setDropRateAbility(Math.min(20, Math.max(0, value)))}
-                    min={0}
-                    max={20}
-                    size="md"
-                    className="w-20"
-                  />
+                  <div className="relative group">
+                    <NumberInput
+                      value={dropRateAbility}
+                      onChange={(value) => setDropRateAbility(Math.min(20, Math.max(0, value)))}
+                      min={0}
+                      max={20}
+                      size="md"
+                      className={`w-20 ${validationErrors.some(e => e.field === 'ability') ? 'border-red-500 bg-red-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'ability') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'ability')?.shortMessage || validationErrors.find(e => e.field === 'ability')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
@@ -2062,21 +2085,29 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between"> {/* 탈라하트 심볼 섹션 시작 */}
                 <label className="text-sm text-gray-700">탈라하트 심볼</label>
                 <div className="flex items-center space-x-2">
-                  <NumberInput
-                    value={tallahartSymbolLevel}
-                    onChange={(value) => {
-                      setTallahartSymbolLevel(value)
-                      if (dropRateInputMode === 'direct') {
-                        setDropRateInputMode('detail')
-                      }
-                      if (mesoInputMode === 'direct') {
-                        setMesoInputMode('detail')
-                      }
-                    }}
-                    min={0}
-                    max={11}
-                    className="w-16"
-                  />
+                  <div className="relative group">
+                    <NumberInput
+                      value={tallahartSymbolLevel}
+                      onChange={(value) => {
+                        setTallahartSymbolLevel(value)
+                        if (dropRateInputMode === 'direct') {
+                          setDropRateInputMode('detail')
+                        }
+                        if (mesoInputMode === 'direct') {
+                          setMesoInputMode('detail')
+                        }
+                      }}
+                      min={0}
+                      max={11}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-red-500 bg-red-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'tallahartSymbol') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'tallahartSymbol')?.shortMessage || validationErrors.find(e => e.field === 'tallahartSymbol')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-500">레벨</span>
                   <span className="text-xs text-gray-400 w-12">
                     ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
@@ -2264,13 +2295,21 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">어빌리티</label>
                 <div className="flex items-center space-x-2">
-                  <NumberInput
-                    value={mesoAbility}
-                    onChange={(value) => setMesoAbility(Math.min(20, Math.max(0, value)))}
-                    min={0}
-                    max={20}
-                    className="w-20"
-                  />
+                  <div className="relative group">
+                    <NumberInput
+                      value={mesoAbility}
+                      onChange={(value) => setMesoAbility(Math.min(20, Math.max(0, value)))}
+                      min={0}
+                      max={20}
+                      className={`w-20 ${validationErrors.some(e => e.field === 'ability') ? 'border-red-500 bg-red-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'ability') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'ability')?.shortMessage || validationErrors.find(e => e.field === 'ability')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
@@ -2385,21 +2424,29 @@ export function BasicCalculator() {
               <div className="flex items-center justify-between"> {/* 탈라하트 심볼 섹션 시작 */}
                 <label className="text-sm text-gray-700">탈라하트 심볼</label>
                 <div className="flex items-center space-x-2">
-                  <NumberInput
-                    value={tallahartSymbolLevel}
-                    onChange={(value) => {
-                      setTallahartSymbolLevel(value)
-                      if (mesoInputMode === 'direct') {
-                        setMesoInputMode('detail')
-                      }
-                      if (dropRateInputMode === 'direct') {
-                        setDropRateInputMode('detail')
-                      }
-                    }}
-                    min={0}
-                    max={11}
-                    className="w-16"
-                  />
+                  <div className="relative group">
+                    <NumberInput
+                      value={tallahartSymbolLevel}
+                      onChange={(value) => {
+                        setTallahartSymbolLevel(value)
+                        if (mesoInputMode === 'direct') {
+                          setMesoInputMode('detail')
+                        }
+                        if (dropRateInputMode === 'direct') {
+                          setDropRateInputMode('detail')
+                        }
+                      }}
+                      min={0}
+                      max={11}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-red-500 bg-red-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'tallahartSymbol') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'tallahartSymbol')?.shortMessage || validationErrors.find(e => e.field === 'tallahartSymbol')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-500">레벨</span>
                   <span className="text-xs text-gray-400 w-12">
                     ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
@@ -2447,6 +2494,28 @@ export function BasicCalculator() {
                   <p className="text-sm text-yellow-800">
                     현재 표시된 결과는 입력된 값과 다른 계산 결과입니다. &apos;계산하기&apos; 버튼을 눌러 최신 결과를 확인하세요.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* 유효성 검사 에러 경고 */}
+            {validationErrors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <span className="text-red-600 mr-2 mt-0.5">❌</span>
+                  <div>
+                    <p className="text-sm font-medium text-red-800 mb-2">
+                      현재 불가능한 옵션이 적용되어 있습니다:
+                    </p>
+                    <ul className="text-sm text-red-700 space-y-1">
+                      {validationErrors.map((error, index) => (
+                        <li key={index} className="flex items-center">
+                          <span className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2 flex-shrink-0"></span>
+                          {error.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
             )}
