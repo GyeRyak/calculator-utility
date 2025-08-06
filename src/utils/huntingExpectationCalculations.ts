@@ -1,5 +1,6 @@
 // 사냥 기댓값 계산 유틸리티 함수들
 import { calculateLevelPenalty } from './levelPenalty'
+import { getAverageMesoDropByLevel } from './mesoDropCalculation'
 
 // 솔 에르다 조각 고정 ID (특별 처리용)
 export const SOL_ERDA_FRAGMENT_ID = '__sol_erda_fragment__'
@@ -22,7 +23,7 @@ export function calculateMesoDropRate(dropRate: number): number {
  * @returns 1마리당 메소 드롭량
  */
 export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number, levelPenalty: number = 1): number {
-  return monsterLevel * 7.5 * (1 + mesoBonus / 100) * levelPenalty
+  return getAverageMesoDropByLevel(monsterLevel) * (1 + mesoBonus / 100) * levelPenalty
 }
 
 /**
@@ -34,7 +35,7 @@ export function calculateMesoPerDrop(monsterLevel: number, mesoBonus: number, le
  * @returns 메소 계산 상세 정보
  */
 export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: number, wealthAcquisitionPotion: boolean, levelPenalty: number = 1) {
-  const baseMeso = monsterLevel * 7.5 // 몬스터 드롭 기본 메소
+  const baseMeso = getAverageMesoDropByLevel(monsterLevel) // 몬스터 드롭 기본 메소
   const mesoMultiplier = 1 + mesoBonus / 100 // 일반 메획 배수
   const wealthPotionMultiplier = wealthAcquisitionPotion ? 1.2 : 1 // 재획비 배수
   
@@ -184,7 +185,7 @@ export function calculateHuntingExpectation(params: HuntingExpectationParams): H
   const mesoDropRate = calculateMesoDropRate(dropRate)
   const baseMesoPerDrop = calculateMesoPerDrop(monsterLevel, mesoBonus, levelPenalty)
   // Spotting Small Change: 메획 적용 후 돈주머니당 추가 메소
-  const mesoPerDrop = baseMesoPerDrop + spottingSmallChangeBonus
+  const mesoPerDrop = baseMesoPerDrop + (baseMesoPerDrop > 0 ? spottingSmallChangeBonus : 0) // 메소가 드랍되어야 잔돈이 눈에 띄네 보너스 적용
   const totalMeso = Math.floor(totalMonsters * mesoDropRate * mesoPerDrop)
 
   // 드롭 아이템 계산

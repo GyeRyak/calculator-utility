@@ -12,6 +12,7 @@ import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem 
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
+import { getAverageMesoDropByLevel } from '../../utils/mesoDropCalculation'
 
 // 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
@@ -933,7 +934,7 @@ export function BasicCalculator() {
       const mesoLimit = calculateMesoLimit(characterLevel)
       
       // 몬스터 1마리당 기본 메소 드롭량 계산 (메획 보너스 적용 전)
-      const baseMesoPerMob = inputs.monsterLevel * 7.5
+      const baseMesoPerMob = getAverageMesoDropByLevel(inputs.monsterLevel)
       
       // 메소 제한량에 도달하는데 필요한 몬스터 수
       const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
@@ -1100,10 +1101,13 @@ export function BasicCalculator() {
       dropRateAbility,
       mesoAbility,
       characterLevel,
-      tallahartSymbolLevel
+      tallahartSymbolLevel,
+      monsterLevel,
+      mesoDropRate: result?.mesoDropRate || 100, // 결과가 없으면 100%로 가정
+      wealthAcquisitionPotion
     })
     setValidationErrors(errors)
-  }, [dropRateAbility, mesoAbility, characterLevel, tallahartSymbolLevel])
+  }, [dropRateAbility, mesoAbility, characterLevel, tallahartSymbolLevel, monsterLevel, result?.mesoDropRate, wealthAcquisitionPotion])
 
 
   // 유니온 버프 효과를 고려한 계산 헬퍼 함수
@@ -2498,8 +2502,8 @@ export function BasicCalculator() {
               </div>
             )}
 
-            {/* 유효성 검사 에러 경고 */}
-            {validationErrors.length > 0 && (
+            {/* 유효성 검사 에러 */}
+            {validationErrors.some(e => e.severity === 'error') && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex items-start">
                   <span className="text-red-600 mr-2 mt-0.5">❌</span>
@@ -2508,9 +2512,31 @@ export function BasicCalculator() {
                       현재 불가능한 옵션이 적용되어 있습니다:
                     </p>
                     <ul className="text-sm text-red-700 space-y-1">
-                      {validationErrors.map((error, index) => (
-                        <li key={index} className="flex items-center">
-                          <span className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2 flex-shrink-0"></span>
+                      {validationErrors.filter(e => e.severity === 'error').map((error, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="w-1.5 h-1.5 bg-red-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
+                          {error.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 유효성 검사 경고 */}
+            {validationErrors.some(e => e.severity === 'warning') && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <span className="text-yellow-600 mr-2 mt-0.5">⚠️</span>
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800 mb-2">
+                      주의해야 할 설정이 있습니다:
+                    </p>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      {validationErrors.filter(e => e.severity === 'warning').map((error, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="w-1.5 h-1.5 bg-yellow-400 rounded-full mr-2 flex-shrink-0 mt-1.5"></span>
                           {error.message}
                         </li>
                       ))}
@@ -2561,10 +2587,26 @@ export function BasicCalculator() {
                            inputs.monsterLevel,
                            mesoResult.bonusWithoutWealth || 0,
                            wealthAcquisitionPotion,
-                           mesoResult.levelPenalty || 1
+                           mesoResult.levelPenalty ?? 1
                          )
                          const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
-                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)}${mesoDetails.levelPenalty !== 1 ? ` × ${mesoDetails.levelPenalty.toFixed(2)}(레벨 패널티)` : ''} × ${mesoDetails.wealthPotionMultiplier}${spottingSmallChangeBonus > 0 ? ` + ${spottingSmallChangeBonus}` : ''}`
+                         
+                         // 레벨 패널티 표시 부분
+                         let levelPenaltyText = ''
+                         if (mesoDetails.levelPenalty !== 1) {
+                           if (mesoDetails.levelPenalty === 0) {
+                             levelPenaltyText = ' × 0(레벨 패널티)'
+                           } else {
+                             levelPenaltyText = ` × ${mesoDetails.levelPenalty.toFixed(2)}(레벨 패널티)`
+                           }
+                         }
+                         
+                         // 잔돈이 눈에 띄네 보너스 부분 
+                         const spottingBonusText = spottingSmallChangeBonus > 0 ? 
+                          (mesoDetails.totalMeso <= 0 ? ` + 0 (메소 미드랍)` : ` + ${spottingSmallChangeBonus}`) : ''
+
+                         
+                         return `${mesoDetails.baseMeso} × ${mesoDetails.mesoMultiplier.toFixed(2)}${levelPenaltyText} × ${mesoDetails.wealthPotionMultiplier}${spottingBonusText}`
                        })()}
                      </div>
                   </div>

@@ -5,7 +5,7 @@ export function calculateLevelPenalty(characterLevel: number, monsterLevel: numb
     return 0;
   }
   
-  if (levelDiff >= 10) {
+  if (levelDiff >= 11) {
     const penalties: Record<number, number> = {
       29: 0.03,
       28: 0.16,
@@ -25,8 +25,7 @@ export function calculateLevelPenalty(characterLevel: number, monsterLevel: numb
       14: 0.92,
       13: 0.94,
       12: 0.96,
-      11: 0.98,
-      10: 1.00,
+      11: 0.98
     };
     return penalties[levelDiff] ?? 0;
   }

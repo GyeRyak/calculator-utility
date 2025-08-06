@@ -2,6 +2,7 @@
  * 메획과 아드 계산 유틸리티 함수들
  */
 import { calculateLevelPenalty } from './levelPenalty'
+import { getAverageMesoDropByLevel } from './mesoDropCalculation'
 
 // 보너스 계산 결과 인터페이스
 export interface BonusCalculationResult {
@@ -338,7 +339,7 @@ export function calculateMesoLimitTime(
   huntTime: number
 ): number {
   const mesoLimit = calculateMesoLimit(characterLevel)
-  const baseMesoPerMob = monsterLevel * 7.5
+  const baseMesoPerMob = getAverageMesoDropByLevel(monsterLevel)
   const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
   const mobsPerMinute = monsterCount / huntTime
   return mobsForMesoLimit / mobsPerMinute
