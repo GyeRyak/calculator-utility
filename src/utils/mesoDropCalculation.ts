@@ -85,5 +85,5 @@ export function getCurrentMesoMultiplier(monsterLevel: number): number {
  */
 export function isOptimalMesoLevel(monsterLevel: number): boolean {
   const currentMultiplier = getCurrentMesoMultiplier(monsterLevel)
-  return currentMultiplier === maxAverageMultiplier
+  return Math.abs(currentMultiplier - maxAverageMultiplier) < 0.001
 }
