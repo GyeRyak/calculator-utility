@@ -56,7 +56,7 @@ export function calculateMesoDropByLevel(monsterLevel: number): MesoDropRange {
   const minimum = Math.floor(minMultiplier * monsterLevel)
   const maximum = Math.floor(maxMultiplier * monsterLevel)
   const average = Math.floor((minimum + maximum) / 2)
-  const currentAverageMultiplier = average / monsterLevel
+  const currentAverageMultiplier = (minMultiplier + maxMultiplier) / 2
   
   return {
     minimum,
@@ -85,5 +85,5 @@ export function getCurrentMesoMultiplier(monsterLevel: number): number {
  */
 export function isOptimalMesoLevel(monsterLevel: number): boolean {
   const currentMultiplier = getCurrentMesoMultiplier(monsterLevel)
-  return Math.abs(currentMultiplier - maxAverageMultiplier) < 0.001
+  return Math.abs(currentMultiplier - maxAverageMultiplier) < 0.01
 }
