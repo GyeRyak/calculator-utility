@@ -92,6 +92,17 @@ export default function AboutPage() {
                   </a>를 바탕으로 역산
                 </p>
               </div>
+              
+              <div>
+                <p className="font-medium">• 메소 드롭 값 및 기타 게임 공식</p>
+                <p className="ml-4 text-xs">
+                  <a href="https://strategywiki.org/w/index.php?title=MapleStory/Formulas&oldid=1104343#Meso_Drop" 
+                     target="_blank" rel="noopener noreferrer" 
+                     className="text-blue-600 hover:text-blue-800 underline">
+                    StrategyWiki - MapleStory Formulas
+                  </a>
+                </p>
+              </div>
             </div>
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mt-4">
               <p className="text-xs text-yellow-800">
@@ -101,16 +112,87 @@ export default function AboutPage() {
             </div>
           </div>
           
-          <h3 className="text-xl font-semibold mb-3">개발 예정</h3>
-          <p className="text-gray-700 mb-4">
-            더 많은 유용한 계산기들을 추가할 예정입니다. 계산기 추가 요청이나 개선 사항이 있으시면 언제든지 알려주세요.
-          </p>
-          
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mt-6">
-            <p className="text-blue-800">
-              💡 <strong>팁:</strong> 모든 계산은 클라이언트 사이드에서 처리되므로 개인정보가 서버로 전송되지 않습니다.
+          <h3 className="text-xl font-semibold mb-3">기술 스택</h3>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium text-gray-800 mb-2">프론트엔드</p>
+                <ul className="list-disc list-inside text-gray-600 space-y-1">
+                  <li>Next.js 14 (App Router)</li>
+                  <li>TypeScript</li>
+                  <li>Tailwind CSS</li>
+                  <li>Lucide React Icons</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-medium text-gray-800 mb-2">배포 및 인프라</p>
+                <ul className="list-disc list-inside text-gray-600 space-y-1">
+                  <li>GitHub Pages (정적 호스팅)</li>
+                  <li>클라이언트 사이드 렌더링</li>
+                  <li>모든 계산 로컬 처리</li>
+                  <li>쿠키 기반 설정 저장</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <h3 className="text-xl font-semibold mb-3">라이선스</h3>
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <p className="text-gray-700 mb-3">
+              본 프로젝트는 커스텀 라이선스를 사용합니다.
+            </p>
+            <ul className="list-disc list-inside text-gray-600 space-y-2 text-sm">
+              <li><strong>코드 자체 판매 금지:</strong> 코드를 그 자체로 판매하는 것은 불가능합니다</li>
+              <li><strong>코드 활용 시:</strong> 일부만 활용 시 이외 조건 없음, 대량 활용 시 출처 표기 필수</li>
+              <li><strong>무보증:</strong> 소프트웨어 사용에 대한 어떠한 보증도 제공하지 않습니다</li>
+            </ul>
+            <p className="text-xs text-gray-500 mt-3">
+              자세한 내용은 
+              <a href="https://github.com/gyeryak/calculator-utility/blob/main/LICENSE.md" 
+                 target="_blank" rel="noopener noreferrer" 
+                 className="text-blue-600 hover:text-blue-800 underline ml-1">
+                LICENSE.md
+              </a>
+              를 참조하세요.
             </p>
           </div>
+
+          <h3 className="text-xl font-semibold mb-3">면책 조항</h3>
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+            <p className="text-red-800 text-sm">
+              ⚠️ <strong>중요:</strong> 본 계산기는 특정 게임 또는 게임사의 공식 컨텐츠가 아닙니다. 
+              실제 게임 내 적용되는 공식과 계산 결과는 다를 수 있으며, 
+              본 계산기의 결과는 참고용으로만 사용하시기 바랍니다.
+            </p>
+          </div>
+
+          <h3 className="text-xl font-semibold mb-3">개발 예정 및 기여</h3>
+          <p className="text-gray-700 mb-4">
+            더 많은 유용한 계산기들을 추가할 예정입니다.
+          </p>
+          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+            <p className="text-green-800 text-sm mb-2">
+              💡 <strong>건의사항 및 개선 요청</strong>
+            </p>
+            <ul className="text-green-700 text-sm space-y-1">
+              <li>• 버그 리포트, 기능 제안: 
+                <a href="https://github.com/gyeryak/calculator-utility/issues" 
+                   target="_blank" rel="noopener noreferrer"
+                   className="text-blue-600 hover:text-blue-800 underline">
+                  GitHub Issues
+                </a>
+              </li>
+              <li>• 코드 기여: 
+                <a href="https://github.com/gyeryak/calculator-utility/pulls" 
+                   target="_blank" rel="noopener noreferrer"
+                   className="text-blue-600 hover:text-blue-800 underline">
+                  Pull Request
+                </a>
+              </li>
+              <li>• 여러분의 피드백과 기여를 환영합니다!</li>
+            </ul>
+          </div>
+          
         </div>
       </div>
     </div>

@@ -79,15 +79,32 @@ src/
 
 ## 기여하기
 
+### 건의사항 및 버그 리포트
+- **Issue 생성**: [GitHub Issues](https://github.com/gyeryak/calculator-utility/issues)에서 새로운 이슈를 생성해주세요
+- 버그 리포트, 기능 제안, 개선 요청 등을 환영합니다
+- 이슈 작성 시 가능한 한 자세히 설명해주세요
+
+### 코드 기여
 1. Fork 생성
 2. 새로운 기능 브랜치 생성 (`git checkout -b feature/amazing-feature`)
 3. 변경사항 커밋 (`git commit -m 'Add some amazing feature'`)
 4. 브랜치에 Push (`git push origin feature/amazing-feature`)
-5. Pull Request 생성
+5. [Pull Request](https://github.com/gyeryak/calculator-utility/pulls) 생성
+
+### 기여 가이드라인
+- 코드 스타일은 기존 코드베이스와 일치시켜주세요
+- 새로운 기능 추가 시 관련 문서도 함께 업데이트해주세요
+- 커밋 메시지는 명확하고 간결하게 작성해주세요
 
 ## 라이선스
 
-MIT License
+본 프로젝트는 커스텀 라이선스를 사용합니다. 자세한 내용은 [LICENSE.md](LICENSE.md)를 참조하세요.
+
+### 주요 라이선스 조건
+- ❌ **코드 자체 판매 금지**: 코드 자체를 판매하는 형태로 활용 불가
+- ✅ **소규모 재사용**: 코드 일부만 활용 시 코드 판매 금지 외 MIT 라이선스와 동일한 조건
+- 📝 **대규모 재사용**: 코드 대량 활용 시 출처 표기 필수
+- ⚠️ **무보증**: 소프트웨어 사용에 대한 어떠한 보증도 제공하지 않습니다
 
 ## 특징
 

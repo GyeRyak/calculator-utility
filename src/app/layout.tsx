@@ -39,13 +39,35 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.className} min-h-screen bg-background`}>
+      <body className={`${inter.className} min-h-screen bg-background flex flex-col`}>
         <CookieProvider>
           <NotificationProvider>
             <Navbar />
-            <main className="container mx-auto px-4 py-8">
+            <main className="container mx-auto px-4 py-8 flex-grow">
               {children}
             </main>
+            <footer className="bg-gray-100 border-t border-gray-200 mt-auto">
+              <div className="container mx-auto px-4 py-4">
+                <div className="text-center text-xs text-gray-600">
+                  <p className="mb-2">
+                    Calculator Utility is not affiliated with or endorsed by any game companies including NEXON Korea, and does not provide any warranty.
+                  </p>
+                  <p>
+                    본 사이트는 넥슨 코리아를 비롯한 어떠한 게임사와도 관계가 없으며, 공식 인증을 받지 않은 비공식 사이트입니다.
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-gray-300">
+                    <p>© 2025 Calculator Utility. 
+                      <a href="https://github.com/gyeryak/calculator-utility/blob/main/LICENSE.md" 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-blue-600 hover:text-blue-800 underline ml-1">
+                        커스텀 라이선스
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </footer>
           </NotificationProvider>
         </CookieProvider>
       </body>
