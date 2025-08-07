@@ -98,14 +98,14 @@ const DEFAULT_VALUES = {
   dropRate: 60,
   huntTime: 0.125,
   monsterCount: 39,
-  resultTime: 30,
+  resultTime: 0,
   feeRate: 3,
   isCustomHuntTime: false,
   huntTimeUnit: 'minutes',
   customHuntTimeValue: 7.5,
-  isCustomResultTime: false,
-  resultTimeUnit: 'minutes',
-  customResultTimeValue: 30,
+  isCustomResultTime: true,
+  resultTimeUnit: 'meso_limit',
+  customResultTimeValue: 0,
   mesoInputMode: 'detail',
   dropRateInputMode: 'detail',
   mesoLegionBuff: false,
@@ -356,10 +356,10 @@ export function BasicCalculator() {
   const [huntTimeUnit, setHuntTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'gen'>('gen')
   const [customHuntTimeValue, setCustomHuntTimeValue] = useState<number>(1)
   const [monsterCount, setMonsterCount] = useState<number>(39)
-  const [resultTime, setResultTime] = useState<number>(30) // 분
-  const [isCustomResultTime, setIsCustomResultTime] = useState<boolean>(false)
-  const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'meso_limit'>('minutes')
-  const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(30)
+  const [resultTime, setResultTime] = useState<number>(0) // 분 (0은 메소제한을 의미)
+  const [isCustomResultTime, setIsCustomResultTime] = useState<boolean>(true)
+  const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'meso_limit'>('meso_limit')
+  const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(0)
   const [characterLevel, setCharacterLevel] = useState<number>(275) // 캐릭터 레벨 (메소 제한용)
   const [feeRate, setFeeRate] = useState<number>(3) // %
   
