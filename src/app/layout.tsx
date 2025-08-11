@@ -4,6 +4,7 @@ import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import CookieProvider from '@/components/providers/CookieProvider'
 import { NotificationProvider } from '@/contexts/NotificationContext'
+import GoogleAnalytics from '@/components/GoogleAnalytics'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-screen bg-background flex flex-col`}>
+        <GoogleAnalytics />
         <CookieProvider>
           <NotificationProvider>
             <Navbar />
