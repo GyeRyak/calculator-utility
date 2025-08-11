@@ -399,6 +399,9 @@ export function BreakevenCalculator() {
         characterLevel: settings.characterLevel ?? 275
       })
       
+      // 경매장 수수료 설정
+      setGlobalFeeRate((settings.feeRate ?? 3) as 3 | 5)
+      
       // 재물 획득의 비약 및 잠재능력 설정
       setWealthAcquisitionPotion(settings.wealthAcquisitionPotion ?? false)
       setCurrentDropFromPotential(potentialDrop)
@@ -736,11 +739,8 @@ export function BreakevenCalculator() {
               </label>
               <div className="flex items-center gap-2">
                 <NumberInput
-                  value={mesoLimitEnabled ? mesoLimitHours * 2 : materialsPerDay}
-                  onChange={mesoLimitEnabled ? 
-                    (value) => setMesoLimitHours(value / 2) : 
-                    setMaterialsPerDay
-                  }
+                  value={materialsPerDay}
+                  onChange={setMaterialsPerDay}
                   min={1}
                   max={48}
                   step={1}
@@ -750,29 +750,11 @@ export function BreakevenCalculator() {
                   <input
                     type="checkbox"
                     checked={mesoLimitEnabled}
-                    onChange={(e) => {
-                      setMesoLimitEnabled(e.target.checked)
-                      if (e.target.checked) {
-                        setMesoLimitHours(materialsPerDay / 2)
-                      }
-                    }}
+                    onChange={(e) => setMesoLimitEnabled(e.target.checked)}
                     className="mr-1 h-3 w-3"
                   />
                   메소 제한
                 </label>
-                {mesoLimitEnabled && (
-                  <div className="flex items-center gap-1">
-                    <NumberInput
-                      value={mesoLimitHours}
-                      onChange={setMesoLimitHours}
-                      min={0.5}
-                      max={24}
-                      step={0.5}
-                      className="w-20"
-                    />
-                    <span className="text-sm text-gray-600">시간</span>
-                  </div>
-                )}
               </div>
             </div>
             
@@ -989,7 +971,7 @@ export function BreakevenCalculator() {
                     <div className="md:col-span-2 lg:col-span-3">
                       <span className="text-gray-600">
                         {mesoLimitEnabled ? 
-                          `하루 ${mesoLimitHours}시간 (메소 제한) 기준:` : 
+                          `메소 제한 기준:` : 
                           `하루 ${materialsPerDay}소재 기준:`
                         }
                       </span>
@@ -1028,7 +1010,7 @@ export function BreakevenCalculator() {
                   <div className="md:col-span-2 lg:col-span-3">
                     <span className="text-gray-700">
                       {mesoLimitEnabled ? 
-                        `하루 ${mesoLimitHours}시간 (메소 제한) 기준:` : 
+                        `메소 제한 기준:` : 
                         `하루 ${materialsPerDay}소재 기준:`
                       }
                     </span>

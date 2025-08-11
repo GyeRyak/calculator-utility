@@ -1,5 +1,5 @@
 import { calculateHuntingExpectation, type HuntingExpectationParams } from './huntingExpectationCalculations'
-import { calculateCoreMesoBonus, calculateCoreDropBonus } from './bonusCalculations'
+import { calculateCoreMesoBonus, calculateCoreDropBonus, calculateMesoLimitTime } from './bonusCalculations'
 
 /**
  * 드롭/메획 아이템 정보
@@ -240,9 +240,19 @@ export function calculateItemBreakeven(
   
   // 메소 제한이 활성화된 경우 하루 소재 수 조정
   let effectiveMaterialsPerDay = materialsPerDay
-  if (mesoLimitEnabled && mesoLimitHours && mesoLimitHours > 0) {
-    // 메소 제한 시간을 소재로 변환 (1시간 = 2소재)
-    effectiveMaterialsPerDay = mesoLimitHours * 2
+  if (mesoLimitEnabled) {
+    // 메소 제한에 도달하는 시간을 계산 (기본 계산기와 동일한 로직)
+    const huntTimeInMinutes = 30 // 1소재 = 30분으로 가정
+    const monstersPerHuntTime = Math.round(params.totalMonsters / 60 * huntTimeInMinutes) // 30분당 몬스터 수
+    const mesoLimitTimeInMinutes = calculateMesoLimitTime(
+      params.characterLevel || 275, 
+      params.monsterLevel, 
+      monstersPerHuntTime, 
+      huntTimeInMinutes
+    )
+    
+    // 메소 제한 도달 시간을 소재로 변환 (1소재 = 30분)
+    effectiveMaterialsPerDay = mesoLimitTimeInMinutes / 30
   }
   
   const daysToBreakeven = effectiveMaterialsPerDay > 0 ? breakEvenMaterials / effectiveMaterialsPerDay : Infinity
@@ -347,8 +357,19 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
     
     // 메소 제한이 활성화된 경우 하루 소재 수 조정
     let effectiveMaterialsPerDay = materialsPerDay
-    if (mesoLimitEnabled && mesoLimitHours && mesoLimitHours > 0) {
-      effectiveMaterialsPerDay = mesoLimitHours * 2
+    if (mesoLimitEnabled) {
+      // 메소 제한에 도달하는 시간을 계산 (기본 계산기와 동일한 로직)
+      const huntTimeInMinutes = 30 // 1소재 = 30분으로 가정
+      const monstersPerHuntTime = Math.round(adjustedHuntingParams.totalMonsters / 60 * huntTimeInMinutes) // 30분당 몬스터 수
+      const mesoLimitTimeInMinutes = calculateMesoLimitTime(
+        adjustedHuntingParams.characterLevel || 275, 
+        adjustedHuntingParams.monsterLevel, 
+        monstersPerHuntTime, 
+        huntTimeInMinutes
+      )
+      
+      // 메소 제한 도달 시간을 소재로 변환 (1소재 = 30분)
+      effectiveMaterialsPerDay = mesoLimitTimeInMinutes / 30
     }
     
     const totalDaysToBreakeven = effectiveMaterialsPerDay > 0 ? totalBreakEvenMaterials / effectiveMaterialsPerDay : Infinity

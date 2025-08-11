@@ -545,7 +545,7 @@ export function BasicCalculator() {
       setNormalDropItems(DEFAULT_VALUES.normalDropItems)
     }
     
-    if (settings.logDropItems) {
+    if (settings.logDropItems && Array.isArray(settings.logDropItems) && settings.logDropItems.length > 0) {
       const logItems = settings.logDropItems.map((item: any, index: number) => ({
         ...item,
         id: `log-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
@@ -582,9 +582,38 @@ export function BasicCalculator() {
       }
       
       setLogDropItems(logItems)
-    } else if (!settings.dropItems) {
-      // 기존 데이터에 드롭 설정이 전혀 없으면 기본값 사용
-      setLogDropItems(DEFAULT_VALUES.logDropItems)
+    } else {
+      // logDropItems가 없거나 빈 배열인 레거시 데이터의 경우
+      let logItems = []
+      
+      // 별도 저장된 솔 에르다 조각이 있으면 사용
+      if (settings.solErdaFragment) {
+        logItems.push({
+          id: SOL_ERDA_FRAGMENT_ID,
+          name: settings.solErdaFragment.name || '솔 에르다 조각',
+          price: settings.solErdaFragment.price || 600,
+          dropRate: settings.solErdaFragment.dropRate || 0.0425,
+          directUse: settings.solErdaFragment.directUse || false
+        })
+      }
+      
+      // 드롭 설정이 전혀 없거나 솔 에르다 조각이 없으면 기본값 사용
+      if (logItems.length === 0 || !logItems.find(item => item.id === SOL_ERDA_FRAGMENT_ID)) {
+        // 기본값에서 복사하되, 솔 에르다 조각이 없으면 반드시 추가
+        const defaultLogItems = [...DEFAULT_VALUES.logDropItems]
+        if (!defaultLogItems.find(item => item.id === SOL_ERDA_FRAGMENT_ID)) {
+          defaultLogItems.unshift({
+            id: SOL_ERDA_FRAGMENT_ID,
+            name: '솔 에르다 조각',
+            price: 600,
+            dropRate: 0.0425,
+            directUse: false
+          })
+        }
+        setLogDropItems(defaultLogItems)
+      } else {
+        setLogDropItems(logItems)
+      }
     }
     
     setSettingsLoaded(true)
