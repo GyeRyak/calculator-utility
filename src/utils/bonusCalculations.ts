@@ -122,34 +122,25 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
     }
   }
   
-  let potentialBonus = 0
-  let buffBonus = 0
+  // 잠재능력 계산
+  const potentialLines = params.potentialMode === 'lines' 
+    ? params.potentialLines 
+    : Math.floor(params.potentialDirect / 20)
   
-  // 잠재능력 (최대 100%)
-  potentialBonus = params.potentialMode === 'lines' 
-    ? params.potentialLines * 20 
-    : params.potentialDirect
-  const potentialExceeded = potentialBonus > 100
-  if (potentialExceeded) {
-    potentialBonus = 100
-  }
+  // 기타 보너스 계산
+  let otherBonus = 0
   
   // 버프 계산 (유니온의 부만 포함, 최대 100%)
-  // 유니온의 부
+  let buffBonus = 0
   if (params.globalBuffMode !== 'challenger' && params.legionBuff) {
     buffBonus += 50
   }
-  
-  // 기타 버프 (합연산)
   buffBonus += params.otherBuff
-
-  const buffExceeded = buffBonus > 100
-  if (buffExceeded) {
+  const buffExceededBeforeLimit = buffBonus > 100
+  if (buffExceededBeforeLimit) {
     buffBonus = 100
   }
-  
-  // 기타 증가량 계산 (버프 제한 외부)
-  let otherBonus = 0
+  otherBonus += buffBonus
   
   // 팬텀 Legion (일반 월드에서만)
   if (params.globalBuffMode === 'legion') {
@@ -178,43 +169,31 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
   // 기타 증가량
   otherBonus += params.otherNonBuff
   
-  // 재획비 적용 전 총합 (최대 300%)
-  let totalBeforePotion = potentialBonus + buffBonus + otherBonus
-  const totalExceededBeforePotion = totalBeforePotion > 300
-  if (totalExceededBeforePotion) {
-    totalBeforePotion = 300
-  }
-
-  // 재물 획득의 비약 (곱연산)
-  let finalTotal = totalBeforePotion
-  if (params.wealthAcquisitionPotion) {
-    finalTotal = (100 + totalBeforePotion) * 12 - 1000 // 소숫점 연산 회피
-    finalTotal /= 10
-  }
+  // 핵심 보너스 계산 함수 호출
+  const coreResult = calculateCoreMesoBonus(potentialLines, otherBonus, params.wealthAcquisitionPotion)
   
   // 재획비 제외 보너스 계산 (UI 표시용)
-  let bonusWithoutWealth = totalBeforePotion
-  if (params.wealthAcquisitionPotion) {
-    // 재획비 1.2배 효과 제거
-    bonusWithoutWealth = (100 + finalTotal) / 1.2 - 100
-  }
+  let bonusWithoutWealth = otherBonus + (potentialLines * 20)
+  if (bonusWithoutWealth > 300) bonusWithoutWealth = 300
   
   // 레벨 패널티 계산
   let levelPenalty = 1
-  let finalMesoBonus = finalTotal
+  let finalMesoBonus = coreResult.totalBonus
   if (params.characterLevel !== undefined && params.monsterLevel !== undefined) {
     levelPenalty = calculateLevelPenalty(params.characterLevel, params.monsterLevel)
-    finalMesoBonus = finalTotal * levelPenalty
+    finalMesoBonus = coreResult.totalBonus * levelPenalty
   }
   
+  // buffExceeded는 이미 위에서 계산됨
+  
   return {
-    totalBonus: finalTotal,
-    potentialBonus,
+    totalBonus: coreResult.totalBonus,
+    potentialBonus: coreResult.potentialBonus,
     buffBonus,
     exceededLimits: {
-      totalExceeded: totalExceededBeforePotion,
-      potentialExceeded,
-      buffExceeded
+      totalExceeded: coreResult.exceededLimits.totalExceeded,
+      potentialExceeded: coreResult.exceededLimits.potentialExceeded,
+      buffExceeded: buffExceededBeforeLimit
     },
     bonusWithoutWealth,
     levelPenalty,
@@ -239,34 +218,25 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
     }
   }
   
-  let potentialBonus = 0
-  let buffBonus = 0
+  // 잠재능력 계산
+  const potentialLines = params.potentialMode === 'lines'
+    ? params.potentialLines
+    : Math.floor(params.potentialDirect / 20)
   
-  // 잠재능력 (최대 200%)
-  potentialBonus = params.potentialMode === 'lines'
-    ? params.potentialLines * 20
-    : params.potentialDirect
-  const potentialExceeded = potentialBonus > 200
-  if (potentialExceeded) {
-    potentialBonus = 200
-  }
+  // 기타 보너스 계산
+  let otherBonus = 0
   
   // 버프 계산 (유니온의 행운만 포함, 최대 100%)
-  // 유니온의 행운
+  let buffBonus = 0
   if (params.globalBuffMode !== 'challenger' && params.legionBuff) {
     buffBonus += 50
   }
-  
-  // 기타 버프 (합연산)
   buffBonus += params.otherBuff
-  
-  const buffExceeded = buffBonus > 100
-  if (buffExceeded) {
+  const buffExceededBeforeLimit = buffBonus > 100
+  if (buffExceededBeforeLimit) {
     buffBonus = 100
   }
-  
-  // 기타 증가량 계산 (버프 제한 외부)
-  let otherBonus = 0
+  otherBonus += buffBonus
   
   // 어빌리티
   otherBonus += params.ability
@@ -292,11 +262,6 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
     otherBonus += basePercent + additionalPercent
   }
   
-  // 재물 획득의 비약 (합연산)
-  if (params.wealthAcquisitionPotion) {
-    otherBonus += 20
-  }
-  
   // 탈라하트 심볼 (0레벨: 0%, 1레벨 이상: 4+레벨%)
   if (params.tallahartSymbolLevel > 0) {
     otherBonus += params.tallahartSymbolLevel + 4
@@ -310,21 +275,19 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
   // 기타 증가량
   otherBonus += params.otherNonBuff
   
-  // 총합 (최대 400%)
-  let totalBonus = potentialBonus + buffBonus + otherBonus
-  const totalExceeded = totalBonus > 400
-  if (totalExceeded) {
-    totalBonus = 400
-  }
+  // 핵심 보너스 계산 함수 호출
+  const coreResult = calculateCoreDropBonus(potentialLines, otherBonus, params.wealthAcquisitionPotion)
+  
+  // buffExceeded는 이미 위에서 계산됨
   
   return {
-    totalBonus,
-    potentialBonus,
+    totalBonus: coreResult.totalBonus,
+    potentialBonus: coreResult.potentialBonus,
     buffBonus,
     exceededLimits: {
-      totalExceeded,
-      potentialExceeded,
-      buffExceeded
+      totalExceeded: coreResult.exceededLimits.totalExceeded,
+      potentialExceeded: coreResult.exceededLimits.potentialExceeded,
+      buffExceeded: buffExceededBeforeLimit
     }
   }
 }
@@ -343,4 +306,84 @@ export function calculateMesoLimitTime(
   const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
   const mobsPerMinute = monsterCount / huntTime
   return mobsForMesoLimit / mobsPerMinute
+}
+
+/**
+ * 핵심 메소 보너스 계산 (잠재능력 + 기타효과 + 재물 획득의 비약)
+ */
+export function calculateCoreMesoBonus(
+  potentialLines: number,
+  otherBonuses: number = 0,
+  wealthAcquisitionPotion: boolean = false
+): BonusCalculationResult {
+  // 잠재능력 (최대 100%)
+  let potentialBonus = potentialLines * 20
+  const potentialExceeded = potentialBonus > 100
+  if (potentialExceeded) {
+    potentialBonus = 100
+  }
+  
+  // 재물 획득의 비약 적용 전 총합 (최대 300%)
+  let totalBeforePotion = potentialBonus + otherBonuses
+  const totalExceededBeforePotion = totalBeforePotion > 300
+  if (totalExceededBeforePotion) {
+    totalBeforePotion = 300
+  }
+  
+  // 재물 획득의 비약 (곱연산 1.2배)
+  let finalTotal = totalBeforePotion
+  if (wealthAcquisitionPotion) {
+    finalTotal = 20 + totalBeforePotion * 12 / 10 // 소숫점 연산 회피
+  }
+  
+  return {
+    totalBonus: finalTotal,
+    potentialBonus,
+    buffBonus: 0, // 핵심 함수에서는 버프 보너스 분리하지 않음
+    exceededLimits: {
+      totalExceeded: totalExceededBeforePotion,
+      potentialExceeded,
+      buffExceeded: false // 핵심 함수에서는 버프 exceeded 계산하지 않음
+    }
+  }
+}
+
+/**
+ * 핵심 드롭 보너스 계산 (잠재능력 + 기타효과 + 재물 획득의 비약)
+ */
+export function calculateCoreDropBonus(
+  potentialLines: number,
+  otherBonuses: number = 0,
+  wealthAcquisitionPotion: boolean = false
+): BonusCalculationResult {
+  // 잠재능력 (최대 200%)
+  let potentialBonus = potentialLines * 20
+  const potentialExceeded = potentialBonus > 200
+  if (potentialExceeded) {
+    potentialBonus = 200
+  }
+  
+  // 재물 획득의 비약 효과 (+20% 합연산)
+  let wealthBonusEffect = 0
+  if (wealthAcquisitionPotion) {
+    wealthBonusEffect = 20
+  }
+  
+  // 총합 (최대 400%)
+  let totalBonus = potentialBonus + otherBonuses + wealthBonusEffect
+  const totalExceeded = totalBonus > 400
+  if (totalExceeded) {
+    totalBonus = 400
+  }
+  
+  return {
+    totalBonus,
+    potentialBonus,
+    buffBonus: 0, // 핵심 함수에서는 버프 보너스 분리하지 않음
+    exceededLimits: {
+      totalExceeded,
+      potentialExceeded,
+      buffExceeded: false // 핵심 함수에서는 버프 exceeded 계산하지 않음
+    }
+  }
 }

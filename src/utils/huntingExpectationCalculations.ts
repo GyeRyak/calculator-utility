@@ -71,7 +71,7 @@ export function calculateDropItems(
   // 일반 드롭 아이템들 계산
   for (const item of normalDropItems) {
     // 일반 드롭률: 드롭률 증가 효과를 그대로 받음
-    const dropMultiplier = 1 + dropRate / 100
+    const dropMultiplier = calculateNormalDropMultiplier(dropRate)
     const actualDropRate = (item.dropRate || 0) * dropMultiplier / 100
     const expectedCount = totalMonsters * actualDropRate
     const actualFeeRate = item.directUse ? 0 : feeRate
@@ -91,7 +91,7 @@ export function calculateDropItems(
   // 로그 드롭 아이템들 계산
   for (const item of logDropItems) {
     // 로그 드롭률: 솔 에르다 조각과 동일한 방식
-    const dropMultiplier = 1 + Math.log(1 + dropRate / 100)
+    const dropMultiplier = calculateLogDropMultiplier(dropRate)
     const actualDropRate = ((item.dropRate || 0) / 100) * dropMultiplier
     const expectedCount = totalMonsters * actualDropRate
     const actualFeeRate = item.directUse ? 0 : feeRate
@@ -163,6 +163,24 @@ export interface HuntingExpectationResult {
   
   // 총합
   totalIncome: number
+}
+
+/**
+ * 일반 드롭 아이템의 드롭률 배수 계산
+ * @param dropRate 아이템 드롭률 증가 (%)
+ * @returns 드롭률 배수
+ */
+export function calculateNormalDropMultiplier(dropRate: number): number {
+  return 1 + dropRate / 100
+}
+
+/**
+ * 로그 드롭 아이템의 드롭률 배수 계산
+ * @param dropRate 아이템 드롭률 증가 (%)
+ * @returns 드롭률 배수 (로그 스케일)
+ */
+export function calculateLogDropMultiplier(dropRate: number): number {
+  return 1 + Math.log(1 + dropRate / 100)
 }
 
 export function calculateHuntingExpectation(params: HuntingExpectationParams): HuntingExpectationResult {

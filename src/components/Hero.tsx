@@ -8,10 +8,16 @@ export function Hero() {
         다양한 상황에서 필요한 계산을 손쉽게 할 수 있는 웹 기반 도구
       </p>
       <div className="bg-white/60 rounded-lg p-4 max-w-2xl mx-auto mb-4">
-        <p className="text-lg text-blue-700 font-medium mb-2">
-          ✅ 현재 이용 가능: 사냥 기댓값 계산기
-        </p>
-        <p className="text-sm text-gray-600">
+        <div className="space-y-2">
+          <p className="text-lg text-blue-700 font-medium">
+            ✅ 현재 이용 가능:
+          </p>
+          <div className="text-sm text-gray-700 space-y-1">
+            <div>🎯 사냥 기댓값 계산기</div>
+            <div>📊 손익분기 계산기</div>
+          </div>
+        </div>
+        <p className="text-sm text-gray-600 mt-3">
           🚧 추가 계산기들 개발 예정
         </p>
       </div>

@@ -13,8 +13,8 @@ const calculatorCategories = [
   },
   {
     id: 'breakeven',
-    title: '아이템 드롭률/메소 획득량 증가 손익분기 계산기',
-    description: '아이템 구매 시 투자 회수 기간 계산',
+    title: '손익분기 계산기',
+    description: '아드/메획 증가 아이템 구매 시 투자 회수 기간 계산',
     icon: TrendingUp,
     href: '/calculators/breakeven',
     color: 'bg-green-500',

@@ -3,13 +3,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, AlertCircle, RotateCcw, Calculator } from 'lucide-react'
 import { calculateBreakeven, type BreakevenItem, type BreakevenResult } from '@/utils/breakevenCalculations'
-import { loadCalculatorSettings, canUseFunctionalCookies, hasSlotData } from '@/utils/cookies'
+import { calculateDropItems, type DropItem, calculateNormalDropMultiplier, calculateLogDropMultiplier, SOL_ERDA_FRAGMENT_ID } from '@/utils/huntingExpectationCalculations'
+import { 
+  DEFAULT_ALL_DROP_ITEMS,
+  GLOBAL_DEFAULTS,
+  DEFAULT_BREAKEVEN_ITEM, 
+  DEFAULT_BREAKEVEN_BASE_PARAMS, 
+  DEFAULT_BREAKEVEN_VALUES 
+} from '@/utils/defaults'
+import { loadCalculatorSettings, canUseFunctionalCookies } from '@/utils/cookies'
 import { type HuntingExpectationParams } from '@/utils/huntingExpectationCalculations'
-import { useSlotSystem } from '@/hooks/useSlotSystem'
+import { calculateMesoBonus, calculateItemDropBonus, type MesoCalculationParams, type ItemDropCalculationParams } from '@/utils/bonusCalculations'
 import NumberInput from '../ui/NumberInput'
 import { RadioGroup, Toggle } from '../ui'
-import SlotHeader from '../ui/SlotHeader'
+import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
+import { confirmSlotReset } from '@/utils/slotUtils'
 
 interface BreakevenSettings {
   items: BreakevenItem[]
@@ -19,42 +28,82 @@ interface BreakevenSettings {
   wealthAcquisitionPotion: boolean
   currentDropFromPotential: number  // 현재 잠재능력 드롭률
   currentMesoFromPotential: number  // 현재 잠재능력 메소획득량
+  otherDropBonus: number  // 재획비/잠재 제외 아이템 드롭률 (%)
+  otherMesoBonus: number  // 재획비/잠재 제외 메소 획득량 (%)
   globalFeeRate: 3 | 5  // 전역 경매장 수수료
   linkedPrices?: { [itemId: string]: boolean }  // 구매가-판매가 연동 상태
+  mesoLimitEnabled?: boolean  // 메소 제한 활성화 여부
+  mesoLimitHours?: number     // 메소 제한 시간
+  normalDropExpectation?: number  // 일반 드롭 100마리당 기댓값
+  logDropExpectation?: number     // 로그 드롭 100마리당 기댓값
 }
 
 export function BreakevenCalculator() {
   const [mounted, setMounted] = useState(false)
+  
+  // 기본 계산기 슬롯 데이터 확인 함수
+  const hasBasicSlotData = (slotNumber: number): boolean => {
+    if (!canUseFunctionalCookies()) return false
+    
+    try {
+      // 새 키 형식 확인
+      const newKey = `basic_calculator_slot_${slotNumber}`
+      if (localStorage.getItem(newKey) !== null) return true
+      
+      // 기존 키 형식 확인 (fallback)
+      const oldKey = `cookie_settings_slot_${slotNumber}`
+      return localStorage.getItem(oldKey) !== null
+    } catch {
+      return false
+    }
+  }
+  
+  // 기본 계산기 슬롯 데이터 로드 함수 (새 키 형식 지원)
+  const loadBasicCalculatorSettings = (slotNumber: number): any | null => {
+    if (!canUseFunctionalCookies()) return null
+    
+    try {
+      // 새 키 형식 먼저 확인
+      const newKey = `basic_calculator_slot_${slotNumber}`
+      let settingsData = localStorage.getItem(newKey)
+      
+      // 새 키가 없으면 기존 키 확인
+      if (!settingsData) {
+        const oldKey = `cookie_settings_slot_${slotNumber}`
+        settingsData = localStorage.getItem(oldKey)
+      }
+      
+      if (!settingsData) return null
+      return JSON.parse(settingsData)
+    } catch (error) {
+      console.error(`Failed to load basic calculator settings from slot ${slotNumber}:`, error)
+      return null
+    }
+  }
   const { showNotification } = useNotification()
   
-  // 기본값
-  const defaultItem: BreakevenItem = {
-    id: Date.now().toString(),
-    name: '',
-    dropLines: 0,
-    mesoLines: 0,
-    purchasePrice: 0,
-    sellPrice: 0
+  
+  // 기본값 (공유된 기본값 사용)
+
+  // 기본 계산기의 기본값을 사용한 기댓값 계산 (전역 기본값에서 가져오기)
+  const calculateDefaultExpectations = () => {
+    return {
+      normalExpectation: GLOBAL_DEFAULTS.normalDropExpectation,
+      logExpectation: GLOBAL_DEFAULTS.logDropExpectation
+    }
   }
 
-  const defaultBaseParams: HuntingExpectationParams = {
-    monsterLevel: 275,
-    totalMonsters: 18500, // 6분당 1850마리 = 시간당 18500마리
-    mesoBonus: 20,
-    dropRate: 71,
-    feeRate: 3,
-    characterLevel: 275
-  }
-
-  // 상태
-  const [items, setItems] = useState<BreakevenItem[]>([])
-  const [materialsPerDay, setMaterialsPerDay] = useState(4)
-  const [globalFeeRate, setGlobalFeeRate] = useState<3 | 5>(5)
-  const [baseParams, setBaseParams] = useState<HuntingExpectationParams>(defaultBaseParams)
-  const [realTimeCalculation, setRealTimeCalculation] = useState(true)
-  const [wealthAcquisitionPotion, setWealthAcquisitionPotion] = useState(true)
-  const [currentDropFromPotential, setCurrentDropFromPotential] = useState(0)
-  const [currentMesoFromPotential, setCurrentMesoFromPotential] = useState(0)
+  // 상태 (기본값 사용)
+  const [items, setItems] = useState<BreakevenItem[]>(DEFAULT_BREAKEVEN_VALUES.items)
+  const [materialsPerDay, setMaterialsPerDay] = useState(DEFAULT_BREAKEVEN_VALUES.materialsPerDay)
+  const [globalFeeRate, setGlobalFeeRate] = useState<3 | 5>(DEFAULT_BREAKEVEN_VALUES.globalFeeRate)
+  const [baseParams, setBaseParams] = useState<HuntingExpectationParams>(DEFAULT_BREAKEVEN_BASE_PARAMS)
+  const [realTimeCalculation, setRealTimeCalculation] = useState(DEFAULT_BREAKEVEN_VALUES.realTimeCalculation)
+  const [wealthAcquisitionPotion, setWealthAcquisitionPotion] = useState(DEFAULT_BREAKEVEN_VALUES.wealthAcquisitionPotion)
+  const [currentDropFromPotential, setCurrentDropFromPotential] = useState(DEFAULT_BREAKEVEN_VALUES.currentDropFromPotential)
+  const [currentMesoFromPotential, setCurrentMesoFromPotential] = useState(DEFAULT_BREAKEVEN_VALUES.currentMesoFromPotential)
+  const [otherDropBonus, setOtherDropBonus] = useState(DEFAULT_BREAKEVEN_VALUES.otherDropBonus)
+  const [otherMesoBonus, setOtherMesoBonus] = useState(DEFAULT_BREAKEVEN_VALUES.otherMesoBonus)
   const [results, setResults] = useState<{
     itemResults: BreakevenResult[]
     totalResult: BreakevenResult | null
@@ -62,81 +111,83 @@ export function BreakevenCalculator() {
   } | null>(null)
   const [selectedBasicSlot, setSelectedBasicSlot] = useState<number | null>(null)
   const [manuallySelectedBasicSlot, setManuallySelectedBasicSlot] = useState(false)
-  const [basicSlotNames, setBasicSlotNames] = useState<{[key: number]: string}>({
-    1: '슬롯 1',
-    2: '슬롯 2', 
-    3: '슬롯 3'
-  })
   const [loadedBaseParams, setLoadedBaseParams] = useState<HuntingExpectationParams | null>(null)
   const [loadedExtraSettings, setLoadedExtraSettings] = useState<{
     wealthAcquisitionPotion: boolean
     currentDropFromPotential: number
     currentMesoFromPotential: number
+    otherDropBonus: number
+    otherMesoBonus: number
   } | null>(null)
   
   // 아이템별 구매가-판매가 연동 상태
   const [linkedPrices, setLinkedPrices] = useState<{ [itemId: string]: boolean }>({})
   
-  // 슬롯 시스템 훅 사용
-  const slotSystem = useSlotSystem<BreakevenSettings>(
-    {
-      storagePrefix: 'breakeven_calculator',
-      maxSlots: 3,
-      defaultSlotName: (num) => `슬롯 ${num}`
-    },
-    {
-      items: [],
-      materialsPerDay: 4,
-      baseParams: defaultBaseParams,
-      realTimeCalculation: true,
-      wealthAcquisitionPotion: true,
-      currentDropFromPotential: 0,
-      currentMesoFromPotential: 0,
-      globalFeeRate: 5,
-      linkedPrices: {}
-    },
-    (slotNumber, data) => {
-      // 슬롯 변경 시 데이터 로드
-      if (data) {
-        setItems(data.items)
-        setMaterialsPerDay(data.materialsPerDay)
-        setBaseParams(data.baseParams)
-        setRealTimeCalculation(data.realTimeCalculation)
-        setWealthAcquisitionPotion(data.wealthAcquisitionPotion ?? true)
-        setCurrentDropFromPotential(data.currentDropFromPotential ?? 0)
-        setCurrentMesoFromPotential(data.currentMesoFromPotential ?? 0)
-        setGlobalFeeRate(data.globalFeeRate ?? 5)
-        setLinkedPrices(data.linkedPrices ?? {})
-      } else {
-        // 빈 슬롯
-        setItems([])
-        setMaterialsPerDay(4)
-        setBaseParams(defaultBaseParams)
-        setRealTimeCalculation(true)
-        setWealthAcquisitionPotion(true)
-        setCurrentDropFromPotential(0)
-        setCurrentMesoFromPotential(0)
-        setGlobalFeeRate(5)
-        setLinkedPrices({})
-      }
-      setResults(null)
-      setSelectedBasicSlot(null)
-      setManuallySelectedBasicSlot(false)
-      setLoadedBaseParams(null)
-      setLoadedExtraSettings(null)
-    },
-    (currentData, savedData) => {
-      // 변경사항 감지
-      if (!savedData) return false
-      
-      return JSON.stringify(currentData) !== JSON.stringify(savedData)
+  // 메소 제한 설정
+  const [mesoLimitEnabled, setMesoLimitEnabled] = useState(DEFAULT_BREAKEVEN_VALUES.mesoLimitEnabled)
+  const [mesoLimitHours, setMesoLimitHours] = useState(DEFAULT_BREAKEVEN_VALUES.mesoLimitHours)
+  
+  // 드롭 아이템 기댓값 (드롭률 0% 기준)
+  const [normalDropExpectation, setNormalDropExpectation] = useState(DEFAULT_BREAKEVEN_VALUES.normalDropExpectation)
+  const [logDropExpectation, setLogDropExpectation] = useState(DEFAULT_BREAKEVEN_VALUES.logDropExpectation)
+  
+  // 기본 기댓값 계산
+  const defaultExpectations = calculateDefaultExpectations()
+
+  // 현재 설정을 객체로 반환
+  const getCurrentData = () => ({
+    items,
+    materialsPerDay,
+    globalFeeRate,
+    baseParams,
+    realTimeCalculation,
+    wealthAcquisitionPotion,
+    currentDropFromPotential,
+    currentMesoFromPotential,
+    otherDropBonus,
+    otherMesoBonus,
+    selectedBasicSlot,
+    manuallySelectedBasicSlot,
+    mesoLimitEnabled,
+    mesoLimitHours,
+    normalDropExpectation,
+    logDropExpectation,
+    linkedPrices
+  })
+
+  // 데이터를 로드하는 함수
+  const loadData = (data: any, onComplete?: () => void) => {
+    if (data.items) setItems(data.items)
+    if (data.materialsPerDay !== undefined) setMaterialsPerDay(data.materialsPerDay)
+    if (data.globalFeeRate) setGlobalFeeRate(data.globalFeeRate)
+    if (data.baseParams) setBaseParams(data.baseParams)
+    if (data.realTimeCalculation !== undefined) setRealTimeCalculation(data.realTimeCalculation)
+    if (data.wealthAcquisitionPotion !== undefined) setWealthAcquisitionPotion(data.wealthAcquisitionPotion)
+    if (data.currentDropFromPotential !== undefined) setCurrentDropFromPotential(data.currentDropFromPotential)
+    if (data.currentMesoFromPotential !== undefined) setCurrentMesoFromPotential(data.currentMesoFromPotential)
+    if (data.otherDropBonus !== undefined) setOtherDropBonus(data.otherDropBonus)
+    if (data.otherMesoBonus !== undefined) setOtherMesoBonus(data.otherMesoBonus)
+    if (data.selectedBasicSlot !== undefined) setSelectedBasicSlot(data.selectedBasicSlot)
+    if (data.manuallySelectedBasicSlot !== undefined) setManuallySelectedBasicSlot(data.manuallySelectedBasicSlot)
+    if (data.mesoLimitEnabled !== undefined) setMesoLimitEnabled(data.mesoLimitEnabled)
+    if (data.mesoLimitHours !== undefined) setMesoLimitHours(data.mesoLimitHours)
+    if (data.normalDropExpectation !== undefined) setNormalDropExpectation(data.normalDropExpectation)
+    if (data.logDropExpectation !== undefined) setLogDropExpectation(data.logDropExpectation)
+    if (data.linkedPrices) setLinkedPrices(data.linkedPrices)
+
+    // 로드 완료 콜백 호출
+    if (onComplete) {
+      requestAnimationFrame(() => {
+        onComplete()
+      })
     }
-  )
+  }
+
 
   // 아이템 추가
   const addItem = () => {
     const newItemId = Date.now().toString()
-    setItems([...items, { ...defaultItem, id: newItemId }])
+    setItems([...items, { ...DEFAULT_BREAKEVEN_ITEM, id: newItemId }])
     setLinkedPrices({ ...linkedPrices, [newItemId]: true }) // 기본적으로 연동 활성화
   }
 
@@ -165,7 +216,16 @@ export function BreakevenCalculator() {
 
   // 구매가-판매가 연동 토글
   const togglePriceLink = (id: string) => {
-    setLinkedPrices({ ...linkedPrices, [id]: !linkedPrices[id] })
+    const isCurrentlyLinked = linkedPrices[id]
+    setLinkedPrices({ ...linkedPrices, [id]: !isCurrentlyLinked })
+    
+    // 연동이 활성화될 때 판매 가격을 구매 가격과 동일하게 설정
+    if (!isCurrentlyLinked) {
+      const item = items.find(item => item.id === id)
+      if (item) {
+        updateItem(id, 'sellPrice', item.purchasePrice)
+      }
+    }
   }
 
   // 계산 실행
@@ -182,10 +242,16 @@ export function BreakevenCalculator() {
       wealthAcquisitionPotion,
       currentDropFromPotential,
       currentMesoFromPotential,
-      globalFeeRate
+      otherDropBonus,
+      otherMesoBonus,
+      globalFeeRate,
+      mesoLimitEnabled,
+      mesoLimitHours,
+      normalDropExpectation,
+      logDropExpectation
     })
     setResults(result)
-  }, [items, materialsPerDay, baseParams, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, globalFeeRate])
+  }, [items, materialsPerDay, baseParams, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus, globalFeeRate, mesoLimitEnabled, mesoLimitHours, normalDropExpectation, logDropExpectation])
 
   // 실시간 계산
   useEffect(() => {
@@ -205,7 +271,9 @@ export function BreakevenCalculator() {
         baseParams.feeRate !== loadedBaseParams.feeRate ||
         wealthAcquisitionPotion !== loadedExtraSettings.wealthAcquisitionPotion ||
         currentDropFromPotential !== loadedExtraSettings.currentDropFromPotential ||
-        currentMesoFromPotential !== loadedExtraSettings.currentMesoFromPotential
+        currentMesoFromPotential !== loadedExtraSettings.currentMesoFromPotential ||
+        otherDropBonus !== loadedExtraSettings.otherDropBonus ||
+        otherMesoBonus !== loadedExtraSettings.otherMesoBonus
       
       if (hasChanged) {
         setSelectedBasicSlot(null)
@@ -214,119 +282,88 @@ export function BreakevenCalculator() {
       }
     }
   }, [baseParams, loadedBaseParams, loadedExtraSettings, manuallySelectedBasicSlot, 
-      wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential])
+      wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus])
 
   // 기본 계산기 슬롯 데이터 불러오기
   const loadFromSlot = (slotNumber: number) => {
-    const settings = loadCalculatorSettings(slotNumber)
+    const settings = loadBasicCalculatorSettings(slotNumber)
     if (settings) {
-      // 슬롯 이름 설정
-      if (settings.slotName) {
-        setBasicSlotNames(prev => ({ ...prev, [slotNumber]: settings.slotName }))
+      // 메획 계산 (기본 계산기 함수 활용)
+      const mesoParams: MesoCalculationParams = {
+        inputMode: settings.mesoInputMode || 'detail',
+        directValue: settings.mesoBonus || 0,
+        globalBuffMode: settings.globalBuffMode || 'legion',
+        legionBuff: settings.mesoLegionBuff ?? false,
+        phantomLegionMeso: settings.phantomLegionMeso || 0,
+        potentialMode: settings.mesoPotentialMode || 'lines',
+        potentialLines: settings.mesoPotentialLines || 0,
+        potentialDirect: settings.mesoPotentialDirect || 0,
+        ability: settings.mesoAbility || 0,
+        artifactMode: settings.mesoArtifactMode || 'level',
+        artifactLevel: settings.mesoArtifactLevelInput || 0,
+        artifactPercent: settings.mesoArtifactPercentInput || 0,
+        tallahartSymbolLevel: 0,
+        wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
+        otherBuff: 0,
+        otherNonBuff: 0,
+        characterLevel: settings.characterLevel || 275,
+        monsterLevel: settings.monsterLevel || settings.mobLevel || 275
       }
-      // 메획 계산 (기본 계산기와 동일한 로직)
-      let calculatedMesoBonus = 0
+      const mesoResult = calculateMesoBonus(mesoParams)
+      const calculatedMesoBonus = mesoResult.totalBonus
       
-      // 메소 입력 모드에 따른 계산
-      if (settings.mesoInputMode === 'detail') {
-        // 유니온 점령 효과
-        if (settings.mesoLegionBuff) {
-          if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
-            calculatedMesoBonus += 2.5
-          }
-        }
+      // 잠재능력에서 메소 보너스 추출
+      const potentialMesoBonus = (settings.mesoPotentialMode === 'lines') 
+        ? settings.mesoPotentialLines * 20 
+        : settings.mesoPotentialDirect || 0
         
-        // 팬텀 유니온원 효과
-        if (settings.phantomLegionMeso && settings.phantomLegionMeso > 0) {
-          if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
-            calculatedMesoBonus += settings.phantomLegionMeso
-          }
-        }
-        
-        // 장비 잠재능력
-        if (settings.mesoPotentialMode === 'lines' && settings.mesoPotentialLines > 0) {
-          calculatedMesoBonus += settings.mesoPotentialLines * 20
-        } else if (settings.mesoPotentialMode === 'direct' && settings.mesoPotentialDirect > 0) {
-          calculatedMesoBonus += settings.mesoPotentialDirect
-        }
-        
-        // 어빌리티
-        if (settings.mesoAbility > 0) {
-          if (settings.globalBuffMode === 'core' || settings.globalBuffMode === 'both') {
-            calculatedMesoBonus += settings.mesoAbility
-          }
-        }
-        
-        // HEXA 스탯
-        if (settings.mesoArtifactMode === 'level' && settings.mesoArtifactLevelInput > 0) {
-          const artifactBonus = Math.min(settings.mesoArtifactLevelInput, 10) * 5
-          calculatedMesoBonus += artifactBonus
-        } else if (settings.mesoArtifactMode === 'percent' && settings.mesoArtifactPercentInput > 0) {
-          calculatedMesoBonus += settings.mesoArtifactPercentInput
-        }
-        
-        // 재물 획득의 비약 (곱연산 적용을 위해 별도로 처리)
-        if (settings.wealthAcquisitionPotion) {
-          calculatedMesoBonus = (100 + calculatedMesoBonus) * 1.2 - 100
-        }
+      // 재획비 제외한 전체 보너스에서 잠재 제외
+      let otherMesoFromCalculated = 0
+      if (settings.wealthAcquisitionPotion) {
+        // 재획비 적용된 경우: (100 + 전체보너스) / 1.2 - 100 에서 잠재 빼면 나머지
+        const beforeWealth = (100 + calculatedMesoBonus) / 1.2 - 100
+        otherMesoFromCalculated = Math.max(0, beforeWealth - potentialMesoBonus)
       } else {
-        // 단순 입력 모드
-        calculatedMesoBonus = settings.mesoBonus ?? 0
+        // 재획비 없는 경우: 전체에서 잠재만 빼면 됨
+        otherMesoFromCalculated = Math.max(0, calculatedMesoBonus - potentialMesoBonus)
       }
       
-      // 아드 계산
-      let calculatedDropRate = 0
-      
-      if (settings.dropRateInputMode === 'detail' || settings.itemDropInputMode === 'detail') {
-        // 유니온 점령 효과
-        if (settings.dropRateLegionBuff) {
-          if (settings.globalBuffMode === 'union' || settings.globalBuffMode === 'both') {
-            calculatedDropRate += 10
-          }
-        }
-        
-        // 장비 잠재능력
-        if (settings.dropRatePotentialMode === 'lines' && settings.dropRatePotentialLines > 0) {
-          calculatedDropRate += settings.dropRatePotentialLines * 20
-        } else if (settings.dropRatePotentialMode === 'direct' && settings.dropRatePotentialDirect > 0) {
-          calculatedDropRate += settings.dropRatePotentialDirect
-        }
-        
-        // 어빌리티
-        if (settings.dropRateAbility > 0) {
-          if (settings.globalBuffMode === 'core' || settings.globalBuffMode === 'both') {
-            calculatedDropRate += settings.dropRateAbility
-          }
-        }
-        
-        // HEXA 스탯
-        if (settings.dropRateArtifactMode === 'level' && settings.dropRateArtifactLevelInput > 0) {
-          const artifactBonus = Math.min(settings.dropRateArtifactLevelInput, 10) * 5
-          calculatedDropRate += artifactBonus
-        } else if (settings.dropRateArtifactMode === 'percent' && settings.dropRateArtifactPercentInput > 0) {
-          calculatedDropRate += settings.dropRateArtifactPercentInput
-        }
-        
-        // 홀리 심볼
-        if (settings.holySymbol) {
-          calculatedDropRate += 50
-        }
-        
-        // Decent Holy Symbol
-        if (settings.decentHolySymbol && settings.decentHolySymbolLevel > 0) {
-          const baseBonus = 24
-          const levelBonus = (settings.decentHolySymbolLevel - 1) * 1
-          calculatedDropRate += baseBonus + levelBonus
-        }
-        
-        // 재물 획득의 비약 (드롭률에 합연산 +20%)
-        if (settings.wealthAcquisitionPotion) {
-          calculatedDropRate += 20
-        }
-      } else {
-        // 단순 입력 모드
-        calculatedDropRate = settings.dropRate ?? settings.itemDropBonus ?? 0
+      // 아드 계산 (기본 계산기 함수 활용)
+      const dropRateParams: ItemDropCalculationParams = {
+        inputMode: settings.dropRateInputMode || settings.itemDropInputMode || 'detail',
+        directValue: settings.dropRate || settings.itemDropBonus || 0,
+        globalBuffMode: settings.globalBuffMode || 'legion',
+        legionBuff: settings.dropRateLegionBuff ?? false,
+        potentialMode: settings.dropRatePotentialMode || 'lines',
+        potentialLines: settings.dropRatePotentialLines || 0,
+        potentialDirect: settings.dropRatePotentialDirect || 0,
+        ability: settings.dropRateAbility || 0,
+        artifactMode: settings.dropRateArtifactMode || 'level',
+        artifactLevel: settings.dropRateArtifactLevelInput || 0,
+        artifactPercent: settings.dropRateArtifactPercentInput || 0,
+        holySymbol: settings.holySymbol ?? false,
+        decentHolySymbol: settings.decentHolySymbol ?? false,
+        decentHolySymbolLevel: settings.decentHolySymbolLevel ?? 30,
+        tallahartSymbolLevel: 0,
+        pcRoomMode: false,
+        wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
+        otherBuff: 0,
+        otherNonBuff: 0
       }
+      const dropRateResult = calculateItemDropBonus(dropRateParams)
+      const calculatedDropRate = dropRateResult.totalBonus
+      
+      // 잠재능력에서 드롭률 보너스 추출
+      const potentialDropBonus = (settings.dropRatePotentialMode === 'lines') 
+        ? settings.dropRatePotentialLines * 20 
+        : settings.dropRatePotentialDirect || 0
+        
+      // 재획비/잠재 제외한 드롭률 계산
+      let otherDropFromCalculated = calculatedDropRate - potentialDropBonus
+      if (settings.wealthAcquisitionPotion) {
+        otherDropFromCalculated -= 20  // 재획비 드롭률 20% 제외
+      }
+      otherDropFromCalculated = Math.max(0, otherDropFromCalculated)
       
       // 시간당 몬스터 수 계산
       // 기본 계산기는 huntTime(분) 동안의 monsterCount를 저장
@@ -352,12 +389,12 @@ export function BreakevenCalculator() {
         potentialMeso = settings.mesoPotentialDirect
       }
       
-      // 기본 매개변수 설정
+      // 기본 매개변수 설정 (기댓값 계산기의 원본 몬스터/캐릭터 레벨만 사용)
       setBaseParams({
         monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
         totalMonsters: totalMonstersPerHour,
-        mesoBonus: calculatedMesoBonus,
-        dropRate: calculatedDropRate,
+        mesoBonus: 0,  // 이제 메소/드롭률은 분리해서 관리
+        dropRate: 0,   
         feeRate: settings.feeRate ?? 3,
         characterLevel: settings.characterLevel ?? 275
       })
@@ -367,26 +404,80 @@ export function BreakevenCalculator() {
       setCurrentDropFromPotential(potentialDrop)
       setCurrentMesoFromPotential(potentialMeso)
       
-      // 불러온 기본 매개변수 저장
+      // 재획비/잠재 제외 보너스 설정
+      setOtherMesoBonus(otherMesoFromCalculated)
+      setOtherDropBonus(otherDropFromCalculated)
+      
+      // 드롭 아이템 기댓값 계산 (드롭률 0% 기준)
+      let normalExpectation = 0
+      let logExpectation = 0
+      
+      
+      // normalDropItems와 logDropItems가 있으면 사용
+      if (settings.normalDropItems && Array.isArray(settings.normalDropItems)) {
+        normalExpectation = settings.normalDropItems.reduce((sum: number, item: any) => {
+          const price = item.price ? item.price * 10000 : 0 // 만 메소 단위
+          const dropRate = item.dropRate || 0 // % 단위
+          const directUse = item.directUse || false // 탈세 여부
+          const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
+          
+          // 100마리당 기댓값 계산: 드롭률(드롭률 0% 기준) * 가격 * 100마리 * (1-수수료)
+          const baseExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+          return sum + baseExpectation
+        }, 0)
+      }
+      
+      if (settings.logDropItems && Array.isArray(settings.logDropItems)) {
+        logExpectation = settings.logDropItems.reduce((sum: number, item: any) => {
+          const price = item.price ? item.price * 10000 : 0 // 만 메소 단위
+          const dropRate = item.dropRate || 0 // % 단위
+          const directUse = item.directUse || false // 탈세 여부
+          const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
+          
+          // 100마리당 기댓값 계산: 드롭률(드롭률 0% 기준) * 가격 * 100마리 * (1-수수료)
+          const baseExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+          return sum + baseExpectation
+        }, 0)
+      }
+      
+      // 솔 에르다 조각 별도 계산 (저장된 solErdaFragment 데이터 활용)
+      if (settings.solErdaFragment) {
+        const solErda = settings.solErdaFragment
+        const price = solErda.price ? solErda.price * 10000 : 0 // 만 메소 단위
+        const dropRate = solErda.dropRate || 0 // % 단위
+        const directUse = solErda.directUse || false // 탈세 여부
+        const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
+        
+        // 100마리당 기댓값 계산
+        const solErdaExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+        logExpectation += solErdaExpectation
+      }
+      
+      setNormalDropExpectation(normalExpectation)
+      setLogDropExpectation(logExpectation)
+      
+      // 불러온 기본 매개변수 저장 (새로운 분리 방식)
       const newBaseParams = {
         monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
         totalMonsters: totalMonstersPerHour,
-        mesoBonus: calculatedMesoBonus,
-        dropRate: calculatedDropRate,
+        mesoBonus: 0,  // 분리 관리
+        dropRate: 0,   // 분리 관리
         feeRate: settings.feeRate ?? 3
       }
       setLoadedBaseParams(newBaseParams)
       
-      // 불러온 추가 설정 저장
+      // 불러온 추가 설정 저장 (새 필드 포함)
       setLoadedExtraSettings({
         wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
         currentDropFromPotential: potentialDrop,
-        currentMesoFromPotential: potentialMeso
+        currentMesoFromPotential: potentialMeso,
+        otherDropBonus: otherDropFromCalculated,
+        otherMesoBonus: otherMesoFromCalculated
       })
       
       setSelectedBasicSlot(slotNumber)
       setManuallySelectedBasicSlot(true)
-      showNotification('success', `기본 계산기 "${basicSlotNames[slotNumber] || `슬롯 ${slotNumber}`}" 데이터를 불러왔습니다.`)
+      showNotification('success', `기본 계산기 "${settings.slotName || `슬롯 ${slotNumber}`}" 데이터를 불러왔습니다.`)
     }
   }
 
@@ -399,74 +490,42 @@ export function BreakevenCalculator() {
     wealthAcquisitionPotion,
     currentDropFromPotential,
     currentMesoFromPotential,
+    otherDropBonus,
+    otherMesoBonus,
     globalFeeRate,
-    linkedPrices
+    linkedPrices,
+    mesoLimitEnabled,
+    mesoLimitHours,
+    normalDropExpectation,
+    logDropExpectation
   })
 
-  // 슬롯 전환 래퍼
-  const switchSlot = (slotNumber: number) => {
-    slotSystem.switchSlot(slotNumber, getCurrentSettings())
-  }
-
-  // 설정 저장
-  const saveSettings = () => {
-    if (!canUseFunctionalCookies()) {
-      showNotification('error', '기능성 쿠키가 비활성화되어 있습니다. 설정을 저장하려면 쿠키 설정에서 기능성 쿠키를 활성화해주세요.')
-      return
-    }
-    
-    const success = slotSystem.saveCurrentSlot(getCurrentSettings())
-    if (success) {
-      showNotification('success', `슬롯 ${slotSystem.currentSlot}에 설정이 저장되었습니다.`)
-    } else {
-      showNotification('error', '설정 저장에 실패했습니다.')
-    }
-  }
 
   // 초기화
-  const resetAll = () => {
-    if (confirm('현재 슬롯의 모든 설정을 초기화하시겠습니까?')) {
-      setItems([])
-      setMaterialsPerDay(4)
-      setBaseParams(defaultBaseParams)
-      setRealTimeCalculation(true)
-      setWealthAcquisitionPotion(true)
-      setCurrentDropFromPotential(0)
-      setCurrentMesoFromPotential(0)
-      setGlobalFeeRate(5)
-      setLinkedPrices({})
-      setResults(null)
-      setSelectedBasicSlot(null)
-      slotSystem.deleteSlot(slotSystem.currentSlot)
-      showNotification('success', '현재 슬롯이 초기화되었습니다.')
-    }
+  const resetAllData = () => {
+    setItems(DEFAULT_BREAKEVEN_VALUES.items)
+    setMaterialsPerDay(DEFAULT_BREAKEVEN_VALUES.materialsPerDay)
+    setBaseParams(DEFAULT_BREAKEVEN_BASE_PARAMS)
+    setRealTimeCalculation(DEFAULT_BREAKEVEN_VALUES.realTimeCalculation)
+    setWealthAcquisitionPotion(DEFAULT_BREAKEVEN_VALUES.wealthAcquisitionPotion)
+    setCurrentDropFromPotential(DEFAULT_BREAKEVEN_VALUES.currentDropFromPotential)
+    setCurrentMesoFromPotential(DEFAULT_BREAKEVEN_VALUES.currentMesoFromPotential)
+    setOtherDropBonus(DEFAULT_BREAKEVEN_VALUES.otherDropBonus)
+    setOtherMesoBonus(DEFAULT_BREAKEVEN_VALUES.otherMesoBonus)
+    setGlobalFeeRate(DEFAULT_BREAKEVEN_VALUES.globalFeeRate)
+    setLinkedPrices(DEFAULT_BREAKEVEN_VALUES.linkedPrices)
+    setMesoLimitEnabled(DEFAULT_BREAKEVEN_VALUES.mesoLimitEnabled)
+    setMesoLimitHours(DEFAULT_BREAKEVEN_VALUES.mesoLimitHours)
+    setNormalDropExpectation(defaultExpectations.normalExpectation)
+    setLogDropExpectation(defaultExpectations.logExpectation)
+    setResults(null)
+    setSelectedBasicSlot(null)
   }
 
-  // 컴포넌트 마운트 시 초기 슬롯 로드 및 기본 계산기 슬롯 이름 로드
+  // 컴포넌트 마운트 시 초기 설정
   useEffect(() => {
     setMounted(true)
     
-    // 손익분기 계산기 슬롯 로드
-    const initialData = slotSystem.loadFromSlot(1)
-    if (initialData) {
-      setItems(initialData.items)
-      setMaterialsPerDay(initialData.materialsPerDay)
-      setBaseParams(initialData.baseParams)
-      setRealTimeCalculation(initialData.realTimeCalculation)
-      setWealthAcquisitionPotion(initialData.wealthAcquisitionPotion ?? true)
-      setCurrentDropFromPotential(initialData.currentDropFromPotential ?? 0)
-      setCurrentMesoFromPotential(initialData.currentMesoFromPotential ?? 0)
-      setGlobalFeeRate(initialData.globalFeeRate ?? 5)
-      setLinkedPrices(initialData.linkedPrices ?? {})
-    }
-    
-    // 기본 계산기 슬롯 이름 로드
-    for (let i = 1; i <= 3; i++) {
-      const basicSettings = loadCalculatorSettings(i)
-      if (basicSettings && basicSettings.slotName) {
-        setBasicSlotNames(prev => ({ ...prev, [i]: basicSettings.slotName }))
-      }
-    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!mounted) {
@@ -480,18 +539,13 @@ export function BreakevenCalculator() {
   return (
     <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">
       {/* 슬롯 선택 UI */}
-      <SlotHeader
-        currentSlot={slotSystem.currentSlot}
-        maxSlots={slotSystem.maxSlots}
-        slotNames={slotSystem.slotNames}
-        tempSlotName={slotSystem.tempSlotName}
-        isEditingSlotName={slotSystem.isEditingSlotName}
-        hasSlotData={slotSystem.hasSlotData}
-        onSlotSwitch={switchSlot}
-        onSlotNameChange={slotSystem.setTempSlotName}
-        onSlotNameEdit={slotSystem.setIsEditingSlotName}
-        onSave={saveSettings}
-        onReset={resetAll}
+      <AutoSlotManager
+        calculatorId="breakeven_calculator"
+        maxSlots={3}
+        getCurrentData={getCurrentData}
+        loadData={loadData}
+        onReset={resetAllData}
+        onNotification={(type, message) => showNotification(type, message)}
       />
 
       <div className="space-y-6">
@@ -505,11 +559,15 @@ export function BreakevenCalculator() {
             <div className="text-sm font-medium text-gray-700">기본 계산기에서 불러오기</div>
             <button
               onClick={() => {
-                setBaseParams(defaultBaseParams)
-                setWealthAcquisitionPotion(true)
-                setCurrentDropFromPotential(0)
-                setCurrentMesoFromPotential(0)
-                setGlobalFeeRate(5)
+                setBaseParams(DEFAULT_BREAKEVEN_BASE_PARAMS)
+                setWealthAcquisitionPotion(DEFAULT_BREAKEVEN_VALUES.wealthAcquisitionPotion)
+                setCurrentDropFromPotential(DEFAULT_BREAKEVEN_VALUES.currentDropFromPotential)
+                setCurrentMesoFromPotential(DEFAULT_BREAKEVEN_VALUES.currentMesoFromPotential)
+                setOtherDropBonus(DEFAULT_BREAKEVEN_VALUES.otherDropBonus)
+                setOtherMesoBonus(DEFAULT_BREAKEVEN_VALUES.otherMesoBonus)
+                setGlobalFeeRate(DEFAULT_BREAKEVEN_VALUES.globalFeeRate)
+                setNormalDropExpectation(defaultExpectations.normalExpectation)
+                setLogDropExpectation(defaultExpectations.logExpectation)
                 setSelectedBasicSlot(null)
                 setLoadedBaseParams(null)
                 setLoadedExtraSettings(null)
@@ -525,17 +583,20 @@ export function BreakevenCalculator() {
               <button
                 key={slot}
                 onClick={() => loadFromSlot(slot)}
-                disabled={!hasSlotData(slot)}
+                disabled={!hasBasicSlotData(slot)}
                 className={`px-3 py-1 text-sm rounded transition-colors ${
                   selectedBasicSlot === slot && manuallySelectedBasicSlot
                     ? 'bg-green-500 text-white'
-                    : hasSlotData(slot)
+                    : hasBasicSlotData(slot)
                     ? 'bg-gray-200 hover:bg-gray-300'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 }`}
               >
-                {basicSlotNames[slot] || `슬롯 ${slot}`}
-                {!hasSlotData(slot) && ' (비어있음)'}
+{(() => {
+                  const basicSettings = loadBasicCalculatorSettings(slot);
+                  return basicSettings?.slotName || `슬롯 ${slot}`;
+                })()}
+                {!hasBasicSlotData(slot) && ' (비어있음)'}
               </button>
             ))}
           </div>
@@ -572,23 +633,33 @@ export function BreakevenCalculator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 메소 획득량 (%)</label>
+            <label 
+              className="block text-sm font-medium text-gray-700 mb-1 cursor-help" 
+              title="아이템 드롭률 0%를 기준으로 한 기댓값입니다. 직접 입력하기보다는 사냥 기댓값 계산기에서 계산한 값을 가져오는 것을 권장합니다."
+            >
+              일반 드롭 100마리당 기댓값 (메소)
+            </label>
             <NumberInput
-              value={baseParams.mesoBonus}
-              onChange={(value) => setBaseParams({ ...baseParams, mesoBonus: value })}
+              value={normalDropExpectation}
+              onChange={setNormalDropExpectation}
               min={0}
-              max={700}
-              step={1}
+              step={1000}
+              placeholder="0"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">최종 아이템 드롭률 (%)</label>
+            <label 
+              className="block text-sm font-medium text-gray-700 mb-1 cursor-help" 
+              title="아이템 드롭률 0%를 기준으로 한 기댓값입니다. 직접 입력하기보다는 사냥 기댓값 계산기에서 계산한 값을 가져오는 것을 권장합니다."
+            >
+              로그 드롭 100마리당 기댓값 (메소)
+            </label>
             <NumberInput
-              value={baseParams.dropRate}
-              onChange={(value) => setBaseParams({ ...baseParams, dropRate: value })}
+              value={logDropExpectation}
+              onChange={setLogDropExpectation}
               min={0}
-              max={400}
-              step={1}
+              step={1000}
+              placeholder="0"
             />
           </div>
         </div>
@@ -607,7 +678,18 @@ export function BreakevenCalculator() {
               step={20}
               placeholder="0"
             />
-            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 메소획득량</div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              재획비/잠재 제외 메소 획득량 (%)
+            </label>
+            <NumberInput
+              value={otherMesoBonus}
+              onChange={setOtherMesoBonus}
+              min={0}
+              placeholder="0"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -621,7 +703,18 @@ export function BreakevenCalculator() {
               step={20}
               placeholder="0"
             />
-            <div className="text-xs text-gray-500 mt-1">장비 잠재능력으로 얻은 아이템 드롭률</div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              재획비/잠재 제외 드롭률 (%)
+            </label>
+            <NumberInput
+              value={otherDropBonus}
+              onChange={setOtherDropBonus}
+              min={0}
+              placeholder="0"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -641,13 +734,46 @@ export function BreakevenCalculator() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 하루 사냥 소재 수
               </label>
-              <NumberInput
-                value={materialsPerDay}
-                onChange={setMaterialsPerDay}
-                min={1}
-                max={48}
-                step={1}
-              />
+              <div className="flex items-center gap-2">
+                <NumberInput
+                  value={mesoLimitEnabled ? mesoLimitHours * 2 : materialsPerDay}
+                  onChange={mesoLimitEnabled ? 
+                    (value) => setMesoLimitHours(value / 2) : 
+                    setMaterialsPerDay
+                  }
+                  min={1}
+                  max={48}
+                  step={1}
+                  disabled={mesoLimitEnabled}
+                />
+                <label className="flex items-center text-sm text-gray-600 cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={mesoLimitEnabled}
+                    onChange={(e) => {
+                      setMesoLimitEnabled(e.target.checked)
+                      if (e.target.checked) {
+                        setMesoLimitHours(materialsPerDay / 2)
+                      }
+                    }}
+                    className="mr-1 h-3 w-3"
+                  />
+                  메소 제한
+                </label>
+                {mesoLimitEnabled && (
+                  <div className="flex items-center gap-1">
+                    <NumberInput
+                      value={mesoLimitHours}
+                      onChange={setMesoLimitHours}
+                      min={0.5}
+                      max={24}
+                      step={0.5}
+                      className="w-20"
+                    />
+                    <span className="text-sm text-gray-600">시간</span>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div>
@@ -750,7 +876,7 @@ export function BreakevenCalculator() {
                       value={item.purchasePrice}
                       onChange={(value) => updateItem(item.id, 'purchasePrice', value)}
                       min={0}
-                      step={0.1}
+                      step={1}
                     />
                   </div>
 
@@ -773,7 +899,7 @@ export function BreakevenCalculator() {
                       value={item.sellPrice}
                       onChange={(value) => updateItem(item.id, 'sellPrice', value)}
                       min={0}
-                      step={0.1}
+                      step={1}
                       disabled={linkedPrices[item.id] ?? true}
                     />
                   </div>
@@ -861,7 +987,12 @@ export function BreakevenCalculator() {
                       </span>
                     </div>
                     <div className="md:col-span-2 lg:col-span-3">
-                      <span className="text-gray-600">하루 {materialsPerDay}소재 기준:</span>
+                      <span className="text-gray-600">
+                        {mesoLimitEnabled ? 
+                          `하루 ${mesoLimitHours}시간 (메소 제한) 기준:` : 
+                          `하루 ${materialsPerDay}소재 기준:`
+                        }
+                      </span>
                       <span className="ml-2 font-medium text-green-600">
                         {result.formattedPeriod}
                       </span>
@@ -895,7 +1026,12 @@ export function BreakevenCalculator() {
                     </span>
                   </div>
                   <div className="md:col-span-2 lg:col-span-3">
-                    <span className="text-gray-700">하루 {materialsPerDay}소재 기준:</span>
+                    <span className="text-gray-700">
+                      {mesoLimitEnabled ? 
+                        `하루 ${mesoLimitHours}시간 (메소 제한) 기준:` : 
+                        `하루 ${materialsPerDay}소재 기준:`
+                      }
+                    </span>
                     <span className="ml-2 font-bold text-green-600">
                       {results.totalResult.formattedPeriod}
                     </span>
@@ -906,6 +1042,7 @@ export function BreakevenCalculator() {
           </div>
         </div>
       )}
+
     </div>
   )
 }

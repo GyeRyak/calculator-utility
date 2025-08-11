@@ -1,4 +1,5 @@
 import { calculateHuntingExpectation, type HuntingExpectationParams } from './huntingExpectationCalculations'
+import { calculateCoreMesoBonus, calculateCoreDropBonus } from './bonusCalculations'
 
 /**
  * 드롭/메획 아이템 정보
@@ -32,9 +33,15 @@ export interface BreakevenCalculationParams extends HuntingExpectationParams {
   items: BreakevenItem[]
   materialsPerDay: number  // 하루 소재 수
   wealthAcquisitionPotion?: boolean  // 재물 획득의 비약 사용 여부
-  currentDropFromPotential?: number  // 현재 잠재능력 드랍률
+  currentDropFromPotential?: number  // 현재 잠재능력 드롭률
   currentMesoFromPotential?: number  // 현재 잠재능력 메소획득량
+  otherDropBonus?: number  // 재획비/잠재 제외 아이템 드롭률 (%)
+  otherMesoBonus?: number  // 재획비/잠재 제외 메소 획득량 (%)
   globalFeeRate: 3 | 5  // 전역 경매장 수수료
+  mesoLimitEnabled?: boolean  // 메소 제한 활성화 여부
+  mesoLimitHours?: number     // 메소 제한 시간 (시간 단위)
+  normalDropExpectation?: number  // 일반 드롭 아이템 100마리당 판매 기댓값 (메소 단위, 드롭률 0% 기준)
+  logDropExpectation?: number     // 로그 드롭 아이템 100마리당 판매 기댓값 (메소 단위, 드롭률 0% 기준)
 }
 
 /**
@@ -110,34 +117,113 @@ export function validateLimits(
 }
 
 /**
+ * 기댓값으로부터 더미 드롭 아이템 생성
+ * @param normalDropExpectation 일반 드롭 100마리당 기댓값 (메소 단위)
+ * @param logDropExpectation 로그 드롭 100마리당 기댓값 (메소 단위)
+ * @returns 더미 드롭 아이템 배열
+ */
+function createDummyDropItems(normalDropExpectation: number, logDropExpectation: number): {
+  normalDropItems: Array<{ id: string, name: string, price: number, dropRate: number, directUse: boolean }>,
+  logDropItems: Array<{ id: string, name: string, price: number, dropRate: number, directUse: boolean }>
+} {
+  const normalDropItems = []
+  const logDropItems = []
+  
+  // 일반 드롭 더미 아이템 (드롭률 1%, 가격은 기댓값/만메소)
+  if (normalDropExpectation > 0) {
+    normalDropItems.push({
+      id: '__dummy_normal_drop__',
+      name: '일반 드롭 더미 아이템',
+      price: normalDropExpectation / 10000, // 100마리당 기댓값 / 10000(만 메소 단위)
+      dropRate: 1, // 1%
+      directUse: true // 수수료 없음
+    })
+  }
+  
+  // 로그 드롭 더미 아이템 (드롭률 1%, 가격은 기댓값/만메소)  
+  if (logDropExpectation > 0) {
+    logDropItems.push({
+      id: '__dummy_log_drop__',
+      name: '로그 드롭 더미 아이템',
+      price: logDropExpectation / 10000, // 100마리당 기댓값 / 10000(만 메소 단위)
+      dropRate: 1, // 1%
+      directUse: true // 수수료 없음
+    })
+  }
+  
+  return { normalDropItems, logDropItems }
+}
+
+/**
  * 개별 아이템 손익분기 계산
  * @param params 계산 매개변수
  * @param item 아이템 정보
+ * @param normalDropExpectation 일반 드롭 기댓값
+ * @param logDropExpectation 로그 드롭 기댓값
  * @returns 손익분기 결과
  */
 export function calculateItemBreakeven(
   params: HuntingExpectationParams,
   item: BreakevenItem,
   materialsPerDay: number,
-  globalFeeRate: 3 | 5
+  globalFeeRate: 3 | 5,
+  normalDropExpectation: number,
+  logDropExpectation: number,
+  mesoLimitEnabled?: boolean,
+  mesoLimitHours?: number,
+  wealthAcquisitionPotion?: boolean,
+  currentDropFromPotential?: number,
+  currentMesoFromPotential?: number,
+  otherDropBonus?: number,
+  otherMesoBonus?: number
 ): BreakevenResult {
-  // 기본 수익 계산
-  const baseResult = calculateHuntingExpectation(params)
+  // 더미 드롭 아이템 생성
+  const { normalDropItems, logDropItems } = createDummyDropItems(normalDropExpectation, logDropExpectation)
   
   // 아이템 보너스 적용
   const { dropBonus, mesoBonus } = calculateItemBonus(item)
   
-  // 제한사항 적용 (잠재능력 최대치)
-  // 드랍률은 잠재능력으로 최대 200%까지
-  const effectiveDropBonus = dropBonus
-  // 메획은 잠재능력으로 최대 100%까지 (재획비 효과와 별개)
-  const effectiveMesoBonus = mesoBonus
+  // 현재 잠재능력 값 직접 사용
+  const currentMesoBonus = currentMesoFromPotential || 0
+  const currentDropBonus = currentDropFromPotential || 0
+  
+  // 잠재능력을 줄 수로 변환
+  const currentMesoLines = currentMesoBonus / 20
+  const currentDropLines = currentDropBonus / 20
+  
+  // 기타 보너스는 입력값 그대로 사용
+  const baseMesoBonus = otherMesoBonus || 0
+  const baseDropBonus = otherDropBonus || 0
+  
+  // 기존 보너스 (현재 상태에서 재획비 고려)
+  const baseMesoResult = calculateCoreMesoBonus(currentMesoLines, baseMesoBonus, wealthAcquisitionPotion)
+  const baseDropResult = calculateCoreDropBonus(currentDropLines, baseDropBonus, wealthAcquisitionPotion)
+  
+  // 아이템 적용 후 보너스 (현재 상태 + 아이템 줄 수, 재획비 고려)
+  const itemMesoResult = calculateCoreMesoBonus(currentMesoLines + mesoBonus / 20, baseMesoBonus, wealthAcquisitionPotion)
+  const itemDropResult = calculateCoreDropBonus(currentDropLines + dropBonus / 20, baseDropBonus, wealthAcquisitionPotion)
+  
+  // 실제 증가분
+  const actualMesoBonus = itemMesoResult.totalBonus - baseMesoResult.totalBonus
+  const actualDropBonus = itemDropResult.totalBonus - baseDropResult.totalBonus
+  
+  // 기본 수익 계산용 파라미터 
+  const baseParams: HuntingExpectationParams = {
+    ...params,
+    mesoBonus: baseMesoResult.totalBonus,  // 재획비 포함 계산된 값
+    dropRate: currentDropBonus + baseDropBonus + (wealthAcquisitionPotion ? 20 : 0),
+    normalDropItems,
+    logDropItems
+  }
+  
+  // 기본 수익 계산
+  const baseResult = calculateHuntingExpectation(baseParams)
   
   // 아이템 적용 후 수익 계산
   const itemParams: HuntingExpectationParams = {
-    ...params,
-    dropRate: params.dropRate + effectiveDropBonus,
-    mesoBonus: params.mesoBonus + effectiveMesoBonus
+    ...baseParams,
+    dropRate: baseParams.dropRate + actualDropBonus,
+    mesoBonus: itemMesoResult.totalBonus,  // 아이템 적용 후 재획비 포함 계산된 값
   }
   const itemResult = calculateHuntingExpectation(itemParams)
   
@@ -151,7 +237,15 @@ export function calculateItemBreakeven(
   // 손익분기 계산
   const breakEvenHours = increasePerHour > 0 ? netCostInMeso / increasePerHour : Infinity
   const breakEvenMaterials = breakEvenHours * 2 // 1소재 = 30분
-  const daysToBreakeven = materialsPerDay > 0 ? breakEvenMaterials / materialsPerDay : Infinity
+  
+  // 메소 제한이 활성화된 경우 하루 소재 수 조정
+  let effectiveMaterialsPerDay = materialsPerDay
+  if (mesoLimitEnabled && mesoLimitHours && mesoLimitHours > 0) {
+    // 메소 제한 시간을 소재로 변환 (1시간 = 2소재)
+    effectiveMaterialsPerDay = mesoLimitHours * 2
+  }
+  
+  const daysToBreakeven = effectiveMaterialsPerDay > 0 ? breakEvenMaterials / effectiveMaterialsPerDay : Infinity
   
   return {
     itemId: item.id,
@@ -174,20 +268,29 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
   totalResult: BreakevenResult | null
   warnings: string[]
 } {
-  const { items, materialsPerDay, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, globalFeeRate, ...huntingParams } = params
+  const { items, materialsPerDay, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus, globalFeeRate, mesoLimitEnabled, mesoLimitHours, normalDropExpectation = 0, logDropExpectation = 0, ...huntingParams } = params
+  
+  // 기본 파라미터 구성 (잠재 + 기타 보너스)
+  const currentMeso = currentMesoFromPotential || 0
+  const currentDrop = currentDropFromPotential || 0
+  const baseMeso = otherMesoBonus || 0
+  const baseDrop = otherDropBonus || 0
+  
+  let adjustedHuntingParams = { 
+    ...huntingParams,
+    mesoBonus: currentMeso + baseMeso,
+    dropRate: currentDrop + baseDrop
+  }
   
   // 재물 획득의 비약 효과 적용
-  let adjustedHuntingParams = { ...huntingParams }
   if (wealthAcquisitionPotion) {
-    // 메획에 곱연산 1.2배
-    adjustedHuntingParams.mesoBonus = (100 + huntingParams.mesoBonus) * 1.2 - 100
-    // 드롭률에 합연산 +20%
-    adjustedHuntingParams.dropRate = huntingParams.dropRate + 20
+    adjustedHuntingParams.dropRate += 20  // 드롭률 +20%
+    // 메소는 곱연산이므로 calculateCoreMesoBonus에서 처리됨
   }
   
   // 개별 아이템 계산
   const itemResults = items.map(item => 
-    calculateItemBreakeven(adjustedHuntingParams, item, materialsPerDay, globalFeeRate)
+    calculateItemBreakeven(adjustedHuntingParams, item, materialsPerDay, globalFeeRate, normalDropExpectation, logDropExpectation, mesoLimitEnabled, mesoLimitHours, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus)
   )
   
   // 전체 보너스 계산 (잠재능력으로 인한 증가분만)
@@ -206,18 +309,28 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
   let totalResult: BreakevenResult | null = null
   
   if (items.length > 0) {
-    // 기본 수익 (재물 획득의 비약 효과 포함)
-    const baseResult = calculateHuntingExpectation(adjustedHuntingParams)
+    // 더미 드롭 아이템 생성
+    const { normalDropItems, logDropItems } = createDummyDropItems(normalDropExpectation, logDropExpectation)
+    
+    // 기본 수익 (재물 획득의 비약 효과 포함, 더미 드롭 아이템 포함)
+    const baseParams: HuntingExpectationParams = {
+      ...adjustedHuntingParams,
+      normalDropItems,
+      logDropItems
+    }
+    const baseResult = calculateHuntingExpectation(baseParams)
     
     // 제한사항 적용된 전체 보너스
     const effectiveTotalDropBonus = totalPotentialDropBonus
     const effectiveTotalMesoBonus = totalPotentialMesoBonus
     
-    // 전체 아이템 적용 후 수익
+    // 전체 아이템 적용 후 수익 (더미 드롭 아이템 포함)
     const totalParams: HuntingExpectationParams = {
       ...adjustedHuntingParams,
       dropRate: adjustedHuntingParams.dropRate + effectiveTotalDropBonus,
-      mesoBonus: adjustedHuntingParams.mesoBonus + effectiveTotalMesoBonus
+      mesoBonus: adjustedHuntingParams.mesoBonus + effectiveTotalMesoBonus,
+      normalDropItems,
+      logDropItems
     }
     const totalItemResult = calculateHuntingExpectation(totalParams)
     
@@ -225,13 +338,20 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
     const totalNetCost = items.reduce((sum, item) => sum + calculateNetCost(item, globalFeeRate), 0)
     const totalNetCostInMeso = totalNetCost * 100000000
     
-    // 시간당 총 증가 수익
+    // 시간당 총 증가 수익 (메소 + 드롭 아이템 모두 huntingExpectation에서 계산됨)
     const totalIncreasePerHour = totalItemResult.totalIncome - baseResult.totalIncome
     
     // 전체 손익분기
     const totalBreakEvenHours = totalIncreasePerHour > 0 ? totalNetCostInMeso / totalIncreasePerHour : Infinity
     const totalBreakEvenMaterials = totalBreakEvenHours * 2
-    const totalDaysToBreakeven = materialsPerDay > 0 ? totalBreakEvenMaterials / materialsPerDay : Infinity
+    
+    // 메소 제한이 활성화된 경우 하루 소재 수 조정
+    let effectiveMaterialsPerDay = materialsPerDay
+    if (mesoLimitEnabled && mesoLimitHours && mesoLimitHours > 0) {
+      effectiveMaterialsPerDay = mesoLimitHours * 2
+    }
+    
+    const totalDaysToBreakeven = effectiveMaterialsPerDay > 0 ? totalBreakEvenMaterials / effectiveMaterialsPerDay : Infinity
     
     totalResult = {
       itemId: 'total',

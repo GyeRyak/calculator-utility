@@ -3,9 +3,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
 import Link from 'next/link'
-import SlotHeader from '../ui/SlotHeader'
+import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
+import { DEFAULT_NORMAL_DROP_ITEMS, DEFAULT_LOG_DROP_ITEMS, DEFAULT_BASIC_CALCULATOR_VALUES } from '../../utils/defaults'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem } from '../ui'
@@ -91,65 +92,24 @@ interface CalculationInputs {
   logDropItems?: Omit<UIDropItem, 'id'>[]
 }
 
-// 기본값 정의
+// 기본값 정의 (공유된 기본값 사용)
 const DEFAULT_VALUES = {
-  monsterLevel: 275,
-  mesoBonus: 40,
-  dropRate: 60,
-  huntTime: 0.125,
-  monsterCount: 39,
-  resultTime: 0,
-  feeRate: 3,
-  isCustomHuntTime: false,
-  huntTimeUnit: 'minutes',
-  customHuntTimeValue: 7.5,
-  isCustomResultTime: true,
-  resultTimeUnit: 'meso_limit',
-  customResultTimeValue: 0,
-  mesoInputMode: 'detail',
-  dropRateInputMode: 'detail',
-  mesoLegionBuff: false,
-  phantomLegionMeso: 4,
-  mesoPotentialMode: 'lines',
-  mesoPotentialLines: 0,
-  mesoPotentialDirect: 0,
-  mesoAbility: 20,
-  globalBuffMode: 'legion',
-  mesoArtifactLevel: 10,
-  mesoArtifactMode: 'level',
-  mesoArtifactLevelInput: 10,
-  mesoArtifactPercentInput: 12,
-  dropRateLegionBuff: false,
-  dropRatePotentialMode: 'lines',
-  dropRatePotentialLines: 0,
-  dropRatePotentialDirect: 0,
-  dropRateAbility: 15,
-  dropRateArtifactLevel: 10,
-  dropRateArtifactMode: 'level',
-  dropRateArtifactLevelInput: 10,
-  dropRateArtifactPercentInput: 12,
-  holySymbol: false,
-  decentHolySymbol: true,
-  decentHolySymbolLevel: 30,
-  wealthAcquisitionPotion: true,
-  spottingSmallChange: true,
-  spottingSmallChangeLevel: 3,
-  showWealthPotionCost: true,
-  wealthAcquisitionPotionPrice: 300,
-  tallahartSymbolLevel: 0,
-  autoCalculate: true,
-  characterLevel: 275,
+  ...DEFAULT_BASIC_CALCULATOR_VALUES,
   dropItems: [] as DropItem[],
-  normalDropItems: [
-    { id: 'reindeer-milk', name: '순록의 우유', price: 0.275, dropRate: 0.565, directUse: true },
-    { id: 'twilight-dew', name: '황혼의 이슬', price: 0.51, dropRate: 0.565, directUse: true },
-    { id: 'spell-trace', name: '주문의 흔적', price: 0.2, dropRate: 1.2, directUse: false }
-  ] as UIDropItem[],
-  logDropItems: [
-    { id: SOL_ERDA_FRAGMENT_ID, name: '솔 에르다 조각', price: 600, dropRate: 0.0425, directUse: false },
-    { id: 'core-gemstone', name: '코어 젬스톤', price: 12, dropRate: 0.028, directUse: false },
-    { id: 'symbol', name: '심볼', price: 60, dropRate: 0.00092, directUse: false }
-  ] as UIDropItem[]
+  normalDropItems: DEFAULT_NORMAL_DROP_ITEMS.map(item => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    dropRate: item.dropRate,
+    directUse: item.directUse
+  })) as UIDropItem[],
+  logDropItems: DEFAULT_LOG_DROP_ITEMS.map(item => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    dropRate: item.dropRate,
+    directUse: item.directUse
+  })) as UIDropItem[]
 }
 
 // 설정값에서 CalculationInputs 생성
@@ -264,34 +224,7 @@ export function BasicCalculator() {
   
   // 설정 저장/복원 상태
   const [settingsLoaded, setSettingsLoaded] = useState(false)
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
-  const [showSaveError, setShowSaveError] = useState(false)
-  const [currentSlot, setCurrentSlot] = useState(1)
-  const [slotNames, setSlotNames] = useState<{[key: number]: string}>({
-    1: '슬롯 1',
-    2: '슬롯 2', 
-    3: '슬롯 3'
-  })
-  const [tempSlotName, setTempSlotName] = useState<string>('') // 임시 슬롯 이름
-  const [isEditingSlotName, setIsEditingSlotName] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
-  const [lastSavedInputs, setLastSavedInputs] = useState<{[key: number]: CalculationInputs | null}>({
-    1: null,
-    2: null,
-    3: null
-  }) // 슬롯별 마지막 저장된 입력값
-  const [lastSavedSlotNames, setLastSavedSlotNames] = useState<{[key: number]: string}>({
-    1: '슬롯 1',
-    2: '슬롯 2',
-    3: '슬롯 3'
-  }) // 슬롯별 마지막 저장된 이름
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false) // 미저장 경고 모달
-  const [pendingSlotNumber, setPendingSlotNumber] = useState<number | null>(null) // 전환 대기 중인 슬롯 번호
-  const [slotHasData, setSlotHasData] = useState<{[key: number]: boolean}>({
-    1: false,
-    2: false,
-    3: false
-  })
   const [isDropItemResultExpanded, setIsDropItemResultExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isLoadingSlot, setIsLoadingSlot] = useState(false)
@@ -433,42 +366,77 @@ export function BasicCalculator() {
   }
   
   // 설정 저장/복원 함수
-  // 슬롯 데이터 확인 함수
-  const hasSlotDataFunction = (slot: number): boolean => {
-    return mounted && slotHasData[slot]
-  }
 
-  // 초기화 함수
-  const resetAll = () => {
-    if (confirm('현재 슬롯의 모든 설정을 초기화하시겠습니까?')) {
-      clearCalculatorSettings(currentSlot)
-      
-      // 기본값으로 초기화
-      const RESET_VALUES = DEFAULT_VALUES
-      
-      // stateSetters를 사용하여 상태 업데이트
-      Object.entries(RESET_VALUES).forEach(([key, value]) => {
-        if (key in stateSetters) {
-          stateSetters[key as keyof typeof stateSetters](value as any)
-        }
-      })
-      
-      // 슬롯 이름 초기화
-      setSlotNames(prev => ({
-        ...prev,
-        [currentSlot]: `슬롯 ${currentSlot}`
-      }))
-      setTempSlotName(`슬롯 ${currentSlot}`)
-      setSlotHasData(prev => ({
-        ...prev,
-        [currentSlot]: false
-      }))
-      
-      showNotification('success', '현재 슬롯이 초기화되었습니다.')
+  // 현재 데이터 가져오기 함수
+  const getCurrentData = () => {
+    return {
+      monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime,
+      feeRate, isCustomHuntTime, huntTimeUnit,
+      customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue,
+      characterLevel, mesoInputMode, dropRateInputMode, mesoLegionBuff,
+      phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect,
+      mesoAbility, globalBuffMode, mesoArtifactLevel, mesoArtifactMode,
+      mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateLegionBuff,
+      dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect,
+      dropRateAbility, dropRateArtifactLevel, dropRateArtifactMode,
+      dropRateArtifactLevelInput, dropRateArtifactPercentInput, holySymbol,
+      decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion,
+      showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
+      spottingSmallChangeLevel, tallahartSymbolLevel, autoCalculate,
+      normalDropItems, logDropItems
     }
   }
 
-  const saveSettings = (slotNumber: number = currentSlot) => {
+  // 데이터 로드 함수
+  const loadData = (data: any, onComplete?: () => void) => {
+    // 기본 설정값 복원
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && key in stateSetters) {
+        stateSetters[key as keyof typeof stateSetters](value as any)
+      }
+    })
+    
+    // 특별 처리가 필요한 값들
+    setAutoCalculate(data.autoCalculate ?? true)
+    setCharacterLevel(data.characterLevel ?? 275)
+    
+    // 드롭 아이템 처리
+    if (data.normalDropItems) {
+      setNormalDropItems(data.normalDropItems)
+    } else {
+      setNormalDropItems(DEFAULT_VALUES.normalDropItems)
+    }
+    
+    if (data.logDropItems) {
+      setLogDropItems(data.logDropItems)
+    } else {
+      setLogDropItems(DEFAULT_VALUES.logDropItems)
+    }
+    
+    // 로드 완료 콜백 호출
+    if (onComplete) {
+      requestAnimationFrame(() => {
+        onComplete()
+      })
+    }
+  }
+
+  // 초기화 함수 - AutoSlotManager에서 호출
+  const resetAll = () => {
+    console.log('BasicCalculator resetAll 호출됨')
+    // 기본값으로 초기화
+    const RESET_VALUES = DEFAULT_VALUES
+    
+    // stateSetters를 사용하여 상태 업데이트
+    Object.entries(RESET_VALUES).forEach(([key, value]) => {
+      if (key in stateSetters) {
+        stateSetters[key as keyof typeof stateSetters](value as any)
+      }
+    })
+    console.log('BasicCalculator resetAll 완료')
+  }
+
+  const saveSettings = (slotNumber: number) => {
     if (!canUseFunctionalCookies()) {
       showNotification('error', '기능성 쿠키가 비활성화되어 있습니다.')
       return
@@ -477,44 +445,16 @@ export function BasicCalculator() {
     const settings = {
       ...getCurrentInputs(),
       autoCalculate,
-      slotName: slotNumber === currentSlot ? tempSlotName : slotNames[slotNumber]
     }
     
     if (saveCalculatorSettings(settings, slotNumber)) {
-      setSlotHasData(prev => ({
-        ...prev,
-        [slotNumber]: true
-      }))
-      // 슬롯 이름도 저장
-      if (slotNumber === currentSlot && tempSlotName) {
-        setSlotNames(prev => ({
-          ...prev,
-          [slotNumber]: tempSlotName
-        }))
-      }
-      // 저장 성공 시 마지막 저장된 입력값 및 슬롯 이름 업데이트
-      // settings 객체에서 실제 저장된 값들을 사용
-      const actualSavedInputs: CalculationInputs = settings
-      
-      setLastSavedInputs(prev => ({
-        ...prev,
-        [slotNumber]: actualSavedInputs
-      }))
-      setLastSavedSlotNames(prev => ({
-        ...prev,
-        [slotNumber]: slotNumber === currentSlot ? tempSlotName : slotNames[slotNumber]
-      }))
       showNotification('success', `슬롯 ${slotNumber}에 설정이 저장되었습니다.`)
-      // 슬롯 이름 편집 모드 종료
-      if (slotNumber === currentSlot) {
-        setIsEditingSlotName(false)
-      }
     } else {
       showNotification('error', '설정 저장에 실패했습니다.')
     }
   }
   
-  const loadSettings = (slotNumber: number = currentSlot, isInitialLoad: boolean = false) => {
+  const loadSettings = (slotNumber: number, isInitialLoad: boolean = false) => {
     if (!canUseFunctionalCookies()) {
       return
     }
@@ -525,9 +465,6 @@ export function BasicCalculator() {
     
     if (!settings) {
       // 슬롯이 비어있으면 기본값으로 초기화
-      setCurrentSlot(slotNumber)
-      setTempSlotName(slotNames[slotNumber] || `슬롯 ${slotNumber}`)
-      
       // DEFAULT_VALUES를 사용하여 초기화
       Object.entries(DEFAULT_VALUES).forEach(([key, value]) => {
         if (key in stateSetters) {
@@ -537,26 +474,11 @@ export function BasicCalculator() {
       setAutoCalculate(true)
       setCharacterLevel(275)
       
-      setLastSavedSlotNames(prev => ({
-        ...prev,
-        [slotNumber]: slotNames[slotNumber] || `슬롯 ${slotNumber}`
-      }))
-      
       setIsLoadingSlot(false)
       return
     }
     
-    // 슬롯 이름 복원
-    if (settings.slotName) {
-      setSlotNames(prev => ({
-        ...prev,
-        [slotNumber]: settings.slotName
-      }))
-      // tempSlotName도 함께 업데이트
-      if (slotNumber === currentSlot) {
-        setTempSlotName(settings.slotName)
-      }
-    }
+    // TODO: SlotManagerV2에서 슬롯 이름 복원 처리
     
     // 설정값 복원
     Object.entries(settings).forEach(([key, value]) => {
@@ -665,20 +587,10 @@ export function BasicCalculator() {
       setLogDropItems(DEFAULT_VALUES.logDropItems)
     }
     
-    // 저장된 슬롯 이름이 있으면 사용, 없으면 기본값 사용
-    const slotName = settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
-    setTempSlotName(slotName)
-    
-    setCurrentSlot(slotNumber)
     setSettingsLoaded(true)
     if (!isInitialLoad) {
       showNotification('success', `슬롯 ${slotNumber}의 설정을 불러왔습니다.`)
     }
-    
-    setLastSavedSlotNames(prev => ({
-      ...prev,
-      [slotNumber]: settings.slotName || slotNames[slotNumber] || `슬롯 ${slotNumber}`
-    }))
     
     // 설정 복원 메시지를 3초 후 숨김
     setTimeout(() => setSettingsLoaded(false), 3000)
@@ -686,51 +598,41 @@ export function BasicCalculator() {
     setIsLoadingSlot(false)
   }
   
+  // 예전 데이터 마이그레이션 함수
+  const migrateOldSlotData = () => {
+    if (!canUseFunctionalCookies()) return
+    
+    try {
+      for (let i = 1; i <= 3; i++) {
+        const oldKey = `cookie_settings_slot_${i}`
+        const newKey = `basic_calculator_slot_${i}`
+        
+        // 새 키에 데이터가 이미 있으면 건너뛰기
+        if (localStorage.getItem(newKey) !== null) continue
+        
+        // 예전 키에 데이터가 있으면 마이그레이션
+        const oldData = localStorage.getItem(oldKey)
+        if (oldData) {
+          console.log(`마이그레이션: 슬롯 ${i} 데이터를 ${oldKey}에서 ${newKey}로 이동`)
+          localStorage.setItem(newKey, oldData)
+          localStorage.removeItem(oldKey)
+        }
+      }
+    } catch (error) {
+      console.error('데이터 마이그레이션 실패:', error)
+    }
+  }
+
   // 컴포넌트 마운트 시 설정 로드
   useEffect(() => {
     setMounted(true)
+    setIsDataSourceCardDismissedState(isDataSourceCardDismissed())
     
-    // 모든 슬롯의 이름과 데이터 유무를 로드
-    if (canUseFunctionalCookies()) {
-      const newSlotNames: {[key: number]: string} = {}
-      const newSlotHasData: {[key: number]: boolean} = {}
-      
-      for (let i = 1; i <= 3; i++) {
-        const settings = loadCalculatorSettings(i)
-        
-        if (settings) {
-          newSlotHasData[i] = true
-          if (settings.slotName) {
-            newSlotNames[i] = settings.slotName
-          } else {
-            newSlotNames[i] = `슬롯 ${i}`
-          }
-        } else {
-          newSlotHasData[i] = false
-          newSlotNames[i] = `슬롯 ${i}`
-        }
-      }
-      setSlotNames(newSlotNames)
-      setSlotHasData(newSlotHasData)
-      setTempSlotName(newSlotNames[1] || '슬롯 1')
-      // 초기 로드 시 슬롯 이름만 먼저 설정
-      setLastSavedSlotNames(newSlotNames)
-      
-      // 데이터 소스 카드 닫기 상태 로드
-      setIsDataSourceCardDismissedState(isDataSourceCardDismissed())
-      
-      // slotNames가 업데이트된 후에 loadSettings 호출
-      // setTimeout을 사용하여 다음 렌더링 사이클에서 실행
-      setTimeout(() => {
-        loadSettings(1, true)
-      }, 0)
-    } else {
-      setTempSlotName('슬롯 1')
-      // 쿠키 사용 불가 시에도 기본값 로드
-      setTimeout(() => {
-        loadSettings(1, true)
-      }, 0)
-    }
+    // 예전 데이터 마이그레이션 수행
+    migrateOldSlotData()
+    
+    // AutoSlotManager가 초기 로드를 처리하므로 여기서는 제거
+    // loadSettings(1, true)
   }, [])
 
   // 현재 입력값들을 객체로 반환
@@ -772,81 +674,8 @@ export function BasicCalculator() {
     setDataSourceCardDismissed()
   }
 
-  // 미저장 변경사항 감지
-  const hasUnsavedChanges = useMemo(() => {
-    // 초기 로드 중이거나 슬롯 로딩 중이면 변경사항 없음
-    if (!mounted || isLoadingSlot) {
-      return false
-    }
-    
-    // 현재 슬롯의 저장된 데이터가 없으면 변경사항 없음
-    const currentSlotSavedInputs = lastSavedInputs[currentSlot]
-    if (!currentSlotSavedInputs) {
-      return false
-    }
-    
-    // 실제로 저장된 슬롯 이름과 비교
-    const savedSlotName = lastSavedSlotNames[currentSlot]
-    const nameChanged = tempSlotName !== savedSlotName
-    
-    // 계산기 값 변경 확인 (저장된 설정과 현재 입력값 비교)
-    const current = getCurrentInputs()
-    const valuesChanged = Object.keys(current).some(key => {
-      const currentValue = current[key as keyof CalculationInputs]
-      const savedValue = currentSlotSavedInputs[key as keyof CalculationInputs]
-      
-      // 배열이나 객체인 경우 JSON 문자열로 변환하여 비교
-      if (typeof currentValue === 'object' && currentValue !== null) {
-        return JSON.stringify(currentValue) !== JSON.stringify(savedValue)
-      }
-      
-      return currentValue !== savedValue
-    })
-    
-    return nameChanged || valuesChanged
-  }, [tempSlotName, lastSavedSlotNames, currentSlot, lastSavedInputs, mounted, isLoadingSlot, monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, isCustomHuntTime, huntTimeUnit, customHuntTimeValue, isCustomResultTime, resultTimeUnit, customResultTimeValue, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems])
 
-  // 슬롯 전환 처리 함수
-  const handleSlotChange = (slotNumber: number) => {
-    if (slotNumber === currentSlot) return
-    
-    // 미저장 변경사항이 있으면 경고 표시
-    if (hasUnsavedChanges) {
-      setPendingSlotNumber(slotNumber)
-      setShowUnsavedWarning(true)
-    } else {
-      // 변경사항이 없으면 바로 슬롯 전환
-      loadSettings(slotNumber)
-    }
-  }
 
-  // 경고 모달에서 저장 후 이동
-  const handleSaveAndSwitch = () => {
-    if (pendingSlotNumber !== null) {
-      saveSettings(currentSlot)
-      // 저장 후 잠시 대기한 다음 슬롯 전환 (저장 완료를 위해)
-      setTimeout(() => {
-        loadSettings(pendingSlotNumber)
-        setShowUnsavedWarning(false)
-        setPendingSlotNumber(null)
-      }, 100)
-    }
-  }
-
-  // 경고 모달에서 저장하지 않고 이동
-  const handleSwitchWithoutSaving = () => {
-    if (pendingSlotNumber !== null) {
-      loadSettings(pendingSlotNumber)
-      setShowUnsavedWarning(false)
-      setPendingSlotNumber(null)
-    }
-  }
-
-  // 경고 모달에서 취소
-  const handleCancelSwitch = () => {
-    setShowUnsavedWarning(false)
-    setPendingSlotNumber(null)
-  }
 
   // 입력값 변경 여부 확인
   const hasInputsChanged = (): boolean => {
@@ -1081,12 +910,8 @@ export function BasicCalculator() {
   useEffect(() => {
     if (!isLoadingSlot && mounted) {
       const currentInputs = getCurrentInputs()
-      setLastSavedInputs(prev => ({
-        ...prev,
-        [currentSlot]: currentInputs
-      }))
     }
-  }, [isLoadingSlot, mounted, currentSlot])
+  }, [isLoadingSlot, mounted])
 
   // 자동 연산이 켜져있을 때 입력값 변경 감지
   useEffect(() => {
@@ -1436,18 +1261,13 @@ export function BasicCalculator() {
     <>
       <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">{/* 메인 계산기 컨테이너 시작 */}
       {/* 슬롯 선택 UI */}
-      <SlotHeader
-        currentSlot={currentSlot}
+      <AutoSlotManager
+        calculatorId="basic_calculator"
         maxSlots={3}
-        slotNames={slotNames}
-        tempSlotName={tempSlotName}
-        isEditingSlotName={isEditingSlotName}
-        hasSlotData={hasSlotDataFunction}
-        onSlotSwitch={handleSlotChange}
-        onSlotNameChange={setTempSlotName}
-        onSlotNameEdit={setIsEditingSlotName}
-        onSave={() => saveSettings(currentSlot)}
+        getCurrentData={getCurrentData}
+        loadData={loadData}
         onReset={resetAll}
+        onNotification={(type, message) => showNotification(type, message)}
       />
       
       {/* 데이터 출처 안내 */}
@@ -3271,39 +3091,6 @@ export function BasicCalculator() {
         </div> {/* 계산 결과 섹션 끝 */}
       </div> {/* 메인 그리드 컨테이너 끝 */}
 
-      {showUnsavedWarning && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-6 h-6 text-orange-500" />
-              <h3 className="text-lg font-semibold text-gray-900">저장되지 않은 변경사항</h3>
-            </div>
-            <p className="text-gray-600 mb-6">
-              현재 슬롯에 저장되지 않은 변경사항이 있습니다. 다른 슬롯으로 이동하시겠습니까?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleCancelSwitch}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSwitchWithoutSaving}
-                className="px-4 py-2 text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
-              >
-                저장하지 않고 이동
-              </button>
-              <button
-                onClick={handleSaveAndSwitch}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                저장 후 이동
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>{/* 메인 계산기 컨테이너 끝 */}
     </>
   )
