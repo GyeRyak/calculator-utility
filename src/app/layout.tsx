@@ -22,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        <GoogleAnalytics />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -41,7 +42,6 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-screen bg-background flex flex-col`}>
-        <GoogleAnalytics />
         <CookieProvider>
           <NotificationProvider>
             <Navbar />
