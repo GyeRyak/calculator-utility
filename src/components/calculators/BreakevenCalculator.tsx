@@ -668,31 +668,6 @@ export function BreakevenCalculator() {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              현재 잠재능력 메소획득량 (%)
-            </label>
-            <NumberInput
-              value={currentMesoFromPotential}
-              onChange={setCurrentMesoFromPotential}
-              min={0}
-              max={100}
-              step={20}
-              placeholder="0"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              재획비/잠재 제외 메소 획득량 (%)
-            </label>
-            <NumberInput
-              value={otherMesoBonus}
-              onChange={setOtherMesoBonus}
-              min={0}
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
               현재 잠재능력 아이템 드롭률 (%)
             </label>
             <NumberInput
@@ -712,6 +687,31 @@ export function BreakevenCalculator() {
             <NumberInput
               value={otherDropBonus}
               onChange={setOtherDropBonus}
+              min={0}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              현재 잠재능력 메소 획득량 (%)
+            </label>
+            <NumberInput
+              value={currentMesoFromPotential}
+              onChange={setCurrentMesoFromPotential}
+              min={0}
+              max={100}
+              step={20}
+              placeholder="0"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              재획비/잠재 제외 메소 획득량 (%)
+            </label>
+            <NumberInput
+              value={otherMesoBonus}
+              onChange={setOtherMesoBonus}
               min={0}
               placeholder="0"
             />
