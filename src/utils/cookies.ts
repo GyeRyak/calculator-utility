@@ -195,6 +195,41 @@ export function loadCalculatorSettings(slotNumber: number = 1): any | null {
   }
 }
 
+// 모든 저장된 계산기 데이터 조회 (CookieSettings용)
+export function getAllSavedSettings(): any | null {
+  if (!canUseFunctionalCookies()) {
+    return null
+  }
+  
+  try {
+    const allSettings: { [key: string]: any } = {}
+    
+    // localStorage의 모든 키를 확인
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key) continue
+      
+      // 계산기 관련 키인지 확인
+      if (key.includes('calculator_slot_') || key.includes('data_source_card') || key.startsWith('cookie_settings_slot_')) {
+        try {
+          const value = localStorage.getItem(key)
+          if (value) {
+            allSettings[key] = JSON.parse(value)
+          }
+        } catch (error) {
+          // JSON 파싱이 안되는 값은 문자열 그대로 저장
+          allSettings[key] = localStorage.getItem(key)
+        }
+      }
+    }
+    
+    return Object.keys(allSettings).length > 0 ? allSettings : null
+  } catch (error) {
+    console.error('Failed to load all saved settings:', error)
+    return null
+  }
+}
+
 // 특정 슬롯의 계산기 설정 삭제
 export function clearCalculatorSettings(slotNumber?: number): void {
   try {
@@ -228,9 +263,30 @@ export function hasSlotData(slotNumber: number): boolean {
 
 // 모든 비필수 쿠키 삭제
 export function clearAllNonEssentialCookies(): void {
+  try {
+    // localStorage의 모든 계산기 관련 데이터 삭제
+    const keysToRemove: string[] = []
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key) continue
+      
+      // 계산기 관련 키 또는 설정 키인지 확인
+      if (key.includes('calculator_slot_') || key.includes('data_source_card') || key.startsWith('cookie_settings_slot_')) {
+        keysToRemove.push(key)
+      }
+    }
+    
+    // 찾은 키들을 모두 삭제
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+    
+  } catch (error) {
+    console.error('Failed to clear all non-essential data:', error)
+  }
+  
+  // 기존 함수들도 호출 (혹시 놓친 것들을 위해)
   clearCalculatorSettings()
   clearDataSourceCardState()
-  // 필요시 다른 기능성 쿠키들도 여기서 삭제
 }
 
 // 데이터 출처 카드 닫기 상태 관리

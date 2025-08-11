@@ -7,7 +7,7 @@ import {
   setCookieConsent,
   clearAllNonEssentialCookies,
   canUseFunctionalCookies,
-  loadCalculatorSettings,
+  getAllSavedSettings,
   saveCalculatorSettings,
   clearCalculatorSettings,
   type CookieConsent
@@ -30,7 +30,7 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
       setConsent(currentConsent)
       
       if (canUseFunctionalCookies()) {
-        const settings = loadCalculatorSettings()
+        const settings = getAllSavedSettings()
         setSavedSettings(settings)
       }
     }
