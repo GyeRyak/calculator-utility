@@ -23,6 +23,7 @@ export default function RootLayout({
     <html lang="ko">
       <head>
         <meta name="google-site-verification" content="MisTb5jkBh5riUOSrXvEbyrqqoLwV184cqHgsL6-Z-Y" />
+        <meta name="google-adsense-account" content="ca-pub-6146739804286620" />
         <GoogleAnalytics />
         <script
           dangerouslySetInnerHTML={{
