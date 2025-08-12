@@ -11,7 +11,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NODE_ENV === 'production' 
-      ? 'https://gyeryak.github.io/calculator-utility' 
+      ? 'https://www.maplecalc.com' 
       : 'http://localhost:3000'
   ),
   title: '계산 유틸리티',
