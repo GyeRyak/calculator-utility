@@ -34,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
-        <meta name="google-site-verification" content="MisTb5jkBh5riUOSrXvEbyrqqoLwV184cqHgsL6-Z-Y" />
+        <meta name="naver-site-verification" content="66ca6021933d74b4baf5a6723e76cf47f8cbb6f4" />
         <meta name="google-adsense-account" content="ca-pub-6146739804286620" />
         <GoogleAnalytics />
         <script
@@ -89,4 +89,5 @@ export default function RootLayout({
       </body>
     </html>
   )
+
 } 
