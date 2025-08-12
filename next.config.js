@@ -5,6 +5,7 @@ const nextConfig = {
     output: 'export',
     trailingSlash: true,
     basePath: '/calculator-utility',
+    assetPrefix: '/calculator-utility',
   }),
   images: {
     unoptimized: true
