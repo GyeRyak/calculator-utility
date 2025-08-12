@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, AlertCircle, RotateCcw, Calculator } from 'lucide-react'
+import { Plus, Trash2, AlertCircle, RotateCcw, Calculator, Download } from 'lucide-react'
 import { calculateBreakeven, type BreakevenItem, type BreakevenResult } from '@/utils/breakevenCalculations'
 import { calculateDropItems, type DropItem, calculateNormalDropMultiplier, calculateLogDropMultiplier, SOL_ERDA_FRAGMENT_ID } from '@/utils/huntingExpectationCalculations'
 import { 
@@ -13,12 +13,13 @@ import {
 } from '@/utils/defaults'
 import { loadCalculatorSettings, canUseFunctionalCookies } from '@/utils/cookies'
 import { type HuntingExpectationParams } from '@/utils/huntingExpectationCalculations'
-import { calculateMesoBonus, calculateItemDropBonus, type MesoCalculationParams, type ItemDropCalculationParams } from '@/utils/bonusCalculations'
+import { calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '@/utils/bonusCalculations'
 import NumberInput from '../ui/NumberInput'
-import { RadioGroup, Toggle } from '../ui'
+import { RadioGroup, Toggle, ExportModal } from '../ui'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
 import { confirmSlotReset } from '@/utils/slotUtils'
+import { type BreakevenCalculatorExportData } from '@/utils/exportUtils'
 
 interface BreakevenSettings {
   items: BreakevenItem[]
@@ -131,6 +132,9 @@ export function BreakevenCalculator() {
   const [normalDropExpectation, setNormalDropExpectation] = useState(DEFAULT_BREAKEVEN_VALUES.normalDropExpectation)
   const [logDropExpectation, setLogDropExpectation] = useState(DEFAULT_BREAKEVEN_VALUES.logDropExpectation)
   
+  // 내보내기 관련 상태
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  
   // 기본 기댓값 계산
   const defaultExpectations = calculateDefaultExpectations()
 
@@ -154,6 +158,137 @@ export function BreakevenCalculator() {
     logDropExpectation,
     linkedPrices
   })
+
+  // 내보내기 데이터 생성
+  const getExportData = (): BreakevenCalculatorExportData | null => {
+    if (!results || !results.itemResults.length || !results.totalResult) return null
+    
+    // 실제 총 드롭률 계산 (올바른 인터페이스 사용)
+    const dropRateParams: ItemDropCalculationParams = {
+      inputMode: 'detail',
+      directValue: 0,
+      globalBuffMode: 'legion',
+      legionBuff: false,
+      potentialMode: 'lines',
+      potentialLines: currentDropFromPotential / 20, // 20%당 1줄이므로 나누기 20
+      potentialDirect: 0,
+      ability: 0,
+      artifactMode: 'level',
+      artifactLevel: 0,
+      artifactPercent: 0,
+      tallahartSymbolLevel: 0,
+      holySymbol: false,
+      decentHolySymbol: false,
+      decentHolySymbolLevel: 30,
+      wealthAcquisitionPotion,
+      pcRoomMode: false,
+      otherBuff: 0,
+      otherNonBuff: otherDropBonus
+    }
+    const totalDropRate = calculateItemDropBonus(dropRateParams).totalBonus
+    
+    // 실제 총 메획 계산 (올바른 인터페이스 사용)
+    const mesoParams: MesoCalculationParams = {
+      inputMode: 'detail',
+      directValue: 0,
+      globalBuffMode: 'legion',
+      legionBuff: false,
+      phantomLegionMeso: 0,
+      potentialMode: 'lines',
+      potentialLines: currentMesoFromPotential / 20, // 20%당 1줄이므로 나누기 20
+      potentialDirect: 0,
+      ability: 0,
+      artifactMode: 'level',
+      artifactLevel: 0,
+      artifactPercent: 0,
+      tallahartSymbolLevel: 0,
+      wealthAcquisitionPotion,
+      otherBuff: 0,
+      otherNonBuff: otherMesoBonus,
+      characterLevel: baseParams.characterLevel || 275,
+      monsterLevel: baseParams.monsterLevel
+    }
+    const totalMesoBonus = calculateMesoBonus(mesoParams).totalBonus
+    
+    // 메소제한이 활성화되어 있으면 실제 계산된 메소제한 시간 사용
+    let actualMesoLimitHours = mesoLimitHours
+    let actualMesoLimitMinutes = Math.round((mesoLimitHours - Math.floor(mesoLimitHours)) * 60)
+    
+    if (mesoLimitEnabled) {
+      // 손익분기 계산기는 시간당 몬스터 수를 저장함
+      // calculateMesoLimitTime은 (캐릭터레벨, 몬스터레벨, 특정시간당몬스터수, 그시간분단위) 형태
+      const monstersPerHour = baseParams.totalMonsters || 390 // 기본값: 시간당 390마리
+      const monstersPerMinute = monstersPerHour / 60
+      
+      const calculatedMesoLimitTimeInMinutes = calculateMesoLimitTime(
+        baseParams.characterLevel || 275,
+        baseParams.monsterLevel,
+        monstersPerMinute, // 분당 몬스터 수
+        1 // 1분 기준
+      )
+      
+      actualMesoLimitHours = Math.floor(calculatedMesoLimitTimeInMinutes / 60)
+      actualMesoLimitMinutes = Math.round(calculatedMesoLimitTimeInMinutes % 60)
+    }
+    
+    return {
+      // 기본 설정
+      materialsPerDay,
+      mesoLimitEnabled,
+      mesoLimitHours: actualMesoLimitHours,
+      mesoLimitMinutes: actualMesoLimitMinutes,
+      globalFeeRate,
+      
+      // 기본 계산기 정보
+      baseCalculation: {
+        monsterLevel: baseParams.monsterLevel,
+        characterLevel: baseParams.characterLevel || 275,
+        huntTime: 60, // 손익분기 계산기는 시간당 기준으로 계산
+        mesoBonus: totalMesoBonus, // 실제 계산된 총 메획
+        mesoPotentialLines: currentMesoFromPotential / 20, // 메획 잠재 줄 수 (20%당 1줄)
+        dropRate: totalDropRate, // 실제 계산된 총 드롭률
+        dropRatePotentialLines: currentDropFromPotential / 20, // 아드 잠재 줄 수 (20%당 1줄)
+        totalIncomePerHour: 0 // TODO: 실제 계산값으로 대체 필요
+      },
+      
+      // 손익분기 아이템들
+      items: results.itemResults.map(result => {
+        const item = items.find(i => i.id === result.itemId)!
+        return {
+          name: item.name,
+          dropLines: item.dropLines,
+          mesoLines: item.mesoLines,
+          purchasePrice: item.purchasePrice,
+          sellPrice: item.sellPrice,
+          netCost: result.netCost,
+          breakEvenHours: result.breakEvenHours,
+          daysToBreakeven: result.daysToBreakeven,
+          formattedPeriod: result.formattedPeriod,
+          increasePerHour: result.increasePerHour // 시간당 증가 수익
+        }
+      }),
+      
+      // 전체 아이템 구매 시 총 결과
+      totalResult: {
+        netCost: results.totalResult.netCost,
+        increasePerHour: results.totalResult.increasePerHour,
+        breakEvenMaterials: results.totalResult.breakEvenMaterials,
+        formattedPeriod: results.totalResult.formattedPeriod,
+        totalDropLines: items.reduce((sum, item) => sum + item.dropLines, 0), // 총 드롭 잠재 줄 수
+        totalMesoLines: items.reduce((sum, item) => sum + item.mesoLines, 0)   // 총 메획 잠재 줄 수
+      },
+      
+      // 계산 일시
+      calculatedAt: new Date().toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }
+  }
 
   // 데이터를 로드하는 함수
   const loadData = (data: any, onComplete?: () => void) => {
@@ -928,7 +1063,17 @@ export function BreakevenCalculator() {
       {/* 결과 표시 */}
       {results && (
         <div className="bg-white border rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">손익분기 계산 결과</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">손익분기 계산 결과</h2>
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+              title="계산 결과 내보내기"
+            >
+              <Download size={14} />
+              내보내기
+            </button>
+          </div>
 
           {/* 경고 메시지 */}
           {results.warnings.length > 0 && (
@@ -1023,6 +1168,16 @@ export function BreakevenCalculator() {
             )}
           </div>
         </div>
+      )}
+
+      {/* 내보내기 모달 */}
+      {results && (
+        <ExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          data={getExportData()!}
+          type="breakeven"
+        />
       )}
 
     </div>

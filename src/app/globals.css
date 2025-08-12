@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 메이플스토리 폰트 설정 */
+@font-face {
+  font-family: 'Maplestory';
+  src: url('/fonts/Maplestory Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Maplestory';
+  src: url('/fonts/Maplestory Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MapleStory';
+  src: url('/fonts/Maplestory Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'MapleStory';
+  src: url('/fonts/Maplestory Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;

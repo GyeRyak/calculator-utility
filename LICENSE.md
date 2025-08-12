@@ -39,6 +39,19 @@ Copyright (c) 2025 Calculator Utility
 - **수정**: 소프트웨어를 수정할 권리
 - **배포**: 위 조건들을 준수하며 소프트웨어를 배포할 권리
 
+## 포함된 서드파티 자산
+
+### 메이플스토리 서체
+
+본 프로젝트에는 메이플스토리가 제공한 메이플스토리 서체가 포함되어 있습니다. 메이플스토리 서체는 넥슨의 지적재산권으로 보호받으며, 다음 조건 하에 사용됩니다:
+
+- 서체의 원본을 수정하거나 편집하지 않음
+- 서체를 별도로 판매하지 않음  
+- 원본 저작권 고지를 포함
+- 서체를 원본 그대로 사용
+
+출처: [메이플스토리 공식 서체 제공 페이지](https://maplestory.nexon.com/Media/Font)
+
 ## 라이선스 변경
 
 본 라이선스는 향후 업데이트될 수 있으며, 변경 사항은 해당 프로젝트 저장소에서 확인할 수 있습니다.
@@ -87,6 +100,19 @@ Subject to the above conditions, the following rights are granted:
 - **Copy**: The right to copy the software
 - **Modify**: The right to modify the software
 - **Distribute**: The right to distribute the software in compliance with these conditions
+
+## Third-Party Assets Included
+
+### MapleStory Font
+
+This project includes the MapleStory font provided by MapleStory. The MapleStory font is protected by Nexon's intellectual property rights and is used under the following conditions:
+
+- Do not modify or edit the original font
+- Do not sell the font separately
+- Include original copyright notice
+- Use the font in its original form
+
+Source: [MapleStory Official Font Provision Page](https://maplestory.nexon.com/Media/Font)
 
 ## License Changes
 

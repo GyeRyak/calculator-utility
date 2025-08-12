@@ -146,6 +146,22 @@ export default function AboutPage() {
               <li><strong>코드 활용 시:</strong> 일부만 활용 시 이외 조건 없음, 대량 활용 시 출처 표기 필수</li>
               <li><strong>무보증:</strong> 소프트웨어 사용에 대한 어떠한 보증도 제공하지 않습니다</li>
             </ul>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-4">
+              <p className="text-blue-800 text-sm font-medium mb-2">📝 메이플스토리 서체 사용</p>
+              <p className="text-blue-700 text-xs mb-2">
+                계산 결과 이미지 내보내기에는 메이플스토리가 제공한 메이플스토리 서체가 적용됩니다.
+              </p>
+              <p className="text-blue-600 text-xs">
+                메이플스토리 서체는 넥슨의 지적재산권이며, 
+                <a href="https://maplestory.nexon.com/Media/Font" 
+                   target="_blank" rel="noopener noreferrer" 
+                   className="underline hover:text-blue-800 ml-1">
+                  메이플스토리 공식 서체 제공 페이지
+                </a>의 라이선스를 따릅니다.
+              </p>
+            </div>
+            
             <p className="text-xs text-gray-500 mt-3">
               자세한 내용은 
               <a href="https://github.com/gyeryak/calculator-utility/blob/main/LICENSE.md" 

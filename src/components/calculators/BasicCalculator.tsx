@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X } from 'lucide-react'
+import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X, Download } from 'lucide-react'
 import Link from 'next/link'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
@@ -9,11 +9,12 @@ import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExp
 import { DEFAULT_NORMAL_DROP_ITEMS, DEFAULT_LOG_DROP_ITEMS, DEFAULT_BASIC_CALCULATOR_VALUES } from '../../utils/defaults'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
-import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem } from '../ui'
+import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem, ExportModal } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
 import { getAverageMesoDropByLevel } from '../../utils/mesoDropCalculation'
+import { type BasicCalculatorExportData } from '../../utils/exportUtils'
 
 // 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
@@ -25,6 +26,7 @@ interface DropItem extends UIDropItem {
 
 interface CalculationResult {
   baseMeso: number
+  baseMesoPerHour: number // 순수 메소 드롭 (시간당)
   totalIncome: number
   totalMeso: number
   mesoDropRate: number
@@ -229,6 +231,9 @@ export function BasicCalculator() {
   const [mounted, setMounted] = useState(false)
   const [isLoadingSlot, setIsLoadingSlot] = useState(false)
   const [isDataSourceCardDismissedState, setIsDataSourceCardDismissedState] = useState(true) // 초기에는 숨김
+  
+  // 내보내기 관련 상태
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   
   // 입력 검증 에러 상태
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
@@ -703,6 +708,67 @@ export function BasicCalculator() {
     setDataSourceCardDismissed()
   }
 
+  // 내보내기 데이터 생성
+  const getExportData = (): BasicCalculatorExportData | null => {
+    if (!result) return null
+    
+    // 메소 제한인 경우 실제 계산된 시간 사용
+    let actualResultTime = resultTime
+    if (isCustomResultTime && resultTimeUnit === 'meso_limit') {
+      actualResultTime = calculateMesoLimitTime(characterLevel, monsterLevel, monsterCount, huntTime)
+    }
+    
+    // 드롭 아이템
+    const sortedDropItems = Array.from(result.dropItems.entries())
+      .map(([_, data]) => ({
+        name: data.item.name,
+        expectedCount: data.expectedCount,
+        expectedValue: data.expectedValue,
+        actualDropRate: data.actualDropRate
+      }))
+      .sort((a, b) => b.expectedValue - a.expectedValue)
+    
+    return {
+      // 기본 설정
+      monsterLevel,
+      characterLevel,
+      monsterCount,
+      huntTime,
+      huntTimeUnit,
+      resultTime: actualResultTime, // 실제 계산된 결과 시간 사용
+      resultTimeUnit,
+      isCustomResultTime,
+      
+      // 메소 관련
+      mesoBonus: calculateMesoBonus(getMesoCalculationParams()).totalBonus, // 최종 계산된 메획
+      mesoPotentialLines: mesoPotentialMode === 'lines' ? mesoPotentialLines : Math.floor(mesoPotentialDirect / 20),
+      baseMeso: result.baseMeso,
+      baseMesoPerHour: result.baseMesoPerHour,
+      totalMesoPerHour: result.totalMesoPerHour,
+      totalMesoWithoutPotion: result.totalMesoWithoutPotion,
+      wealthAcquisitionPotion,
+      wealthAcquisitionPotionCost: wealthAcquisitionPotion ? result.wealthAcquisitionPotionCost : undefined,
+      
+      // 드롭 관련
+      dropRate: calculateItemDropBonus(getItemDropCalculationParams()).totalBonus, // 최종 계산된 아드
+      dropRatePotentialLines: dropRatePotentialMode === 'lines' ? dropRatePotentialLines : Math.floor(dropRatePotentialDirect / 20),
+      totalIncome: result.totalIncome,
+      
+      // 상위 드롭 아이템들
+      topDropItems: sortedDropItems,
+      
+      // 계산 일시
+      calculatedAt: new Date().toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }
+  }
+
 
 
 
@@ -926,7 +992,8 @@ export function BasicCalculator() {
       mesoPerDrop: dropResultWithPotion.mesoPerDrop,
       wealthAcquisitionPotionCount,
       wealthAcquisitionPotionCost,
-      totalMesoPerHour,
+      baseMesoPerHour, // 순수 메소 드롭 (시간당)
+      totalMesoPerHour, // 총 수익 (메소 + 드롭 아이템 - 재획비)
       totalMesoWithoutPotion,
       dropItems: dropItemResults
     }
@@ -1383,6 +1450,15 @@ export function BasicCalculator() {
                         setIsCustomHuntTime(false)
                         setHuntTime(newTime)
                         setMonsterCount(newMobCount)
+                        
+                        // 선택된 시간에 따라 huntTimeUnit 설정
+                        if (newTime === 0.125) { // 1젠 = 7.5초 = 0.125분
+                          setHuntTimeUnit('gen')
+                        } else if (newTime < 60) { // 60분 미만은 분 단위
+                          setHuntTimeUnit('minutes')
+                        } else { // 60분 이상은 시간 단위
+                          setHuntTimeUnit('hours')
+                        }
                       }
                     }}
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1504,6 +1580,15 @@ export function BasicCalculator() {
                 } else {
                   setIsCustomResultTime(false)
                   setResultTime(Number(e.target.value))
+                  // 정해진 시간 선택 시 적절한 단위로 설정
+                  const timeValue = Number(e.target.value)
+                  if (timeValue < 1) {
+                    setResultTimeUnit('minutes') // 1젠 (0.125분)
+                  } else if (timeValue < 60) {
+                    setResultTimeUnit('minutes') // 30분 등
+                  } else {
+                    setResultTimeUnit('hours') // 1시간, 4시간 30분 등
+                  }
                 }
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2317,6 +2402,18 @@ export function BasicCalculator() {
           <div className="flex items-center justify-between border-b pb-2">
             <h3 className="text-base font-semibold text-gray-800">계산 결과</h3>
             <div className="flex items-center gap-3">
+              {/* 내보내기 버튼 */}
+              {result && (
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+                  title="계산 결과 내보내기"
+                >
+                  <Download size={14} />
+                  내보내기
+                </button>
+              )}
+              
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -3121,6 +3218,16 @@ export function BasicCalculator() {
       </div> {/* 메인 그리드 컨테이너 끝 */}
 
       </div>{/* 메인 계산기 컨테이너 끝 */}
+      
+      {/* 내보내기 모달 */}
+      {result && (
+        <ExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          data={getExportData()!}
+          type="basic"
+        />
+      )}
     </>
   )
 }
