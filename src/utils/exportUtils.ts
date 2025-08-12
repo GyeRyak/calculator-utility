@@ -102,10 +102,27 @@ export function generateImageFromData(
   type: 'basic' | 'breakeven'
 ): Promise<Blob> {
   return new Promise(async (resolve) => {
-    // 메이플스토리 폰트 로드 대기
+    // 메이플스토리 폰트 동적 로드
     try {
-      await document.fonts.load('16px "Maplestory"')
-      await document.fonts.load('bold 18px "Maplestory"')
+      // FontFace API를 사용해서 폰트 직접 로드
+      const basePath = process.env.NODE_ENV === 'production' ? '/calculator-utility' : ''
+      const boldFont = new FontFace('Maplestory', `url('${basePath}/fonts/Maplestory Bold.ttf')`, {
+        weight: '700'
+      })
+      const lightFont = new FontFace('Maplestory', `url('${basePath}/fonts/Maplestory Light.ttf')`, {
+        weight: '300'
+      })
+      
+      await boldFont.load()
+      await lightFont.load()
+      
+      document.fonts.add(boldFont)
+      document.fonts.add(lightFont)
+      
+      // 폰트가 실제로 로드되었는지 확인
+      await document.fonts.load('bold 18px Maplestory')
+      await document.fonts.load('300 16px Maplestory')
+      
       console.log('메이플스토리 폰트 로드 완료')
     } catch (error) {
       console.warn('메이플스토리 폰트 로드 실패, 기본 폰트 사용:', error)
