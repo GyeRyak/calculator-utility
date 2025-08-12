@@ -105,7 +105,7 @@ export function generateImageFromData(
     // 메이플스토리 폰트 동적 로드
     try {
       // FontFace API를 사용해서 폰트 직접 로드
-      const basePath = process.env.NODE_ENV === 'production' ? '/calculator-utility' : ''
+      const basePath = '' // 커스텀 도메인 사용으로 basePath 제거
       const boldFont = new FontFace('Maplestory', `url('${basePath}/fonts/Maplestory Bold.ttf')`, {
         weight: '700'
       })
@@ -494,7 +494,7 @@ export function generateImageFromData(
     ctx.font = `12px ${defaultFont}`
     ctx.fillStyle = '#9ca3af'
     ctx.textAlign = 'right'
-    ctx.fillText('메이플스토리 계산기 유틸리티 - https://gyeryak.github.io/calculator-utility/', width - 20, actualHeight - 40)
+    ctx.fillText('메이플스토리 계산기 유틸리티 - https://www.maplecalc.com/', width - 20, actualHeight - 40)
     
     // 메이플스토리 폰트 라이선스 표기 (기본 폰트)
     ctx.font = `10px ${defaultFont}`
@@ -564,7 +564,7 @@ export function exportBasicCalculatorAsText(data: BasicCalculatorExportData): st
     text += `• 재획비 비용: -${formatMesoWithKorean(data.wealthAcquisitionPotionCost)} 메소\n`
   }
   
-  text += `\n🔗 https://gyeryak.github.io/calculator-utility/ 에서 계산됨`
+  text += `\n🔗 https://www.maplecalc.com/ 에서 계산됨`
   
   return text
 }
@@ -616,7 +616,7 @@ export function exportBreakevenCalculatorAsText(data: BreakevenCalculatorExportD
     if (index < data.items.length - 1) text += '\n'
   })
   
-  text += `\n🔗 https://gyeryak.github.io/calculator-utility/`
+  text += `\n🔗 https://www.maplecalc.com/`
   
   return text
 }

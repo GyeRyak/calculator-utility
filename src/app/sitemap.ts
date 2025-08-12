@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://gyeryak.github.io/calculator-utility'
+    ? 'https://www.maplecalc.com'
     : 'http://localhost:3000'
 
   // 정적 페이지들
