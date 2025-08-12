@@ -1,3 +1,15 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: '소개',
+  description: '계산 유틸리티 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+  openGraph: {
+    title: '소개 - 계산 유틸리티',
+    description: '계산 유틸리티 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+    type: 'website',
+  },
+}
+
 export default function AboutPage() {
   return (
     <div className="container mx-auto px-4 py-8">
