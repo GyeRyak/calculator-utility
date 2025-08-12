@@ -253,7 +253,22 @@ export function BreakevenCalculator() {
       
       // 손익분기 아이템들
       items: results.itemResults.map(result => {
-        const item = items.find(i => i.id === result.itemId)!
+        const item = items.find(i => i.id === result.itemId)
+        if (!item) {
+          console.error(`Item not found for ID: ${result.itemId}`)
+          return {
+            name: '알 수 없는 아이템',
+            dropLines: 0,
+            mesoLines: 0,
+            purchasePrice: 0,
+            sellPrice: 0,
+            netCost: result.netCost,
+            breakEvenHours: result.breakEvenHours,
+            daysToBreakeven: result.daysToBreakeven,
+            formattedPeriod: result.formattedPeriod,
+            increasePerHour: result.increasePerHour
+          }
+        }
         return {
           name: item.name,
           dropLines: item.dropLines,
@@ -615,7 +630,7 @@ export function BreakevenCalculator() {
       
       setSelectedBasicSlot(slotNumber)
       setManuallySelectedBasicSlot(true)
-      showNotification('success', `기본 계산기 "${settings.slotName || `슬롯 ${slotNumber}`}" 데이터를 불러왔습니다.`)
+      showNotification('success', `사냥 기댓값 계산기 "${settings.slotName || `슬롯 ${slotNumber}`}" 데이터를 불러왔습니다.`)
     }
   }
 
@@ -679,7 +694,6 @@ export function BreakevenCalculator() {
       {/* 슬롯 선택 UI */}
       <AutoSlotManager
         calculatorId="breakeven_calculator"
-        maxSlots={3}
         getCurrentData={getCurrentData}
         loadData={loadData}
         onReset={resetAllData}
@@ -691,10 +705,10 @@ export function BreakevenCalculator() {
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
           <h2 className="text-lg font-semibold mb-4">기본 설정</h2>
 
-        {/* 기본 계산기 데이터 불러오기 */}
+        {/* 사냥 기댓값 계산기 데이터 불러오기 */}
         <div className="mb-4 p-3 bg-gray-50 rounded">
           <div className="flex justify-between items-center mb-2">
-            <div className="text-sm font-medium text-gray-700">기본 계산기에서 불러오기</div>
+            <div className="text-sm font-medium text-gray-700">사냥 기댓값 계산기에서 불러오기</div>
             <button
               onClick={() => {
                 setBaseParams(DEFAULT_BREAKEVEN_BASE_PARAMS)
@@ -717,7 +731,7 @@ export function BreakevenCalculator() {
             </button>
           </div>
           <div className="flex gap-2">
-            {[1, 2, 3].map(slot => (
+            {[1, 2, 3, 4, 5].map(slot => (
               <button
                 key={slot}
                 onClick={() => loadFromSlot(slot)}
@@ -1068,10 +1082,10 @@ export function BreakevenCalculator() {
             <button
               onClick={() => setIsExportModalOpen(true)}
               className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
-              title="계산 결과 내보내기"
+              title="결과 공유하기"
             >
               <Download size={14} />
-              내보내기
+              결과 공유하기
             </button>
           </div>
 

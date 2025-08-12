@@ -150,7 +150,7 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
           <div className="flex items-center justify-between p-4 border-b bg-gray-50">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                계산 결과 공유하기
+                결과 공유하기
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {type === 'basic' ? '사냥 기댓값 계산기' : '손익분기 계산기'}
@@ -196,9 +196,6 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
                   </pre>
                 </div>
                 
-                <p className="text-xs text-gray-500">
-                  💡 메신저나 커뮤니티에 붙여넣기하여 공유하세요
-                </p>
               </div>
               
               {/* 이미지 미리보기 */}
@@ -247,9 +244,6 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
                   )}
                 </div>
                 
-                <p className="text-xs text-gray-500">
-                  💡 SNS나 카페 게시글에 첨부하여 공유하세요
-                </p>
               </div>
               
             </div>

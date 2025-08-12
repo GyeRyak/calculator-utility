@@ -9,6 +9,11 @@ import GoogleAnalytics from '@/components/GoogleAnalytics'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NODE_ENV === 'production' 
+      ? 'https://gyeryak.github.io/calculator-utility' 
+      : 'http://localhost:3000'
+  ),
   title: '계산 유틸리티',
   description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
   keywords: ['계산기', '사냥', '기댓값', '드롭률', '메소', '획득량', '유틸리티'],

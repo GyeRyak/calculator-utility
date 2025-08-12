@@ -8,7 +8,7 @@ export const GLOBAL_DEFAULTS = {
   
   // 경제 관련
   feeRate: 3, // 경매장 수수료 (%)
-  breakevenFeeRate: 5 as 3 | 5, // 손익분기 계산기 기본 경매장 수수료 (다른 기본값)
+  breakevenFeeRate: 3 as 3 | 5, // 손익분기 계산기 기본 경매장 수수료
   
   // 시간 관련
   huntTime: 0.125, // 기본 사냥 시간 (분)

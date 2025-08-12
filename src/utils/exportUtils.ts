@@ -3,7 +3,7 @@ import { formatNumber, formatMesoWithKorean, formatDecimal } from './formatUtils
 import { getMonsterPerTimeStr, getHuntTimeStr, type TimeUnitCode } from './timeUnitUtils'
 
 /**
- * 기본 계산기 결과 데이터 인터페이스
+ * 사냥 기댓값 계산기 결과 데이터 인터페이스
  */
 export interface BasicCalculatorExportData {
   // 기본 설정
@@ -54,7 +54,7 @@ export interface BreakevenCalculatorExportData {
   mesoLimitMinutes?: number   // 메소 제한 시간 (분)
   globalFeeRate: 3 | 5
   
-  // 기본 계산기 정보
+  // 사냥 기댓값 계산기 정보
   baseCalculation: {
     monsterLevel: number
     characterLevel: number
@@ -511,7 +511,7 @@ export function generateImageFromData(
 
 
 /**
- * 기본 계산기 텍스트 형태로 내보내기
+ * 사냥 기댓값 계산기 텍스트 형태로 내보내기
  */
 export function exportBasicCalculatorAsText(data: BasicCalculatorExportData): string {
   const huntTimeStr = getHuntTimeStr(data.huntTime, data.huntTimeUnit, data.isCustomResultTime, data.resultTime, data.resultTimeUnit)

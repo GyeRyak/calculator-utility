@@ -125,15 +125,32 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - **Korean Language**: The app is primarily in Korean (calculator utilities for Korean gaming community)
 
 ### Current Features
-- 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`)
-- 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산)
+- 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
+- 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
+- AutoSlotManager 통합 슬롯 시스템 (저장/불러오기/내보내기/초기화)
+- 설정 텍스트 내보내기/불러오기 기능 (Base64 인코딩된 텍스트로 설정 공유)
+- 계산 결과 공유하기 기능 (이미지, 텍스트 형식 지원)
 - Responsive design optimized for both mobile and desktop
 - All calculations performed client-side for privacy
+- OpenGraph 메타데이터 지원으로 소셜 미디어 공유 최적화
+- 메이플스토리 폰트 동적 로딩 (JavaScript FontFace API 사용)
+- 자동 사이트맵 생성 시스템
 
 ### Important Configuration
 - **next.config.js**: Configured for static export with dynamic base path for GitHub Pages deployment
 - **No Testing Framework**: The project doesn't include tests currently
 - **ESLint**: Configured with Next.js and TypeScript rules
+
+### SEO 및 Analytics 설정
+- **Google AdSense**: 계정 메타 태그 추가됨 (광고 시스템 연동)
+- **Google Search Console**: 검증 메타 태그 추가됨 (검색 엔진 최적화)
+- **Google Analytics**: head 영역으로 이동하여 추적 코드 최적화
+- **사이트맵**: 자동 생성 시스템으로 검색 엔진 크롤링 지원
+- **OpenGraph**: 소셜 미디어 공유 시 미리보기 이미지 및 설명 제공
+
+### 폰트 및 UI 개선사항
+- **메이플스토리 폰트**: JavaScript FontFace API를 통한 동적 로딩으로 GitHub Pages 호환성 개선
+- **폰트 로딩 최적화**: 폰트 파일 경로 문제 해결 및 안정적인 폰트 적용
 
 ## 새 필드 추가/삭제 체크리스트 (AutoSlotManager 기준)
 
@@ -289,8 +306,8 @@ const handleReset = () => {
 
 ### localStorage 키 명명 규칙
 - **계산기별 접두사 사용**: `{calculatorId}_slot_{slotNumber}`
-- **기본 계산기**: `basic_calculator_slot_1`, `basic_calculator_slot_2`, etc.
-- **손익분기 계산기**: `breakeven_calculator_slot_1`, `breakeven_calculator_slot_2`, etc.
+- **사냥 기댓값 계산기**: `basic_calculator_slot_1`, `basic_calculator_slot_2`, ..., `basic_calculator_slot_5`
+- **손익분기 계산기**: `breakeven_calculator_slot_1`, `breakeven_calculator_slot_2`, ..., `breakeven_calculator_slot_5`
 
 ### 트러블슈팅 가이드
 
@@ -316,3 +333,34 @@ const handleReset = () => {
 2. **느슨한 결합**: 계산기 간 데이터 공유는 localStorage를 통해서만
 3. **일관된 인터페이스**: 모든 계산기는 동일한 AutoSlotManager 인터페이스 사용
 4. **상태 격리**: 한 계산기의 상태 변경이 다른 계산기에 영향주지 않음
+
+## 설정 내보내기/불러오기 시스템
+
+### 텍스트 기반 설정 공유
+- **형식**: `CALC_SETTINGS_V1:` + Base64 인코딩된 JSON 데이터
+- **포함 내용**: 계산기 타입, 슬롯 이름, 설정 데이터, 버전 정보, 내보낸 시간
+- **계산기 간 호환성**: 각 계산기는 자신의 타입만 불러올 수 있음
+- **사용 시나리오**: 커뮤니티 공유, 백업, 다른 브라우저/기기로 이동
+
+### AutoSlotManager 통합 기능
+- **저장**: 현재 슬롯에 설정 저장 (변경사항 감지로 버튼 상태 업데이트)
+- **불러오기**: 탭 형태 모달 (다른 슬롯에서 / 텍스트에서)
+- **내보내기**: 현재 설정을 Base64 텍스트로 변환, 클립보드 복사 지원
+- **초기화**: 현재 슬롯을 기본값으로 초기화
+
+### 슬롯 복사 시 안전장치
+- **경고 모달**: 기존 데이터 덮어쓰기 확인
+- **슬롯 이름 보존**: 복사 시 대상 슬롯의 이름은 유지
+- **실시간 가용성 체크**: 데이터가 있는 슬롯만 복사 가능
+
+## 기본값 연동 시스템
+
+### 손익분기 계산기 기본값 자동 계산
+- **잠재 제외 드롭률/메획**: 사냥 기댓값 계산기의 기본 설정에서 잠재능력(0줄) + 재획비(false)로 계산
+- **동기화**: 사냥 기댓값 계산기의 기본값 변경 시 손익분기 계산기도 자동 동기화
+- **계산 포함 요소**: 유니온, 어빌리티, 아티팩트, 홀리심볼, 탈라하트 심볼 등
+- **계산 제외 요소**: 잠재능력, 재물 획득의 비약
+
+### 예시 아이템 기본 제공
+- **드랍하프**: 드롭 1줄, 메획 0줄, 구매가=판매가 20억 (구매가와 동일 체크)
+- **드메얼장**: 드롭 1줄, 메획 1줄, 구매가 60억, 판매가 58억 (구매가와 동일 해제)

@@ -1359,7 +1359,6 @@ export function BasicCalculator() {
       {/* 슬롯 선택 UI */}
       <AutoSlotManager
         calculatorId="basic_calculator"
-        maxSlots={3}
         getCurrentData={getCurrentData}
         loadData={loadData}
         onReset={resetAll}
@@ -2407,10 +2406,10 @@ export function BasicCalculator() {
                 <button
                   onClick={() => setIsExportModalOpen(true)}
                   className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
-                  title="계산 결과 내보내기"
+                  title="결과 공유하기"
                 >
                   <Download size={14} />
-                  내보내기
+                  결과 공유하기
                 </button>
               )}
               

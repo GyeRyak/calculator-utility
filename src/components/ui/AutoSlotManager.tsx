@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Trash2, Edit2 } from 'lucide-react'
+import { Save, Trash2, Edit2, Copy, Share2, Download } from 'lucide-react'
 import { canUseFunctionalCookies } from '@/utils/cookies'
 
 interface AutoSlotManagerProps {
@@ -15,7 +15,7 @@ interface AutoSlotManagerProps {
 
 export default function AutoSlotManager({
   calculatorId,
-  maxSlots = 3,
+  maxSlots = 5,
   getCurrentData,
   loadData,
   onReset,
@@ -49,6 +49,18 @@ export default function AutoSlotManager({
   // 미저장 변경사항 경고 모달
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
   const [pendingSlotNumber, setPendingSlotNumber] = useState<number | null>(null)
+  
+  // 슬롯 복사 모달
+  const [showCopyModal, setShowCopyModal] = useState(false)
+  const [availableSlots, setAvailableSlots] = useState<{slot: number, name: string}[]>([])
+  
+  // 불러오기 모달 탭 상태
+  const [loadModalTab, setLoadModalTab] = useState<'slots' | 'text'>('slots')
+  const [importText, setImportText] = useState('')
+  
+  // 내보내기 모달
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [exportText, setExportText] = useState('')
 
   // 슬롯 키 생성
   const getSlotKey = (slotNumber: number): string => {
@@ -258,6 +270,131 @@ export default function AutoSlotManager({
     }
   }
 
+  // 다른 슬롯에서 복사하기
+  const handleOpenCopyModal = () => {
+    // 현재 슬롯을 제외한 데이터가 있는 슬롯 목록 가져오기
+    const slots: {slot: number, name: string}[] = []
+    for (let i = 1; i <= maxSlots; i++) {
+      if (i !== currentSlot && slotHasData[i]) {
+        slots.push({
+          slot: i,
+          name: slotNames[i] || `슬롯 ${i}`
+        })
+      }
+    }
+    setAvailableSlots(slots)
+    setShowCopyModal(true)
+  }
+
+  // 슬롯 데이터 복사
+  const handleCopyFromSlot = (sourceSlot: number) => {
+    const confirmMessage = `슬롯 ${sourceSlot}의 데이터를 현재 슬롯으로 복사하시겠습니까?\n현재 슬롯의 기존 데이터는 모두 삭제됩니다.`
+    if (confirm(confirmMessage)) {
+      const sourceData = loadSlotData(sourceSlot)
+      if (sourceData) {
+        // 슬롯 이름은 복사하지 않고 데이터만 복사
+        const { slotName, ...dataWithoutName } = sourceData
+        
+        // 데이터 로드
+        setIsLoading(true)
+        loadData(dataWithoutName, () => {
+          setJustLoaded(true)
+          setIsLoading(false)
+          // 복사된 데이터를 현재 슬롯에 저장
+          const currentData = getCurrentData()
+          saveSlotData(currentSlot, currentData, tempSlotName)
+          setLastSavedData(currentData)
+          setHasDataChanged(false)
+        })
+        
+        onNotification?.('success', `슬롯 ${sourceSlot}의 데이터를 복사했습니다.`)
+        setShowCopyModal(false)
+      } else {
+        onNotification?.('error', '슬롯 데이터를 불러올 수 없습니다.')
+      }
+    }
+  }
+
+  // 설정을 텍스트로 내보내기
+  const handleExport = () => {
+    const currentData = getCurrentData()
+    const exportData = {
+      calculator: calculatorId,
+      slotName: tempSlotName,
+      data: currentData,
+      version: '1.0',
+      exportedAt: new Date().toISOString()
+    }
+    
+    // Base64 인코딩
+    const jsonString = JSON.stringify(exportData)
+    const base64String = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g,
+      function toSolidBytes(match, p1) {
+        return String.fromCharCode(parseInt('0x' + p1))
+      }))
+    
+    // 구분자를 추가하여 식별 가능하게 함
+    const exportString = `CALC_SETTINGS_V1:${base64String}`
+    setExportText(exportString)
+    setShowExportModal(true)
+  }
+
+  // 텍스트 설정 불러오기
+  const handleImportFromText = () => {
+    try {
+      // 공백 제거
+      const trimmedText = importText.trim()
+      
+      // 형식 검증
+      if (!trimmedText.startsWith('CALC_SETTINGS_V1:')) {
+        throw new Error('올바른 설정 형식이 아닙니다.')
+      }
+      
+      // Base64 디코딩
+      const base64String = trimmedText.replace('CALC_SETTINGS_V1:', '')
+      const jsonString = decodeURIComponent(atob(base64String).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+      }).join(''))
+      
+      const importData = JSON.parse(jsonString)
+      
+      // 계산기 타입 검증
+      if (importData.calculator !== calculatorId) {
+        throw new Error(`이 설정은 다른 계산기(${importData.calculator})용입니다.`)
+      }
+      
+      // 데이터 로드
+      const confirmMessage = '불러온 설정으로 현재 슬롯을 덮어씌우시겠습니까?'
+      if (confirm(confirmMessage)) {
+        setIsLoading(true)
+        loadData(importData.data, () => {
+          setJustLoaded(true)
+          setIsLoading(false)
+          // 불러온 데이터를 현재 슬롯에 저장
+          const currentData = getCurrentData()
+          saveSlotData(currentSlot, currentData, tempSlotName)
+          setLastSavedData(currentData)
+          setHasDataChanged(false)
+        })
+        
+        onNotification?.('success', '설정을 성공적으로 불러왔습니다.')
+        setShowCopyModal(false)
+        setImportText('')
+      }
+    } catch (error) {
+      onNotification?.('error', error instanceof Error ? error.message : '설정을 불러오는 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 클립보드에 복사
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(exportText).then(() => {
+      onNotification?.('success', '설정이 클립보드에 복사되었습니다.')
+    }).catch(() => {
+      onNotification?.('error', '클립보드 복사에 실패했습니다.')
+    })
+  }
+
   // 초기화 - 모든 슬롯의 이름과 데이터 상태 로드
   useEffect(() => {
     if (canUseFunctionalCookies()) {
@@ -398,7 +535,7 @@ export default function AutoSlotManager({
               )}
             </div>
             
-            {/* 저장/초기화 버튼 */}
+            {/* 저장/불러오기/내보내기/초기화 버튼 */}
             <div className="flex gap-1">
               <button
                 onClick={saveCurrentSlot}
@@ -413,6 +550,22 @@ export default function AutoSlotManager({
                 {hasDataChanged ? '저장 필요' : '저장'}
               </button>
               <button
+                onClick={handleOpenCopyModal}
+                className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-1"
+                title="슬롯 또는 텍스트에서 불러오기"
+              >
+                <Download className="h-3.5 w-3.5" />
+                불러오기
+              </button>
+              <button
+                onClick={handleExport}
+                className="px-3 py-1.5 text-sm bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors flex items-center gap-1"
+                title="현재 설정을 텍스트로 내보내기"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                내보내기
+              </button>
+              <button
                 onClick={handleReset}
                 className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors flex items-center gap-1"
                 title="현재 슬롯 초기화"
@@ -425,7 +578,7 @@ export default function AutoSlotManager({
         </div>
         
         {/* 슬롯 이름들이 있을 경우 추가 여백 */}
-        {Object.values(slotNames).some(name => name && name !== `슬롯 ${1}` && name !== `슬롯 ${2}` && name !== `슬롯 ${3}`) && (
+        {Object.values(slotNames).some(name => name && name !== `슬롯 ${1}` && name !== `슬롯 ${2}` && name !== `슬롯 ${3}` && name !== `슬롯 ${4}` && name !== `슬롯 ${5}`) && (
           <div className="h-4"></div>
         )}
       </div>
@@ -459,6 +612,154 @@ export default function AutoSlotManager({
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
               >
                 저장 후 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 불러오기 모달 (탭 형태) */}
+      {showCopyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <Download className="w-6 h-6 text-blue-500" />
+              <h3 className="text-lg font-semibold text-gray-900">설정 불러오기</h3>
+            </div>
+            
+            {/* 탭 버튼 */}
+            <div className="flex border-b mb-4">
+              <button
+                onClick={() => setLoadModalTab('slots')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  loadModalTab === 'slots'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                다른 슬롯에서
+              </button>
+              <button
+                onClick={() => setLoadModalTab('text')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  loadModalTab === 'text'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                텍스트에서
+              </button>
+            </div>
+            
+            {/* 탭 내용 */}
+            {loadModalTab === 'slots' ? (
+              // 슬롯 복사 탭
+              availableSlots.length > 0 ? (
+                <>
+                  <p className="text-gray-600 mb-4">
+                    불러올 슬롯을 선택하세요. 현재 슬롯의 데이터는 덮어씌워집니다.
+                  </p>
+                  <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+                    {availableSlots.map(({ slot, name }) => (
+                      <button
+                        key={slot}
+                        onClick={() => handleCopyFromSlot(slot)}
+                        className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-400 transition-colors"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">슬롯 {slot}</span>
+                          <span className="text-sm text-gray-500">{name}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-gray-600 mb-6">
+                  불러올 수 있는 슬롯이 없습니다. 다른 슬롯에 먼저 데이터를 저장해주세요.
+                </p>
+              )
+            ) : (
+              // 텍스트 불러오기 탭
+              <>
+                <p className="text-gray-600 mb-4">
+                  내보낸 설정 텍스트를 붙여넣으세요.
+                </p>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs"
+                  placeholder="CALC_SETTINGS_V1:..."
+                />
+              </>
+            )}
+            
+            <div className="mt-4 flex justify-end gap-2">
+              {loadModalTab === 'text' && (
+                <button
+                  onClick={handleImportFromText}
+                  disabled={!importText.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  불러오기
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setShowCopyModal(false)
+                  setImportText('')
+                  setLoadModalTab('slots')
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 내보내기 모달 */}
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <Share2 className="w-6 h-6 text-purple-500" />
+              <h3 className="text-lg font-semibold text-gray-900">설정 내보내기</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              아래 텍스트를 복사하여 다른 사람과 공유하거나 나중에 불러올 수 있습니다.
+            </p>
+            
+            <div className="relative">
+              <textarea
+                value={exportText}
+                readOnly
+                className="w-full h-32 p-3 border border-gray-300 rounded-lg bg-gray-50 font-mono text-xs"
+                onClick={(e) => e.currentTarget.select()}
+              />
+              <button
+                onClick={copyToClipboard}
+                className="absolute top-2 right-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+              >
+                복사
+              </button>
+            </div>
+            
+            <div className="mt-4 text-xs text-gray-500">
+              <p>📋 &quot;불러오기 → 텍스트에서&quot; 탭에서 이 텍스트를 붙여넣어 설정을 복원할 수 있습니다.</p>
+            </div>
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowExportModal(false)
+                  setExportText('')
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                닫기
               </button>
             </div>
           </div>
