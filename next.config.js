@@ -4,8 +4,7 @@ const nextConfig = {
   ...(process.env.NODE_ENV === 'production' && {
     output: 'export',
     trailingSlash: true,
-    basePath: '/calculator-utility',
-    assetPrefix: '/calculator-utility',
+    // 커스텀 도메인 사용으로 basePath 및 assetPrefix 제거
   }),
   images: {
     unoptimized: true
