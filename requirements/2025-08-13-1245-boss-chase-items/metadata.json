@@ -1,0 +1,13 @@
+{
+  "id": "boss-chase-items",
+  "started": "2025-08-13T12:45:00Z",
+  "lastUpdated": "2025-08-13T12:45:00Z",
+  "status": "complete",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
+  },
+  "contextFiles": [],
+  "relatedFeatures": []
+}

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp } from 'lucide-react'
+import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown } from 'lucide-react'
 
 const calculatorCategories = [
   {
@@ -21,13 +21,13 @@ const calculatorCategories = [
     available: true
   },
   {
-    id: 'calculator3',
-    title: '계산기 3',
-    description: '개발 예정',
-    icon: Plus,
-    href: null,
+    id: 'boss-chase',
+    title: '보스 물욕템 계산기',
+    description: '보스 물욕템의 드롭 기댓값을 계산하여 주간/월간 수익 분석',
+    icon: Crown,
+    href: '/calculators/boss-chase',
     color: 'bg-purple-500',
-    available: false
+    available: true
   },
   {
     id: 'calculator4',

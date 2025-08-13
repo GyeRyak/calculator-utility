@@ -8,3 +8,6 @@ export * from './basicCalculatorDefaults'
 
 // 손익분기 계산기 기본값
 export * from './breakevenDefaults'
+
+// 보스 물욕템 계산기 기본값
+export * from './bossChaseDefaults'

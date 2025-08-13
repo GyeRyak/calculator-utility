@@ -4,10 +4,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X, Download } from 'lucide-react'
 import Link from 'next/link'
 import AutoSlotManager from '../ui/AutoSlotManager'
+import DismissibleBanner from '../ui/DismissibleBanner'
 import { useNotification } from '@/contexts/NotificationContext'
 import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
 import { DEFAULT_NORMAL_DROP_ITEMS, DEFAULT_LOG_DROP_ITEMS, DEFAULT_BASIC_CALCULATOR_VALUES } from '../../utils/defaults'
-import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings, setDataSourceCardDismissed, isDataSourceCardDismissed } from '../../utils/cookies'
+import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem, ExportModal } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
@@ -230,7 +231,6 @@ export function BasicCalculator() {
   const [isDropItemResultExpanded, setIsDropItemResultExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isLoadingSlot, setIsLoadingSlot] = useState(false)
-  const [isDataSourceCardDismissedState, setIsDataSourceCardDismissedState] = useState(true) // 초기에는 숨김
   
   // 내보내기 관련 상태
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
@@ -660,7 +660,6 @@ export function BasicCalculator() {
   // 컴포넌트 마운트 시 설정 로드
   useEffect(() => {
     setMounted(true)
-    setIsDataSourceCardDismissedState(isDataSourceCardDismissed())
     
     // 예전 데이터 마이그레이션 수행
     migrateOldSlotData()
@@ -702,11 +701,6 @@ export function BasicCalculator() {
     })()
   })
 
-  // 데이터 소스 카드 닫기 핸들러
-  const handleDataSourceCardDismiss = () => {
-    setIsDataSourceCardDismissedState(true)
-    setDataSourceCardDismissed()
-  }
 
   // 내보내기 데이터 생성
   const getExportData = (): BasicCalculatorExportData | null => {
@@ -1366,23 +1360,10 @@ export function BasicCalculator() {
       />
       
       {/* 데이터 출처 안내 */}
-      {!isDataSourceCardDismissedState && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 relative">
-          <button
-            onClick={handleDataSourceCardDismiss}
-            className="absolute top-2 right-2 p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-            title="이 안내를 닫습니다"
-          >
-            <X className="w-4 h-4" />
-          </button>
-          <p className="text-sm text-blue-800 pr-8">
-            💡 이 계산기의 기본 아이템 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다. 
-            <Link href="/about" className="text-blue-600 hover:text-blue-800 underline ml-1">
-              자세한 출처 정보 보기 →
-            </Link>
-          </p>
-        </div>
-      )}
+      <DismissibleBanner 
+        bannerId="basic_calculator_data_source"
+        message="이 계산기의 기본 아이템 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다."
+      />
       
       {/* 메인 그리드 컨테이너 시작 */}
       <div className="grid grid-cols-1 lg:grid-cols-11 gap-6">

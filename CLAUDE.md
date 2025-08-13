@@ -127,7 +127,9 @@ This is a Next.js 14 application using App Router for building calculator utilit
 ### Current Features
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
 - 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
+- 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개 (개발 중)
 - AutoSlotManager 통합 슬롯 시스템 (저장/불러오기/내보내기/초기화)
+- DismissibleBanner 공통 컴포넌트 (해제 가능한 배너/안내문)
 - 설정 텍스트 내보내기/불러오기 기능 (Base64 인코딩된 텍스트로 설정 공유)
 - 계산 결과 공유하기 기능 (이미지, 텍스트 형식 지원)
 - Responsive design optimized for both mobile and desktop

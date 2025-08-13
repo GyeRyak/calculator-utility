@@ -29,21 +29,20 @@ export function Navbar() {
             </Link>
             
             {/* 계산기 드롭다운 */}
-            <div className="relative">
+            <div 
+              className="relative"
+              onMouseEnter={() => setIsCalculatorMenuOpen(true)}
+              onMouseLeave={() => setIsCalculatorMenuOpen(false)}
+            >
               <button
-                onMouseEnter={() => setIsCalculatorMenuOpen(true)}
-                onMouseLeave={() => setIsCalculatorMenuOpen(false)}
-                className="text-foreground hover:text-primary transition-colors flex items-center gap-1"
+                className="text-foreground hover:text-primary transition-colors flex items-center gap-1 py-2"
               >
                 계산기
                 <ChevronDown className="w-4 h-4" />
               </button>
               
               {isCalculatorMenuOpen && (
-                <div
-                  onMouseEnter={() => setIsCalculatorMenuOpen(true)}
-                  onMouseLeave={() => setIsCalculatorMenuOpen(false)}
-                  className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-lg border py-2 min-w-48 z-50"
+                <div className="absolute top-full left-0 bg-white shadow-lg rounded-lg border py-2 min-w-48 z-50"
                 >
                   <Link
                     href="/calculators"
@@ -63,6 +62,12 @@ export function Navbar() {
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                   >
                     손익분기 계산기
+                  </Link>
+                  <Link
+                    href="/calculators/boss-chase"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    보스 물욕템 계산기
                   </Link>
                 </div>
               )}
@@ -127,6 +132,13 @@ export function Navbar() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     손익분기 계산기
+                  </Link>
+                  <Link 
+                    href="/calculators/boss-chase" 
+                    className="block text-sm text-gray-600 hover:text-primary transition-colors py-1"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    보스 물욕템 계산기
                   </Link>
                 </div>
               </div>

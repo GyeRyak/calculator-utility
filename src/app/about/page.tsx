@@ -25,6 +25,7 @@ export default function AboutPage() {
           <ul className="list-disc list-inside text-gray-700 mb-6">
             <li><strong>사냥 기댓값 계산기</strong>: 아이템 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산</li>
             <li><strong>손익분기 계산기</strong>: 재획득의 비약 적용 전후 수익성 비교</li>
+            <li><strong>보스 물욕템 계산기</strong>: 보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산 <span className="text-sm text-orange-600 font-medium">(개발 중)</span></li>
           </ul>
           
           <h3 className="text-xl font-semibold mb-3">데이터 출처 및 크레딧</h3>
@@ -113,6 +114,17 @@ export default function AboutPage() {
                      className="text-blue-600 hover:text-blue-800 underline">
                     StrategyWiki - MapleStory Formulas
                   </a>
+                </p>
+              </div>
+              
+              <div>
+                <p className="font-medium">• 보스 물욕템 드롭률</p>
+                <p className="ml-4 text-xs">
+                  <a href="https://www.inven.co.kr/board/maple/2304/39341" 
+                     target="_blank" rel="noopener noreferrer" 
+                     className="text-blue-600 hover:text-blue-800 underline">
+                    인벤 - 칠흑, 여명, 반상, 연마석 드롭률 추정치 정리
+                  </a>를 참고하여 적용
                 </p>
               </div>
             </div>
