@@ -1,5 +1,6 @@
 // 보스 물욕템 계산기 기본값
 import { GLOBAL_DEFAULTS } from './globalDefaults'
+import { PitchedBoxProbabilities, PITCHED_BOX_DEFAULT_PROBABILITIES } from '@/data/chaseItems'
 
 export interface RingPrices {
   restraint_lv3: number    // 리스트레인트 링 3레벨 가격
@@ -30,6 +31,7 @@ export interface BossChaseSettings {
   grindstonePrice: number
   dropRateBonus: number // 아드 증가량 (%)
   feeRate: number // 경매장 수수료 (%)
+  pitchedBoxProbabilities?: PitchedBoxProbabilities // 칠흑 상자 확률 사용자 설정
 }
 
 // 기본 반지 가격 (메소)
@@ -45,6 +47,8 @@ export const DEFAULT_GRINDSTONE_PRICE = 2_400_000_000  // 24억 (생명의 연�
 export const DEFAULT_DROP_RATE_BONUS = 0  // 0% 아드 증가
 
 export const DEFAULT_FEE_RATE = GLOBAL_DEFAULTS.feeRate  // 전역 기본값에서 수수료 가져오기 (3%)
+
+export const DEFAULT_PITCHED_BOX_PROBABILITIES = PITCHED_BOX_DEFAULT_PROBABILITIES // 칠흑 상자 기본 확률 (균등)
 
 // 기본 캐릭터 생성 함수
 const createDefaultCharacters = (): CharacterConfig[] => {
@@ -92,5 +96,6 @@ export const DEFAULT_BOSS_CHASE_VALUES: BossChaseSettings = {
   ringPrices: DEFAULT_RING_PRICES,
   grindstonePrice: DEFAULT_GRINDSTONE_PRICE,
   dropRateBonus: DEFAULT_DROP_RATE_BONUS,
-  feeRate: DEFAULT_FEE_RATE
+  feeRate: DEFAULT_FEE_RATE,
+  pitchedBoxProbabilities: DEFAULT_PITCHED_BOX_PROBABILITIES
 }

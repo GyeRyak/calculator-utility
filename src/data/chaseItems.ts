@@ -2,8 +2,17 @@
 export interface ChaseItem {
   id: string
   name: string
-  category: 'pitched_boss' | 'dawn_boss' | 'radiant_boss' | 'ring_box' | 'grindstone' | 'exceptional' | 'misc_chase'
+  categories: string[] // 다중 카테고리 지원
   defaultPrice: number // 메소
+  isDropAffected: 'normal' | 'log' | 'none'
+}
+
+// 기존 호환성을 위한 deprecated 인터페이스
+export interface LegacyChaseItem {
+  id: string
+  name: string
+  category: 'pitched_boss' | 'dawn_boss' | 'radiant_boss' | 'ring_box' | 'grindstone' | 'exceptional' | 'misc_chase' | 'pitched_box'
+  defaultPrice: number
   isDropAffected: 'normal' | 'log' | 'none'
 }
 
@@ -109,122 +118,130 @@ export const ITEM_DROP_RATES: ItemDropRate[] = [
   { bossId: 'kaling', difficulty: 'extreme', itemId: 'exceptional_hammer_earring', defaultDropRate: 0 },
 
   // 기타 물욕템
-  { bossId: 'damien', difficulty: 'hard', itemId: 'ruin_force_shield', defaultDropRate: 0 }
+  { bossId: 'damien', difficulty: 'hard', itemId: 'ruin_force_shield', defaultDropRate: 0 },
+
+  // 혼돈의 칠흑 장신구 상자 (1% 기본값)
+  { bossId: 'kaling', difficulty: 'hard', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
+  { bossId: 'kaling', difficulty: 'extreme', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
+  { bossId: 'limbo', difficulty: 'normal', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
+  { bossId: 'limbo', difficulty: 'hard', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
+  { bossId: 'baldrix', difficulty: 'normal', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
+  { bossId: 'baldrix', difficulty: 'hard', itemId: 'pitched_boss_box', defaultDropRate: 0.01 }
 ]
 
 export const CHASE_ITEMS: ChaseItem[] = [
-  // 반지 상자 (ring_box)
+  // 반지 상자 (반지, 상자)
   {
     id: 'ring_box_lv1',
     name: '녹옥의 보스 반지 상자',
-    category: 'ring_box',
+    categories: ['ring', 'box'],
     defaultPrice: 0, // 반지 가격으로 계산
     isDropAffected: 'normal'
   },
   {
     id: 'ring_box_lv2',
     name: '홍옥의 보스 반지 상자',
-    category: 'ring_box',
+    categories: ['ring', 'box'],
     defaultPrice: 0, // 반지 가격으로 계산
     isDropAffected: 'normal'
   },
   {
     id: 'ring_box_lv3',
     name: '흑옥의 보스 반지 상자',
-    category: 'ring_box',
+    categories: ['ring', 'box'],
     defaultPrice: 0, // 반지 가격으로 계산
     isDropAffected: 'normal'
   },
   {
     id: 'ring_box_lv4',
     name: '백옥의 보스 반지 상자',
-    category: 'ring_box',
+    categories: ['ring', 'box'],
     defaultPrice: 0, // 반지 가격으로 계산
     isDropAffected: 'normal'
   },
   {
     id: 'ring_box_lv5',
     name: '생명의 보스 반지 상자',
-    category: 'ring_box',
+    categories: ['ring', 'box'],
     defaultPrice: 0, // 반지 가격으로 계산
     isDropAffected: 'normal'
   },
 
-  // 칠흑의 보스 세트 (pitched_boss)
+  // 칠흑의 보스 세트 (칠흑)
   {
     id: 'berserked',
     name: '루즈 컨트롤 머신 마크',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 2_500_000_000, // 25억
     isDropAffected: 'normal'
   },
   {
     id: 'black_heart',
     name: '블랙 하트',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 700_000_000, // 7억
     isDropAffected: 'normal'
   },
   {
     id: 'complete_under_control',
     name: '컴플리트 언더컨트롤',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 26_000_000_000, // 260억
     isDropAffected: 'normal'
   },
   {
     id: 'magic_eyepatch',
     name: '마력이 깃든 안대',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 3_000_000_000, // 30억
     isDropAffected: 'normal'
   },
   {
     id: 'dreamy_belt',
     name: '몽환의 벨트',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 2_500_000_000, // 25억
     isDropAffected: 'normal'
   },
   {
     id: 'cursed_spellbook',
     name: '저주받은 마도서',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 4_000_000_000, // 40억
     isDropAffected: 'normal'
   },
   {
     id: 'endless_terror',
     name: '거대한 공포',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 3_000_000_000, // 30억
     isDropAffected: 'normal'
   },
   {
     id: 'source_of_suffering',
     name: '고통의 근원',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 4_000_000_000, // 40억
     isDropAffected: 'normal'
   },
   {
     id: 'commanding_force_earring',
     name: '커맨더 포스 이어링',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 1_500_000_000, // 15억
     isDropAffected: 'normal'
   },
   {
     id: 'genesis_badge',
     name: '창세의 뱃지',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 21_000_000_000, // 210억
     isDropAffected: 'normal'
   },
   {
     id: 'mitras_rage',
     name: '미트라의 분노',
-    category: 'pitched_boss',
+    categories: ['pitched_boss'],
     defaultPrice: 6_000_000_000, // 60억
     isDropAffected: 'normal'
   },
@@ -233,28 +250,28 @@ export const CHASE_ITEMS: ChaseItem[] = [
   {
     id: 'guardian_angel_ring',
     name: '가디언 엔젤 링',
-    category: 'dawn_boss',
+    categories: ['dawn_boss'],
     defaultPrice: 500_000_000, // 5억
     isDropAffected: 'normal'
   },
   {
     id: 'twilight_mark',
     name: '트와일라이트 마크',
-    category: 'dawn_boss',
+    categories: ['dawn_boss'],
     defaultPrice: 500_000_000, // 5억
     isDropAffected: 'normal'
   },
   {
     id: 'estella_earrings',
     name: '에스텔라 이어링',
-    category: 'dawn_boss',
+    categories: ['dawn_boss'],
     defaultPrice: 100_000_000, // 1억
     isDropAffected: 'normal'
   },
   {
     id: 'daybreak_pendant',
     name: '데이브레이크 펜던트',
-    category: 'dawn_boss',
+    categories: ['dawn_boss'],
     defaultPrice: 1_000_000_000, // 10억
     isDropAffected: 'normal'
   },
@@ -263,14 +280,14 @@ export const CHASE_ITEMS: ChaseItem[] = [
   {
     id: 'grindstone_lv5',
     name: '생명의 연마석',
-    category: 'grindstone',
+    categories: ['grindstone'],
     defaultPrice: 2_400_000_000, // 24억
     isDropAffected: 'normal'
   },
   {
     id: 'grindstone_lv6',
     name: '신념의 연마석',
-    category: 'grindstone',
+    categories: ['grindstone'],
     defaultPrice: 10_500_000_000, // 105억
     isDropAffected: 'normal'
   },
@@ -279,14 +296,14 @@ export const CHASE_ITEMS: ChaseItem[] = [
   {
     id: 'whisper_of_the_source',
     name: '근원의 속삭임',
-    category: 'radiant_boss',
+    categories: ['radiant_boss'],
     defaultPrice: 200_000_000_000, // 2000억
     isDropAffected: 'normal'
   },
   {
     id: 'oath_of_death',
     name: '죽음의 맹세',
-    category: 'radiant_boss',
+    categories: ['radiant_boss'],
     defaultPrice: 300_000_000_000, // 3000억
     isDropAffected: 'normal'
   },
@@ -295,28 +312,28 @@ export const CHASE_ITEMS: ChaseItem[] = [
   {
     id: 'exceptional_hammer_belt',
     name: '익셉셔널 해머 - 벨트',
-    category: 'exceptional',
+    categories: ['exceptional'],
     defaultPrice: 12_000_000_000, // 120억
     isDropAffected: 'none'
   },
   {
     id: 'exceptional_hammer_face',
     name: '익셉셔널 해머 - 얼굴장식',
-    category: 'exceptional',
+    categories: ['exceptional'],
     defaultPrice: 30_000_000_000, // 300억
     isDropAffected: 'none'
   },
   {
     id: 'exceptional_hammer_eye',
     name: '익셉셔널 해머 - 눈장식',
-    category: 'exceptional',
+    categories: ['exceptional'],
     defaultPrice: 42_000_000_000, // 420억
     isDropAffected: 'none'
   },
   {
     id: 'exceptional_hammer_earring',
     name: '익셉셔널 해머 - 귀고리',
-    category: 'exceptional',
+    categories: ['exceptional'],
     defaultPrice: 0, // 0원
     isDropAffected: 'none'
   },
@@ -325,8 +342,17 @@ export const CHASE_ITEMS: ChaseItem[] = [
   {
     id: 'ruin_force_shield',
     name: '루인 포스실드',
-    category: 'misc_chase',
+    categories: ['misc_chase'],
     defaultPrice: 0, // 0원
+    isDropAffected: 'normal'
+  },
+  
+  // 칠흑 상자 (칠흑, 상자)
+  {
+    id: 'pitched_boss_box',
+    name: '혼돈의 칠흑 장신구 상자',
+    categories: ['pitched_boss', 'box'],
+    defaultPrice: 0, // 내부 아이템 가격으로 계산
     isDropAffected: 'normal'
   }
 ]
@@ -338,6 +364,17 @@ export interface RingBoxProbabilities {
   continuous_lv3: number
   continuous_lv4: number
   grindstone: number // 생명 반지상자만
+}
+
+// 칠흑 상자 확률 인터페이스
+export interface PitchedBoxProbabilities {
+  berserked: number           // 루즈 컨트롤 머신 마크
+  magic_eyepatch: number      // 마력이 깃든 안대
+  dreamy_belt: number         // 몽환의 벨트
+  cursed_spellbook: number    // 저주받은 마도서
+  endless_terror: number      // 거대한 공포
+  commanding_force_earring: number // 커맨더 포스 이어링
+  source_of_suffering: number // 고통의 근원
 }
 
 export const RING_BOX_PROBABILITIES: { [key: string]: RingBoxProbabilities } = {
@@ -378,15 +415,90 @@ export const RING_BOX_PROBABILITIES: { [key: string]: RingBoxProbabilities } = {
   }
 }
 
+// 칠흑 상자 기본 확률 (균등 확률 - 사용자 수정 가능)
+export const PITCHED_BOX_DEFAULT_PROBABILITIES: PitchedBoxProbabilities = {
+  berserked: 1/7,
+  magic_eyepatch: 1/7,
+  dreamy_belt: 1/7,
+  cursed_spellbook: 1/7,
+  endless_terror: 1/7,
+  commanding_force_earring: 1/7,
+  source_of_suffering: 1/7
+}
+
 // 아이템 찾기 헬퍼 함수들
 export const getChaseItemById = (id: string): ChaseItem | undefined => {
   return CHASE_ITEMS.find(item => item.id === id)
 }
 
-export const getChaseItemsByCategory = (category: ChaseItem['category']): ChaseItem[] => {
-  return CHASE_ITEMS.filter(item => item.category === category)
+export const getChaseItemsByCategory = (category: string): ChaseItem[] => {
+  return CHASE_ITEMS.filter(item => item.categories.includes(category))
+}
+
+// 레거시 지원을 위한 함수 (기존 단일 카테고리 방식)
+export const getChaseItemsByLegacyCategory = (category: string): ChaseItem[] => {
+  const categoryMap: { [key: string]: string[] } = {
+    'ring_box': ['ring', 'box'],
+    'pitched_box': ['pitched_boss', 'box'],
+    'pitched_boss': ['pitched_boss'],
+    'dawn_boss': ['dawn_boss'],
+    'radiant_boss': ['radiant_boss'],
+    'grindstone': ['grindstone'],
+    'exceptional': ['exceptional'],
+    'misc_chase': ['misc_chase']
+  }
+  
+  const targetCategories = categoryMap[category] || [category]
+  return CHASE_ITEMS.filter(item => 
+    targetCategories.some(cat => item.categories.includes(cat))
+  )
 }
 
 export const getRingBoxProbabilities = (ringBoxId: string): RingBoxProbabilities => {
   return RING_BOX_PROBABILITIES[ringBoxId] || RING_BOX_PROBABILITIES.ring_box_lv1
+}
+
+// 반지 상자 기댓값 사전 계산 (성능 최적화)
+export const RING_BOX_EXPECTED_VALUES_CACHE = new Map<string, number>()
+
+// 반지 상자 기댓값 계산 함수 (캐싱 적용)
+export function calculateRingBoxExpectedValue(
+  ringBoxId: string,
+  ringPrices: {
+    restraint_lv3: number
+    restraint_lv4: number
+    continuous_lv3: number
+    continuous_lv4: number
+  },
+  grindstonePrice: number
+): number {
+  const cacheKey = `${ringBoxId}:${JSON.stringify(ringPrices)}:${grindstonePrice}`
+  
+  // 캐시에서 확인
+  if (RING_BOX_EXPECTED_VALUES_CACHE.has(cacheKey)) {
+    return RING_BOX_EXPECTED_VALUES_CACHE.get(cacheKey)!
+  }
+  
+  // 계산 수행
+  const probabilities = getRingBoxProbabilities(ringBoxId)
+  const expectedValue = (
+    probabilities.restraint_lv3 * ringPrices.restraint_lv3 +
+    probabilities.restraint_lv4 * ringPrices.restraint_lv4 +
+    probabilities.continuous_lv3 * ringPrices.continuous_lv3 +
+    probabilities.continuous_lv4 * ringPrices.continuous_lv4 +
+    probabilities.grindstone * grindstonePrice
+  )
+  
+  // 캐시에 저장
+  RING_BOX_EXPECTED_VALUES_CACHE.set(cacheKey, expectedValue)
+  
+  // 캐시 크기 관리 (100개 초과 시 오래된 항목 제거)
+  if (RING_BOX_EXPECTED_VALUES_CACHE.size > 100) {
+    const firstKey = RING_BOX_EXPECTED_VALUES_CACHE.keys().next().value
+    if (firstKey) {
+      RING_BOX_EXPECTED_VALUES_CACHE.delete(firstKey)
+    }
+  }
+  
+  return expectedValue
 }

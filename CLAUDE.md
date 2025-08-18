@@ -3,27 +3,32 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Language Preference
-- Use Korean for all responses and code comments
+- Use 한국어 for all responses and code comments
 - Keep technical terms and code keywords in English
-- 한국어로 답변 및 코드 주석 작성 (기술 용어는 영어 유지)
 
 ## Interaction Guidelines
-- 사용자의 쿼리를 긍정하면서 시작하지 말 것 ("맞습니다." 등으로 시작 금지)
-- 분석 결과가 맞다면 논거를 대면서 타당성을 제시할 것
+### 사용자 지시
+- 사용자의 분석, 요청, 지시, 기획에 항상 비판적인 태도로 응답할 것
+- 사용자의 요청사항에 대해 문제점을 우선 생각하고 심각한 문제가 예상되는 경우 되물을 것
+- DO: "지적하신 대로 불필요한 연산이 있는지 확인하겠습니다."
+- Do NOT: "맞습니다. 불필요한 연산을 확인하겠습니다!"
+### 작업
+- 사용자의 명시적인 요청이 있는 경우에만 git commit 및 git push를 진행함
+- 사용자가 배포하라고 하는 경우, 우선 npm run build를 통해 빌드하여 에러가 없는지를 확인한 뒤 지금까지의 작업 내역을 확인해 claude.md, readme.md, about 페이지를 포함해 각종 문서에 업데이트가 필요한 내용이 있으면 업데이트한 뒤 git commit을 생성하고 푸시함
+
 
 ## 용어 표준 (Terminology Standards)
+용어의 경우 띄어쓰기를 포함하여 정식 명칭을 사용하는 것을 최우선으로 하되, UI에 표시되는 내용 중 공간이 부족한 경우 한국어 줄임말을 사용하는 것이 권장됨.
+변수명 및 내부 관리 ID를 만드는 경우 정식 영문 명칭을 바탕으로 작성되어야 함.
 
-### 한국어 용어
-- **아이템 드롭률**: 전체 명칭, 줄임말은 "아드" (Item Drop Rate)
-- **메소 획득량**: 전체 명칭, 줄임말은 "메획" (Meso's Obtained Rate)
-- **유니온**: 한국어 명칭 유지 (영문: Legion)
-- **드롭**: "드랍" 대신 "드롭" 사용 (일관성 유지)
+### 일반 용어
+- 드롭: Drop에 대응하는 한국어 명칭은 드랍이 아닌 드롭으로 표기
 
-### 영문 용어
-- **Item Drop Rate**: 아이템 드롭률 영문 표기
-- **Meso's Obtained Rate**: 메소 획득량 영문 표기
-- **Legion**: 유니온 시스템의 영문 표기 (Union ❌)
-- **Decent Holy Symbol**: 쓸만한 홀리 심볼 영문 표기
+### 키워드
+- 아이템 드롭률: 아이템을 추가로 드롭할 확률, "아드" 및 "Item Drop Rate"
+- 메소 획득량: 기본 메소에 추가로 드롭할 메소, "메획" 및 "Meso's Obtained Rate"
+- 유니온: "Legion"
+- 이외의 명칭은 메이플스토리 게임의 GMS 버전의 영문 명칭을 기준으로 함(Ex: 쓸만한 홀리 심볼 - Decent Holy Symbol)
 
 ### 일관성 규칙
 - 모든 파일에서 위 용어 표준을 준수할 것
@@ -51,27 +56,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **적용 기준**: 내부 코드가 5줄을 초과하는 복잡한 구조에만 적용 (텍스트만 있는 짧은 부분 제외)
 
 #### Fragment 사용 규칙
-JSX 주석이 div 태그 외부에 위치할 경우 Fragment(`<>`, `</>`)로 감싸야 함:
+JSX 주석이 div 태그 외부에 위치할 경우 Fragment(`<>`, `</>`)로 감싸야 하며, 이를 위해 대부분의 경우 Fragment로 감싸서 return하는 것이 권장됨.
 
-- **잘못된 예시**:
-```jsx
-return (
-  {/* 주석이 div 밖에 있음 */}
-  <div>내용</div>
-  {/* 이것도 div 밖에 있음 */}
-)
-```
-
-- **올바른 예시**:
-```jsx
-return (
-  <>
-    {/* 주석이 Fragment 안에 있음 */}
-    <div>내용</div>
-    {/* 이것도 Fragment 안에 있음 */}
-  </>
-)
-```
+더불어 jsx 컴포넌트 중 커스텀 컴포넌트가 아닌 기본 컴포넌트를 바로 사용하는 경우, 섹션의 시작과 끝에 주석을 기재함.
 
 #### 실제 사용 예시
 ```jsx

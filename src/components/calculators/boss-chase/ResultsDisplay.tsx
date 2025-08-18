@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { BarChart3, RefreshCw, TrendingUp, Calendar, User, Package, Archive, ChevronDown, ChevronRight } from 'lucide-react'
 import type { BossChaseResult, ItemExpectation } from '@/utils/bossChaseCalculations'
 import { sortItemExpectationsByValue, groupItemExpectationsByCategory } from '@/utils/bossChaseCalculations'
-import { CHASE_ITEMS, getRingBoxProbabilities, RING_BOX_PROBABILITIES } from '@/data/chaseItems'
+import { CHASE_ITEMS, getRingBoxProbabilities, RING_BOX_PROBABILITIES, PITCHED_BOX_DEFAULT_PROBABILITIES, getChaseItemById } from '@/data/chaseItems'
 import type { RingPrices } from '@/utils/defaults/bossChaseDefaults'
+import type { PitchedBoxProbabilities } from '@/data/chaseItems'
 
 interface ResultsDisplayProps {
   result: BossChaseResult | null
@@ -14,6 +15,7 @@ interface ResultsDisplayProps {
   onRecalculate: () => void
   ringPrices: RingPrices
   grindstonePrice: number
+  pitchedBoxProbabilities?: PitchedBoxProbabilities
 }
 
 export default function ResultsDisplay({
@@ -22,9 +24,10 @@ export default function ResultsDisplay({
   isCalculating,
   onRecalculate,
   ringPrices,
-  grindstonePrice
+  grindstonePrice,
+  pitchedBoxProbabilities
 }: ResultsDisplayProps) {
-  const [viewMode, setViewMode] = useState<'overview' | 'characters' | 'items' | 'ringboxes'>('overview')
+  const [viewMode, setViewMode] = useState<'overview' | 'characters' | 'items' | 'boxes'>('overview')
   const [sortBy, setSortBy] = useState<'value' | 'category' | 'character'>('value')
   const [expandedCharacters, setExpandedCharacters] = useState<Set<number>>(new Set([0])) // 첫 번째 캐릭터는 기본으로 펼쳐짐
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set()) // 아이템들은 기본적으로 모두 접어둠
@@ -45,13 +48,45 @@ export default function ResultsDisplay({
       pitched_boss: '칠흑',
       dawn_boss: '여명',
       radiant_boss: '광휘',
-      ring_box: '반지상자',
+      ring: '반지',
+      box: '상자',
       grindstone: '연마석',
       exceptional: '익셉셔널',
       misc_chase: '기타'
     }
     return categoryNames[category] || category
   }
+
+  // 카테고리별 색상 스타일
+  const getCategoryStyle = (category: string): string => {
+    const categoryStyles: { [key: string]: string } = {
+      pitched_boss: 'bg-red-100 text-red-800',
+      dawn_boss: 'bg-blue-100 text-blue-800',
+      radiant_boss: 'bg-yellow-100 text-yellow-800',
+      ring: 'bg-purple-100 text-purple-800',
+      box: 'bg-indigo-100 text-indigo-800',
+      grindstone: 'bg-green-100 text-green-800',
+      exceptional: 'bg-orange-100 text-orange-800',
+      misc_chase: 'bg-gray-100 text-gray-800'
+    }
+    return categoryStyles[category] || 'bg-gray-100 text-gray-800'
+  }
+
+  // 다중 카테고리 태그 렌더링
+  const renderCategoryTags = (categories: string[]) => (
+    <div className="flex flex-wrap gap-1">
+      {categories.map((category, index) => (
+        <span
+          key={index}
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+            getCategoryStyle(category)
+          }`}
+        >
+          {getCategoryDisplayName(category)}
+        </span>
+      ))}
+    </div>
+  )
 
   // 상세 드롭률 정보 포맷팅
   const formatDetailedDropRate = (item: ItemExpectation): string => {
@@ -72,8 +107,8 @@ export default function ResultsDisplay({
   const formatDetailedPrice = (item: ItemExpectation): string => {
     const totalPrice = formatMeso(item.itemPrice)
     
-    // 반지 상자인 경우 기댓값으로 표시
-    if (item.category === 'ring_box') {
+    // 반지 상자나 칠흑 상자인 경우 기댓값으로 표시
+    if ((item.categories.includes('ring') && item.categories.includes('box')) || (item.categories.includes('pitched_boss') && item.categories.includes('box'))) {
       if (item.partySize === 1) {
         return `상자 기댓값: ${totalPrice}`
       }
@@ -114,8 +149,8 @@ export default function ResultsDisplay({
     return items.reduce((sum, item) => sum + item.expectedCount, 0)
   }
 
-  // 반지 상자 기댓값 계산
-  const calculateRingBoxExpectedValue = (ringBoxId: string): number => {
+  // 반지 상자 기댓값 계산 (useCallback으로 메모이제이션)
+  const calculateRingBoxExpectedValue = useCallback((ringBoxId: string): number => {
     const probabilities = getRingBoxProbabilities(ringBoxId)
     return (
       probabilities.restraint_lv3 * ringPrices.restraint_lv3 +
@@ -124,7 +159,7 @@ export default function ResultsDisplay({
       probabilities.continuous_lv4 * ringPrices.continuous_lv4 +
       probabilities.grindstone * grindstonePrice
     )
-  }
+  }, [ringPrices, grindstonePrice])
 
   // 유효 아이템 확률 계산 (모든 반지 + 연마석)
   const calculateEffectiveProbability = (ringBoxId: string): number => {
@@ -138,9 +173,43 @@ export default function ResultsDisplay({
     )
   }
 
-  // 모든 반지 상자 데이터
-  const getAllRingBoxes = () => {
-    const ringBoxItems = CHASE_ITEMS.filter(item => item.category === 'ring_box')
+  // 칠흑 상자 기댓값 계산 (useCallback으로 메모이제이션)
+  const calculatePitchedBoxExpectedValue = useCallback((): number => {
+    const probabilities = pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES
+    
+    // 칠흑 아이템들의 기본 가격 (chaseItems.ts에서 가져오기)
+    const pitchedItemIds = ['berserked', 'magic_eyepatch', 'dreamy_belt', 'cursed_spellbook', 'endless_terror', 'commanding_force_earring', 'source_of_suffering']
+    const pitchedItems = pitchedItemIds.map(itemId => {
+      const item = getChaseItemById(itemId)
+      return {
+        id: itemId,
+        price: item?.defaultPrice || 0
+      }
+    })
+    
+    // 전체 확률 합 계산
+    let totalProbability = 0
+    pitchedItems.forEach(item => {
+      const prob = probabilities[item.id as keyof PitchedBoxProbabilities] || 0
+      totalProbability += prob
+    })
+    
+    // 확률 정규화 (합이 100%가 되도록)
+    const normalizationFactor = totalProbability > 0 ? 1 / totalProbability : 0
+    
+    let expectedValue = 0
+    pitchedItems.forEach(item => {
+      const prob = probabilities[item.id as keyof PitchedBoxProbabilities] || 0
+      const normalizedProb = prob * normalizationFactor
+      expectedValue += normalizedProb * item.price
+    })
+    
+    return expectedValue
+  }, [pitchedBoxProbabilities])
+
+  // 모든 반지 상자 데이터 (메모이제이션)
+  const allRingBoxes = useMemo(() => {
+    const ringBoxItems = CHASE_ITEMS.filter(item => item.categories.includes('ring') && item.categories.includes('box'))
     return ringBoxItems.map(item => {
       const probabilities = getRingBoxProbabilities(item.id)
       const expectedValue = calculateRingBoxExpectedValue(item.id)
@@ -154,7 +223,32 @@ export default function ResultsDisplay({
         effectiveProbability
       }
     })
-  }
+  }, [calculateRingBoxExpectedValue])
+
+  // 칠흑 상자 데이터 (메모이제이션)
+  const pitchedBoxData = useMemo(() => {
+    const probabilities = pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES
+    const expectedValue = calculatePitchedBoxExpectedValue()
+    
+    return {
+      id: 'pitched_boss_box',
+      name: '혼돈의 칠흑 장신구 상자',
+      probabilities,
+      expectedValue
+    }
+  }, [pitchedBoxProbabilities, calculatePitchedBoxExpectedValue])
+
+  // 모든 아이템 기댓값을 하나의 배열로 합치기 (메모이제이션)
+  const allItemExpectations = useMemo(() => {
+    if (!result?.characterResults) return []
+    
+    return result.characterResults.flatMap(char => 
+      char.itemExpectations.map(item => ({
+        ...item,
+        characterName: char.characterName
+      }))
+    )
+  }, [result?.characterResults])
 
   // 스켈레톤 컴포넌트
   const SkeletonCard = () => (
@@ -221,6 +315,28 @@ export default function ResultsDisplay({
     )
   }
 
+  // 캐릭터 펼치기/접기 토글
+  const toggleCharacterExpanded = (index: number) => {
+    const newExpanded = new Set(expandedCharacters)
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index)
+    } else {
+      newExpanded.add(index)
+    }
+    setExpandedCharacters(newExpanded)
+  }
+
+  // 아이템 폼치기/접기 토글
+  const toggleItemExpanded = (itemName: string) => {
+    const newExpanded = new Set(expandedItems)
+    if (newExpanded.has(itemName)) {
+      newExpanded.delete(itemName)
+    } else {
+      newExpanded.add(itemName)
+    }
+    setExpandedItems(newExpanded)
+  }
+
   // 결과 없음
   if (!result) {
     return (
@@ -243,36 +359,7 @@ export default function ResultsDisplay({
     )
   }
 
-  // 캐릭터 펼치기/접기 토글
-  const toggleCharacterExpanded = (index: number) => {
-    const newExpanded = new Set(expandedCharacters)
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index)
-    } else {
-      newExpanded.add(index)
-    }
-    setExpandedCharacters(newExpanded)
-  }
-
-  // 아이템 펼치기/접기 토글
-  const toggleItemExpanded = (itemName: string) => {
-    const newExpanded = new Set(expandedItems)
-    if (newExpanded.has(itemName)) {
-      newExpanded.delete(itemName)
-    } else {
-      newExpanded.add(itemName)
-    }
-    setExpandedItems(newExpanded)
-  }
-
-  // 모든 아이템 기댓값을 하나의 배열로 합치기
-  const allItemExpectations = result.characterResults.flatMap(char => 
-    char.itemExpectations.map(item => ({
-      ...item,
-      characterName: char.characterName
-    }))
-  )
-
+  // 메인 렌더링
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -283,7 +370,7 @@ export default function ResultsDisplay({
             계산 결과
           </h3>
           <p className="text-sm text-gray-600">
-            {result.characterResults.length}개 캐릭터의 물욕템 기댓값
+            {result && result.characterResults.length}개 캐릭터의 물욕템 기댓값
           </p>
         </div>
         
@@ -306,7 +393,7 @@ export default function ResultsDisplay({
             <div>
               <p className="text-sm font-medium text-blue-900">주간 보스 기댓값</p>
               <p className="text-lg font-bold text-blue-600">
-                {formatMeso(result.totalWeeklyExpectation)}
+                {result && formatMeso(result.totalWeeklyExpectation)}
               </p>
             </div>
           </div>
@@ -318,7 +405,7 @@ export default function ResultsDisplay({
             <div>
               <p className="text-sm font-medium text-purple-900">월간 보스 기댓값</p>
               <p className="text-lg font-bold text-purple-600">
-                {formatMeso(result.totalMonthlyExpectation)}
+                {result && formatMeso(result.totalMonthlyExpectation)}
               </p>
             </div>
           </div>
@@ -335,7 +422,7 @@ export default function ResultsDisplay({
                 4주 기댓값
               </p>
               <p className="text-lg font-bold text-green-600">
-                {formatMeso(result.totalWeeklyExpectation * 4 + result.totalMonthlyExpectation)}
+                {result && formatMeso(result.totalWeeklyExpectation * 4 + result.totalMonthlyExpectation)}
               </p>
             </div>
           </div>
@@ -357,7 +444,7 @@ export default function ResultsDisplay({
                   {formatMeso(simulationResult.totalWeeklyExpectation * 4 + simulationResult.totalMonthlyExpectation)}
                 </p>
                 <p className="text-xs text-orange-700 mt-1">
-                  +{formatMeso((simulationResult.totalWeeklyExpectation * 4 + simulationResult.totalMonthlyExpectation) - (result.totalWeeklyExpectation * 4 + result.totalMonthlyExpectation))}
+                  +{result && formatMeso((simulationResult.totalWeeklyExpectation * 4 + simulationResult.totalMonthlyExpectation) - (result.totalWeeklyExpectation * 4 + result.totalMonthlyExpectation))}
                 </p>
               </div>
             </div>
@@ -372,7 +459,7 @@ export default function ResultsDisplay({
             { id: 'overview', name: '개요', icon: BarChart3 },
             { id: 'characters', name: '캐릭터별', icon: User },
             { id: 'items', name: '아이템별', icon: Package },
-            { id: 'ringboxes', name: '반지 상자', icon: Archive }
+            { id: 'boxes', name: '상자', icon: Archive }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -393,7 +480,7 @@ export default function ResultsDisplay({
       {/* 개요 */}
       {viewMode === 'overview' && (
         <div className="space-y-4">
-          {result.characterResults.map((character, index) => {
+          {result && result.characterResults.map((character, index) => {
             const simulationCharacter = simulationResult?.characterResults[index]
             
             return (
@@ -446,7 +533,7 @@ export default function ResultsDisplay({
       {/* 캐릭터별 상세 */}
       {viewMode === 'characters' && (
         <div className="space-y-6">
-          {result.characterResults.map((character, charIndex) => {
+          {result && result.characterResults.map((character, charIndex) => {
             const isExpanded = expandedCharacters.has(charIndex)
             
             return (
@@ -492,17 +579,7 @@ export default function ResultsDisplay({
                           <div className="flex items-center justify-between py-3 px-4 bg-white border-l-4 border-blue-500">
                             <div className="flex items-center space-x-2">
                               <p className="text-sm font-medium text-gray-900">{itemName}</p>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                firstItem.category === 'pitched_boss' ? 'bg-red-100 text-red-800' :
-                                firstItem.category === 'dawn_boss' ? 'bg-blue-100 text-blue-800' :
-                                firstItem.category === 'radiant_boss' ? 'bg-yellow-100 text-yellow-800' :
-                                firstItem.category === 'ring_box' ? 'bg-purple-100 text-purple-800' :
-                                firstItem.category === 'grindstone' ? 'bg-green-100 text-green-800' :
-                                firstItem.category === 'exceptional' ? 'bg-orange-100 text-orange-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {getCategoryDisplayName(firstItem.category)}
-                              </span>
+                              {renderCategoryTags(firstItem.categories)}
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-blue-600">
@@ -536,7 +613,7 @@ export default function ResultsDisplay({
                           )}
                         </div>
                       )
-                      })
+                    })
                     })()}
                   </div>
                 </div>
@@ -570,7 +647,7 @@ export default function ResultsDisplay({
               if (sortBy === 'value') {
                 sortedGroups.sort(([, a], [, b]) => calculateGroupTotalValue(b) - calculateGroupTotalValue(a))
               } else if (sortBy === 'category') {
-                sortedGroups.sort(([, a], [, b]) => a[0].category.localeCompare(b[0].category))
+                sortedGroups.sort(([, a], [, b]) => a[0].categories[0].localeCompare(b[0].categories[0]))
               }
 
               return sortedGroups.map(([itemName, items], groupIndex) => {
@@ -590,17 +667,7 @@ export default function ResultsDisplay({
                         <div className="flex items-center space-x-2">
                           {isItemExpanded ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
                           <p className="text-sm font-medium text-gray-900">{itemName}</p>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            firstItem.category === 'pitched_boss' ? 'bg-red-100 text-red-800' :
-                            firstItem.category === 'dawn_boss' ? 'bg-blue-100 text-blue-800' :
-                            firstItem.category === 'radiant_boss' ? 'bg-yellow-100 text-yellow-800' :
-                            firstItem.category === 'ring_box' ? 'bg-purple-100 text-purple-800' :
-                            firstItem.category === 'grindstone' ? 'bg-green-100 text-green-800' :
-                            firstItem.category === 'exceptional' ? 'bg-orange-100 text-orange-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {getCategoryDisplayName(firstItem.category)}
-                          </span>
+                          {renderCategoryTags(firstItem.categories)}
                         </div>
                         <div className="mt-1 text-xs text-gray-600">
                           {items.length > 1 ? `${items.length}개 보스에서 드롭` : `${items[0].characterName} - ${items[0].bossSource}`}
@@ -647,18 +714,73 @@ export default function ResultsDisplay({
         </div>
       )}
 
-      {/* 반지 상자 상세 */}
-      {viewMode === 'ringboxes' && (
+      {/* 상자 상세 */}
+      {viewMode === 'boxes' && (
         <div className="space-y-6">
           <div className="text-center">
-            <h4 className="text-lg font-medium text-gray-900 mb-2">반지 상자 확률 및 기댓값</h4>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">상자별 확률 및 기댓값</h4>
             <p className="text-sm text-gray-600">
-              모든 반지 상자의 유효 아이템(반지/연마석) 확률과 기댓값을 확인할 수 있습니다.
+              반지 상자와 칠흑 상자의 확률과 기댓값을 확인할 수 있습니다.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {getAllRingBoxes().map((ringBox) => (
+          {/* 칠흑 상자 */}
+          <div className="space-y-4">
+            <h5 className="text-md font-medium text-gray-900">칠흑 상자</h5>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+              {/* 헤더 */}
+              <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-100">
+                <h5 className="font-medium text-indigo-900">{pitchedBoxData.name}</h5>
+                <div className="mt-1">
+                  <span className="text-sm text-indigo-700">
+                    기댓값: {formatMeso(pitchedBoxData.expectedValue)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 확률 상세 */}
+              <div className="p-4 space-y-3">
+                {(() => {
+                  const pitchedItemIds = ['berserked', 'magic_eyepatch', 'dreamy_belt', 'cursed_spellbook', 'endless_terror', 'commanding_force_earring', 'source_of_suffering']
+                  return pitchedItemIds.map(itemId => {
+                    const item = getChaseItemById(itemId)
+                    if (!item) return null
+                    
+                    return {
+                      id: itemId,
+                      name: item.name,
+                      price: item.defaultPrice
+                    }
+                  }).filter((item): item is { id: string; name: string; price: number } => item !== null)
+                })().map((item) => {
+                  // 정규화된 확률 계산
+                  const rawProbability = pitchedBoxData.probabilities[item.id as keyof PitchedBoxProbabilities] || 0
+                  const totalProbability = Object.values(pitchedBoxData.probabilities).reduce((sum, prob) => sum + prob, 0)
+                  const normalizedProbability = totalProbability > 0 ? rawProbability / totalProbability : 0
+                  
+                  return (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{item.name}</span>
+                      <div className="text-right">
+                        <span className="font-medium text-gray-900">
+                          {(normalizedProbability * 100).toFixed(2)}%
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {formatMeso(normalizedProbability * item.price)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* 반지 상자 */}
+          <div className="space-y-4">
+            <h5 className="text-md font-medium text-gray-900">반지 상자</h5>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {allRingBoxes.map((ringBox) => (
               <div key={ringBox.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                 {/* 헤더 */}
                 <div className="bg-purple-50 px-4 py-3 border-b border-purple-100">
@@ -752,7 +874,8 @@ export default function ResultsDisplay({
                   )}
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
 
         </div>

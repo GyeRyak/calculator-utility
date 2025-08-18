@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Save, X, Plus, Trash2, Users } from 'lucide-react'
 import type { CharacterConfig, BossEntry } from '@/utils/defaults/bossChaseDefaults'
 import { BOSSES, getBossById, getBossDifficulty } from '@/data/bossData'
 import { getChaseItemById } from '@/data/chaseItems'
 import SlotSelector from '@/components/ui/SlotSelector'
+import { loadDropRateFromBasicCalculator, getDefaultDropRateFromBasicCalculator } from '@/utils/bossChaseCalculations'
 
 interface CharacterEditorProps {
   character: CharacterConfig
@@ -171,35 +172,42 @@ export default function CharacterEditor({
     })
   }
 
-  // 사냥 기댓값 계산기 슬롯 데이터 확인
-  const hasBasicSlotData = (slotNumber: number): boolean => {
-    try {
-      const key = `basic_calculator_slot_${slotNumber}`
-      return localStorage.getItem(key) !== null
-    } catch {
-      return false
+  // 사냥 기댓값 계산기 슬롯 데이터 캐싱
+  const basicSlotData = useMemo(() => {
+    const slots: { [key: number]: { exists: boolean; name: string } } = {}
+    for (let i = 1; i <= 5; i++) {
+      try {
+        const key = `basic_calculator_slot_${i}`
+        const data = localStorage.getItem(key)
+        if (data) {
+          const settings = JSON.parse(data)
+          slots[i] = {
+            exists: true,
+            name: settings.slotName || `슬롯 ${i}`
+          }
+        } else {
+          slots[i] = { exists: false, name: `슬롯 ${i}` }
+        }
+      } catch {
+        slots[i] = { exists: false, name: `슬롯 ${i}` }
+      }
     }
-  }
+    return slots
+  }, [])
+
+  // 사냥 기댓값 계산기 슬롯 데이터 확인
+  const hasBasicSlotData = useCallback((slotNumber: number): boolean => {
+    return basicSlotData[slotNumber]?.exists || false
+  }, [basicSlotData])
 
   // 사냥 기댓값 계산기 슬롯 이름 가져오기
-  const getBasicSlotName = (slotNumber: number): string => {
-    try {
-      const key = `basic_calculator_slot_${slotNumber}`
-      const data = localStorage.getItem(key)
-      if (!data) return `슬롯 ${slotNumber}`
-      
-      const settings = JSON.parse(data)
-      return settings.slotName || `슬롯 ${slotNumber}`
-    } catch {
-      return `슬롯 ${slotNumber}`
-    }
-  }
+  const getBasicSlotName = useCallback((slotNumber: number): string => {
+    return basicSlotData[slotNumber]?.name || `슬롯 ${slotNumber}`
+  }, [basicSlotData])
 
   // 사냥 기댓값 계산기에서 드롭률 불러오기
-  const loadDropRateFromBasicCalculator = (slotNumber: number) => {
-    const { loadDropRateFromBasicCalculator: loadFunction } = require('@/utils/bossChaseCalculations')
-    
-    const calculatedDropRate = loadFunction(slotNumber)
+  const handleLoadDropRateFromBasicCalculator = useCallback((slotNumber: number) => {
+    const calculatedDropRate = loadDropRateFromBasicCalculator(slotNumber)
     
     if (calculatedDropRate > 0) {
       setCustomDropRate(calculatedDropRate)
@@ -207,19 +215,17 @@ export default function CharacterEditor({
       // 개별 설정 모드로 자동 전환
       setUseGlobalDropRate(false)
     }
-  }
+  }, [])
 
   // 기본값으로 초기화
-  const resetDropRateSettings = () => {
-    const { getDefaultDropRateFromBasicCalculator } = require('@/utils/bossChaseCalculations')
-    
+  const resetDropRateSettings = useCallback(() => {
     const defaultDropRate = getDefaultDropRateFromBasicCalculator()
     
     setCustomDropRate(defaultDropRate)
     setSelectedBasicSlot(null)
     // 개별 설정 모드로 자동 전환
     setUseGlobalDropRate(false)
-  }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -291,7 +297,7 @@ export default function CharacterEditor({
                 title="사냥 기댓값 계산기에서 불러오기"
                 description="사냥 기댓값 계산기의 드롭률 설정을 가져옵니다."
                 selectedSlot={selectedBasicSlot}
-                onSlotSelect={loadDropRateFromBasicCalculator}
+                onSlotSelect={handleLoadDropRateFromBasicCalculator}
                 onReset={resetDropRateSettings}
                 hasSlotData={hasBasicSlotData}
                 getSlotName={getBasicSlotName}

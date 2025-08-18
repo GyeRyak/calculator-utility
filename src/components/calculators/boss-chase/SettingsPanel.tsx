@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Settings, DollarSign, Percent, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
 import type { RingPrices } from '@/utils/defaults/bossChaseDefaults'
-import { CHASE_ITEMS, getChaseItemsByCategory, ITEM_DROP_RATES } from '@/data/chaseItems'
+import { CHASE_ITEMS, getChaseItemsByCategory, ITEM_DROP_RATES, PitchedBoxProbabilities, getChaseItemById } from '@/data/chaseItems'
 import { BOSSES, getBossById, getBossDifficulty } from '@/data/bossData'
 import { DEFAULT_RING_PRICES, DEFAULT_GRINDSTONE_PRICE, DEFAULT_DROP_RATE_BONUS, DEFAULT_FEE_RATE } from '@/utils/defaults/bossChaseDefaults'
 import SlotSelector from '@/components/ui/SlotSelector'
+import { loadDropRateFromBasicCalculator, getDefaultDropRateFromBasicCalculator } from '@/utils/bossChaseCalculations'
 
 interface SettingsPanelProps {
   customDropRates: { [key: string]: number } // key: "bossId:difficulty:itemId" or "itemId"
@@ -15,12 +16,14 @@ interface SettingsPanelProps {
   grindstonePrice: number
   dropRateBonus: number
   feeRate: number
+  pitchedBoxProbabilities?: PitchedBoxProbabilities
   onCustomDropRatesChange: (rates: { [key: string]: number }) => void
   onCustomPricesChange: (prices: { [itemId: string]: number }) => void
   onRingPricesChange: (prices: RingPrices) => void
   onGrindstoneePriceChange: (price: number) => void
   onDropRateBonusChange: (bonus: number) => void
   onFeeRateChange: (feeRate: number) => void
+  onPitchedBoxProbabilitiesChange?: (probabilities: PitchedBoxProbabilities) => void
 }
 
 export default function SettingsPanel({
@@ -30,14 +33,16 @@ export default function SettingsPanel({
   grindstonePrice,
   dropRateBonus,
   feeRate,
+  pitchedBoxProbabilities,
   onCustomDropRatesChange,
   onCustomPricesChange,
   onRingPricesChange,
   onGrindstoneePriceChange,
   onDropRateBonusChange,
-  onFeeRateChange
+  onFeeRateChange,
+  onPitchedBoxProbabilitiesChange
 }: SettingsPanelProps) {
-  const [activeSection, setActiveSection] = useState<'rings' | 'prices' | 'droprates' | 'global'>('rings')
+  const [activeSection, setActiveSection] = useState<'rings' | 'prices' | 'droprates' | 'global' | 'boxes'>('rings')
   const [expandedCategories, setExpandedCategories] = useState<{ [key: string]: boolean }>({})
   const [expandedItems, setExpandedItems] = useState<{ [key: string]: boolean }>({})
   const [dropRateView, setDropRateView] = useState<'category' | 'boss' | 'item'>('category')
@@ -104,6 +109,32 @@ export default function SettingsPanel({
     onCustomDropRatesChange(newRates)
   }
 
+  // 칠흑 상자 확률 업데이트
+  const handlePitchedBoxProbabilityChange = (itemId: keyof PitchedBoxProbabilities, value: number) => {
+    if (!onPitchedBoxProbabilitiesChange || !pitchedBoxProbabilities) return
+    
+    onPitchedBoxProbabilitiesChange({
+      ...pitchedBoxProbabilities,
+      [itemId]: value / 100 // 퍼센트를 소수로 변환
+    })
+  }
+
+  // 칠흑 상자 확률 균등분할 설정
+  const setEqualPitchedBoxProbabilities = () => {
+    if (!onPitchedBoxProbabilitiesChange) return
+    
+    const equalProbability = 1 / 7 // 7개 아이템 균등 확률
+    onPitchedBoxProbabilitiesChange({
+      berserked: equalProbability,
+      magic_eyepatch: equalProbability,
+      dreamy_belt: equalProbability,
+      cursed_spellbook: equalProbability,
+      endless_terror: equalProbability,
+      commanding_force_earring: equalProbability,
+      source_of_suffering: equalProbability
+    })
+  }
+
   // 가격 초기화
   const resetPrices = () => {
     if (confirm('모든 가격을 기본값으로 초기화하시겠습니까?')) {
@@ -158,66 +189,63 @@ export default function SettingsPanel({
     return value.toLocaleString()
   }
 
-  // 사냥 기댓값 계산기 슬롯 데이터 확인
-  const hasBasicSlotData = (slotNumber: number): boolean => {
-    try {
-      const key = `basic_calculator_slot_${slotNumber}`
-      return localStorage.getItem(key) !== null
-    } catch {
-      return false
+  // 사냥 기댓값 계산기 슬롯 데이터 캐싱
+  const basicSlotData = useMemo(() => {
+    const slots: { [key: number]: { exists: boolean; name: string; feeRate?: number } } = {}
+    for (let i = 1; i <= 5; i++) {
+      try {
+        const key = `basic_calculator_slot_${i}`
+        const data = localStorage.getItem(key)
+        if (data) {
+          const settings = JSON.parse(data)
+          slots[i] = {
+            exists: true,
+            name: settings.slotName || `슬롯 ${i}`,
+            feeRate: settings.feeRate
+          }
+        } else {
+          slots[i] = { exists: false, name: `슬롯 ${i}` }
+        }
+      } catch {
+        slots[i] = { exists: false, name: `슬롯 ${i}` }
+      }
     }
-  }
+    return slots
+  }, [])
+
+  // 사냥 기댓값 계산기 슬롯 데이터 확인
+  const hasBasicSlotData = useCallback((slotNumber: number): boolean => {
+    return basicSlotData[slotNumber]?.exists || false
+  }, [basicSlotData])
 
   // 사냥 기댓값 계산기 슬롯 이름 가져오기
-  const getBasicSlotName = (slotNumber: number): string => {
-    try {
-      const key = `basic_calculator_slot_${slotNumber}`
-      const data = localStorage.getItem(key)
-      if (!data) return `슬롯 ${slotNumber}`
-      
-      const settings = JSON.parse(data)
-      return settings.slotName || `슬롯 ${slotNumber}`
-    } catch {
-      return `슬롯 ${slotNumber}`
-    }
-  }
+  const getBasicSlotName = useCallback((slotNumber: number): string => {
+    return basicSlotData[slotNumber]?.name || `슬롯 ${slotNumber}`
+  }, [basicSlotData])
 
   // 사냥 기댓값 계산기에서 드롭률 불러오기
-  const loadDropRateFromBasicCalculator = (slotNumber: number) => {
-    const { loadDropRateFromBasicCalculator: loadFunction } = require('@/utils/bossChaseCalculations')
-    
-    const calculatedDropRate = loadFunction(slotNumber)
+  const handleLoadDropRateFromBasicCalculator = useCallback((slotNumber: number) => {
+    const calculatedDropRate = loadDropRateFromBasicCalculator(slotNumber)
     
     if (calculatedDropRate > 0) {
       onDropRateBonusChange(calculatedDropRate)
       setSelectedBasicSlot(slotNumber)
     }
     
-    // 수수료 설정도 함께 불러오기
-    try {
-      const key = `basic_calculator_slot_${slotNumber}`
-      const data = localStorage.getItem(key)
-      
-      if (data) {
-        const settings = JSON.parse(data)
-        if (settings.feeRate !== undefined) {
-          onFeeRateChange(settings.feeRate)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load fee rate from basic calculator:', error)
+    // 수수료 설정도 함께 불러오기 (캐싱된 데이터 사용)
+    const slotInfo = basicSlotData[slotNumber]
+    if (slotInfo && slotInfo.feeRate !== undefined) {
+      onFeeRateChange(slotInfo.feeRate)
     }
-  }
+  }, [basicSlotData, onDropRateBonusChange, onFeeRateChange])
 
   // 기본값으로 초기화
-  const resetDropRateSettings = () => {
-    const { getDefaultDropRateFromBasicCalculator } = require('@/utils/bossChaseCalculations')
-    
+  const resetDropRateSettings = useCallback(() => {
     const defaultDropRate = getDefaultDropRateFromBasicCalculator()
     
     onDropRateBonusChange(defaultDropRate)
     setSelectedBasicSlot(null)
-  }
+  }, [onDropRateBonusChange])
 
   return (
     <div className="space-y-6">
@@ -239,6 +267,7 @@ export default function SettingsPanel({
             { id: 'rings', name: '반지류 가격', icon: DollarSign },
             { id: 'prices', name: '아이템 가격', icon: DollarSign },
             { id: 'droprates', name: '드롭률', icon: Percent },
+            { id: 'boxes', name: '상자 확률', icon: Percent },
             { id: 'global', name: '전역 설정', icon: Settings }
           ].map((tab) => (
             <button
@@ -402,9 +431,9 @@ export default function SettingsPanel({
             </button>
           </div>
 
-          {/* 카테고리별 아이템 표시 */}
-          {['pitched_boss', 'dawn_boss', 'radiant_boss', 'exceptional', 'misc_chase'].map((category) => {
-            const items = getChaseItemsByCategory(category as any)
+          {/* 카테고리별 아이템 표시 (상자 카테고리 제외) */}
+          {['pitched_boss', 'dawn_boss', 'radiant_boss', 'grindstone', 'exceptional', 'misc_chase'].map((category) => {
+            const items = getChaseItemsByCategory(category as any).filter(item => !item.categories.includes('box'))
             if (items.length === 0) return null
 
             const categoryNames: { [key: string]: string } = {
@@ -802,7 +831,72 @@ export default function SettingsPanel({
         </div>
       )}
 
-      {/* 아이템 드롭률 증가 */}
+      {/* 상자 확률 설정 */}
+      {activeSection === 'boxes' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-md font-medium text-gray-900">상자 확률 설정</h4>
+            <button
+              onClick={setEqualPitchedBoxProbabilities}
+              className="text-sm text-blue-600 hover:text-blue-700"
+            >
+              균등 확률로 설정
+            </button>
+          </div>
+
+          {/* 칠흑 상자 확률 */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h5 className="text-sm font-medium text-gray-900">혼돈의 칠흑 장신구 상자</h5>
+              <span className="text-xs text-gray-500">
+                총 확률: {pitchedBoxProbabilities ? (Object.values(pitchedBoxProbabilities).reduce((sum, prob) => sum + prob, 0) * 100).toFixed(2) : '0.00'}%
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+              {(() => {
+                const pitchedItemIds = ['berserked', 'magic_eyepatch', 'dreamy_belt', 'cursed_spellbook', 'endless_terror', 'commanding_force_earring', 'source_of_suffering']
+                return pitchedItemIds.map(itemId => {
+                  const item = getChaseItemById(itemId)
+                  return item ? { id: itemId, name: item.name } : null
+                }).filter((item): item is { id: string; name: string } => item !== null)
+              })().map((item) => {
+                const currentProbability = pitchedBoxProbabilities?.[item.id as keyof PitchedBoxProbabilities] || 0
+                return (
+                  <div key={item.id} className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700 flex-1">
+                      {item.name}
+                    </label>
+                    <div className="flex items-center space-x-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={(currentProbability * 100).toFixed(2)}
+                        onChange={(e) => handlePitchedBoxProbabilityChange(
+                          item.id as keyof PitchedBoxProbabilities, 
+                          parseFloat(e.target.value) || 0
+                        )}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-right"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            <div className="mt-4 text-xs text-gray-500">
+              <p>• 각 아이템의 확률을 백분율(%)로 입력하세요.</p>
+              <p>• 총 확률이 100%를 초과하거나 미달해도 정상적으로 계산됩니다.</p>
+              <p>• &quot;균등 확률로 설정&quot; 버튼으로 모든 아이템을 동일한 확률(약 14.29%)로 설정할 수 있습니다.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 전역 설정 */}
       {activeSection === 'global' && (
         <div className="space-y-4">
           <h4 className="text-md font-medium text-gray-900">전역 설정</h4>
@@ -812,7 +906,7 @@ export default function SettingsPanel({
             title="사냥 기댓값 계산기에서 불러오기"
             description="사냥 기댓값 계산기의 드롭률 설정을 가져옵니다."
             selectedSlot={selectedBasicSlot}
-            onSlotSelect={loadDropRateFromBasicCalculator}
+            onSlotSelect={handleLoadDropRateFromBasicCalculator}
             onReset={resetDropRateSettings}
             hasSlotData={hasBasicSlotData}
             getSlotName={getBasicSlotName}

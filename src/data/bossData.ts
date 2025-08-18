@@ -218,12 +218,12 @@ export const BOSSES: Boss[] = [
       {
         id: 'hard',
         name: '하드',
-        dropTable: ['grindstone_lv5', 'ring_box_lv5']
+        dropTable: ['grindstone_lv5', 'ring_box_lv5', 'pitched_boss_box']
       },
       {
         id: 'extreme',
         name: '익스트림',
-        dropTable: ['exceptional_hammer_earring', 'grindstone_lv5', 'ring_box_lv5']
+        dropTable: ['exceptional_hammer_earring', 'grindstone_lv5', 'ring_box_lv5', 'pitched_boss_box']
       }
     ]
   },
@@ -235,12 +235,12 @@ export const BOSSES: Boss[] = [
       {
         id: 'normal',
         name: '노말',
-        dropTable: ['grindstone_lv6', 'ring_box_lv5']
+        dropTable: ['grindstone_lv6', 'ring_box_lv5', 'pitched_boss_box']
       },
       {
         id: 'hard',
         name: '하드',
-        dropTable: ['whisper_of_the_source', 'grindstone_lv6', 'ring_box_lv5']
+        dropTable: ['whisper_of_the_source', 'grindstone_lv6', 'ring_box_lv5', 'pitched_boss_box']
       }
     ]
   },
@@ -252,12 +252,12 @@ export const BOSSES: Boss[] = [
       {
         id: 'normal',
         name: '노말',
-        dropTable: ['grindstone_lv6', 'ring_box_lv5']
+        dropTable: ['grindstone_lv6', 'ring_box_lv5', 'pitched_boss_box']
       },
       {
         id: 'hard',
         name: '하드',
-        dropTable: ['oath_of_death', 'grindstone_lv6', 'ring_box_lv5']
+        dropTable: ['oath_of_death', 'grindstone_lv6', 'ring_box_lv5', 'pitched_boss_box']
       }
     ]
   },

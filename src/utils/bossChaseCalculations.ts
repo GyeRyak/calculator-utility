@@ -1,7 +1,34 @@
 // 보스 물욕템 계산 로직
-import { getChaseItemById, getRingBoxProbabilities, RING_BOX_PROBABILITIES, ITEM_DROP_RATES } from '../data/chaseItems'
+import { getChaseItemById, getRingBoxProbabilities, RING_BOX_PROBABILITIES, ITEM_DROP_RATES, calculateRingBoxExpectedValue, PitchedBoxProbabilities, PITCHED_BOX_DEFAULT_PROBABILITIES } from '../data/chaseItems'
 import { getBossById, getBossDifficulty } from '../data/bossData'
 import type { CharacterConfig, RingPrices } from './defaults/bossChaseDefaults'
+
+// 계산 결과 캐싱을 위한 Map
+const calculationCache = new Map<string, BossChaseResult>()
+const CACHE_MAX_SIZE = 20 // 최대 캐시 크기
+
+// 캐시 키 생성 함수
+function generateCacheKey(params: BossChaseCalculationParams): string {
+  return JSON.stringify({
+    characters: params.characters,
+    customDropRates: params.customDropRates,
+    customPrices: params.customPrices,
+    ringPrices: params.ringPrices,
+    grindstonePrice: params.grindstonePrice,
+    globalDropRateBonus: params.globalDropRateBonus,
+    feeRate: params.feeRate
+  })
+}
+
+// 캐시 사이즈 관리
+function maintainCacheSize() {
+  if (calculationCache.size > CACHE_MAX_SIZE) {
+    const firstKey = calculationCache.keys().next().value
+    if (firstKey) {
+      calculationCache.delete(firstKey)
+    }
+  }
+}
 
 // 파티 분배 계산 함수 (추후 확장 가능)
 function calculateMyShare(totalValue: number, partySize: number): number {
@@ -18,6 +45,7 @@ export interface BossChaseCalculationParams {
   grindstonePrice: number
   globalDropRateBonus: number // 전역 기본 아드 증가량 (%)
   feeRate: number // 경매장 수수료 (%)
+  pitchedBoxProbabilities?: PitchedBoxProbabilities // 칠흑 상자 확률
 }
 
 export interface CharacterResult {
@@ -30,7 +58,7 @@ export interface CharacterResult {
 export interface ItemExpectation {
   itemId: string
   itemName: string
-  category: string
+  categories: string[] // 다중 카테고리 지원
   expectedCount: number
   expectedValue: number
   actualDropRate: number
@@ -69,8 +97,17 @@ function getItemDropRate(bossId: string, difficulty: string, itemId: string, cus
   return dropRateEntry?.defaultDropRate || 0
 }
 
-// 메인 계산 함수
+// 메인 계산 함수 (캐싱 적용)
 export function calculateBossChaseExpectation(params: BossChaseCalculationParams): BossChaseResult {
+  // 캐시 키 생성
+  const cacheKey = generateCacheKey(params)
+  
+  // 캐시에 결과가 있으면 반환
+  if (calculationCache.has(cacheKey)) {
+    return calculationCache.get(cacheKey)!
+  }
+  
+  // 실제 계산 수행
   const characterResults: CharacterResult[] = []
   
   for (const character of params.characters) {
@@ -83,12 +120,18 @@ export function calculateBossChaseExpectation(params: BossChaseCalculationParams
   const totalMonthlyExpectation = characterResults.reduce((sum, char) => sum + char.monthlyExpectation, 0)
   const totalExpectation = totalWeeklyExpectation + totalMonthlyExpectation
   
-  return {
+  const result = {
     characterResults,
     totalWeeklyExpectation,
     totalMonthlyExpectation,
     totalExpectation
   }
+  
+  // 결과를 캐시에 저장
+  calculationCache.set(cacheKey, result)
+  maintainCacheSize()
+  
+  return result
 }
 
 // 드롭률 +20% 시뮬레이션 계산
@@ -182,7 +225,7 @@ function calculateItemExpectation(
     return {
       itemId,
       itemName: 'Unknown Item',
-      category: 'unknown',
+      categories: ['unknown'],
       expectedCount: 0,
       expectedValue: 0,
       actualDropRate: 0,
@@ -202,9 +245,14 @@ function calculateItemExpectation(
     actualDropRate = baseDropRate * (1 + params.globalDropRateBonus / 100)
   }
   
-  // 반지 상자 처리
-  if (item.category === 'ring_box') {
+  // 반지 상자 처리 (ring 카테고리를 가진 box)
+  if (item.categories.includes('ring') && item.categories.includes('box')) {
     return calculateRingBoxExpectation(itemId, actualDropRate, partySize, params, bossSource, bossId)
+  }
+  
+  // 칠흑 상자 처리 (pitched_boss 카테고리를 가진 box)
+  if (item.categories.includes('pitched_boss') && item.categories.includes('box')) {
+    return calculatePitchedBoxExpectation(itemId, actualDropRate, partySize, params, bossSource, bossId)
   }
   
   // 보스 유형 확인 (주간/월간)
@@ -224,7 +272,7 @@ function calculateItemExpectation(
   return {
     itemId,
     itemName: item.name,
-    category: item.category,
+    categories: item.categories,
     expectedCount,
     expectedValue,
     actualDropRate,
@@ -251,7 +299,7 @@ function calculateRingBoxExpectation(
     return {
       itemId: ringBoxId,
       itemName: 'Unknown Ring Box',
-      category: 'ring_box',
+      categories: ['ring', 'box'],
       expectedCount: 0,
       expectedValue: 0,
       actualDropRate: 0,
@@ -266,21 +314,15 @@ function calculateRingBoxExpectation(
   const boss = getBossById(bossId)
   const isWeeklyBoss = boss?.type === 'weekly'
   
-  // 반지 기댓값 계산 (수수료 적용)
-  const ringExpectedValue = 
-    probabilities.restraint_lv3 * params.ringPrices.restraint_lv3 * (1 - params.feeRate / 100) +
-    probabilities.restraint_lv4 * params.ringPrices.restraint_lv4 * (1 - params.feeRate / 100) +
-    probabilities.continuous_lv3 * params.ringPrices.continuous_lv3 * (1 - params.feeRate / 100) +
-    probabilities.continuous_lv4 * params.ringPrices.continuous_lv4 * (1 - params.feeRate / 100) +
-    probabilities.grindstone * params.grindstonePrice * (1 - params.feeRate / 100)
+  // 반지 기댓값 계산 (캐싱 함수 사용)
+  const displayRingExpectedValue = calculateRingBoxExpectedValue(
+    ringBoxId,
+    params.ringPrices,
+    params.grindstonePrice
+  )
   
-  // 표시용 기댓값 (수수료 미적용)
-  const displayRingExpectedValue = 
-    probabilities.restraint_lv3 * params.ringPrices.restraint_lv3 +
-    probabilities.restraint_lv4 * params.ringPrices.restraint_lv4 +
-    probabilities.continuous_lv3 * params.ringPrices.continuous_lv3 +
-    probabilities.continuous_lv4 * params.ringPrices.continuous_lv4 +
-    probabilities.grindstone * params.grindstonePrice
+  // 수수료 적용한 실제 기댓값
+  const ringExpectedValue = displayRingExpectedValue * (1 - params.feeRate / 100)
   
   // 4주 단위 표시를 위해 주간 보스는 4배 적용
   const totalExpectedCount = ringBoxDropRate * (isWeeklyBoss ? 4 : 1)
@@ -291,12 +333,102 @@ function calculateRingBoxExpectation(
   return {
     itemId: ringBoxId,
     itemName: item.name,
-    category: item.category,
+    categories: item.categories,
     expectedCount,
     expectedValue,
     actualDropRate: ringBoxDropRate,
     baseDropRate: ringBoxDropRate, // 반지 상자는 기본 드롭률과 동일
     itemPrice: displayRingExpectedValue, // 표시용으로는 수수료 미적용 가격 사용
+    bossSource,
+    partySize
+  }
+}
+
+// 칠흑 상자 기댓값 계산
+function calculatePitchedBoxExpectation(
+  boxId: string,
+  boxDropRate: number,
+  partySize: number,
+  params: BossChaseCalculationParams,
+  bossSource: string,
+  bossId: string
+): ItemExpectation {
+  const item = getChaseItemById(boxId)
+  
+  if (!item) {
+    return {
+      itemId: boxId,
+      itemName: 'Unknown Pitched Box',
+      categories: ['pitched_boss', 'box'],
+      expectedCount: 0,
+      expectedValue: 0,
+      actualDropRate: 0,
+      baseDropRate: 0,
+      itemPrice: 0,
+      bossSource,
+      partySize
+    }
+  }
+  
+  // 보스 유형 확인 (주간/월간)
+  const boss = getBossById(bossId)
+  const isWeeklyBoss = boss?.type === 'weekly'
+  
+  // 칠흑 상자 확률 가져오기 (사용자 설정 또는 기본값)
+  const probabilities = params.pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES
+  
+  // 칠흑 아이템들의 기댓값 계산
+  const pitchedItemIds = ['berserked', 'magic_eyepatch', 'dreamy_belt', 'cursed_spellbook', 'endless_terror', 'commanding_force_earring', 'source_of_suffering']
+  const pitchedItems = pitchedItemIds.map(itemId => {
+    const item = getChaseItemById(itemId)
+    return {
+      id: itemId,
+      name: item?.name || itemId,
+      price: params.customPrices[itemId] || item?.defaultPrice || 0
+    }
+  })
+  
+  // 전체 확률 합 계산
+  let totalProbability = 0
+  pitchedItems.forEach(pitchedItem => {
+    const probability = probabilities[pitchedItem.id as keyof PitchedBoxProbabilities] || 0
+    totalProbability += probability
+  })
+  
+  // 확률 정규화 (합이 100%가 되도록)
+  const normalizationFactor = totalProbability > 0 ? 1 / totalProbability : 0
+  
+  // 상자 기댓값 계산 (수수료 적용, 정규화된 확률 사용)
+  let boxExpectedValue = 0
+  pitchedItems.forEach(pitchedItem => {
+    const probability = probabilities[pitchedItem.id as keyof PitchedBoxProbabilities] || 0
+    const normalizedProbability = probability * normalizationFactor
+    boxExpectedValue += normalizedProbability * pitchedItem.price * (1 - params.feeRate / 100)
+  })
+  
+  // 표시용 기댓값 (수수료 미적용, 정규화된 확률 사용)
+  let displayBoxExpectedValue = 0
+  pitchedItems.forEach(pitchedItem => {
+    const probability = probabilities[pitchedItem.id as keyof PitchedBoxProbabilities] || 0
+    const normalizedProbability = probability * normalizationFactor
+    displayBoxExpectedValue += normalizedProbability * pitchedItem.price
+  })
+  
+  // 4주 단위 표시를 위해 주간 보스는 4배 적용
+  const totalExpectedCount = boxDropRate * (isWeeklyBoss ? 4 : 1)
+  // 파티 분배 적용하여 내 기댓값 개수 계산
+  const expectedCount = calculateMyShare(totalExpectedCount, partySize)
+  const expectedValue = expectedCount * boxExpectedValue
+  
+  return {
+    itemId: boxId,
+    itemName: item.name,
+    categories: item.categories,
+    expectedCount,
+    expectedValue,
+    actualDropRate: boxDropRate,
+    baseDropRate: boxDropRate,
+    itemPrice: displayBoxExpectedValue, // 표시용 기댓값
     bossSource,
     partySize
   }
@@ -409,11 +541,13 @@ export function sortItemExpectationsByValue(items: ItemExpectation[]): ItemExpec
 
 export function groupItemExpectationsByCategory(items: ItemExpectation[]): { [category: string]: ItemExpectation[] } {
   return items.reduce((groups, item) => {
-    const category = item.category
-    if (!groups[category]) {
-      groups[category] = []
-    }
-    groups[category].push(item)
+    // 각 아이템의 모든 카테고리에 대해 그룹화
+    item.categories.forEach(category => {
+      if (!groups[category]) {
+        groups[category] = []
+      }
+      groups[category].push(item)
+    })
     return groups
   }, {} as { [category: string]: ItemExpectation[] })
 }

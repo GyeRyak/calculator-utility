@@ -6,6 +6,7 @@ import AutoSlotManager from '@/components/ui/AutoSlotManager'
 import DismissibleBanner from '@/components/ui/DismissibleBanner'
 import { useNotification } from '@/contexts/NotificationContext'
 import { DEFAULT_BOSS_CHASE_VALUES, type BossChaseSettings, type CharacterConfig } from '@/utils/defaults/bossChaseDefaults'
+import { PitchedBoxProbabilities, PITCHED_BOX_DEFAULT_PROBABILITIES } from '@/data/chaseItems'
 import { calculateBossChaseExpectation, calculateDropRateBonusSimulation, getDefaultDropRateFromBasicCalculator } from '@/utils/bossChaseCalculations'
 import CharacterManagement from './boss-chase/CharacterManagement'
 import SettingsPanel from './boss-chase/SettingsPanel'
@@ -26,6 +27,7 @@ export default function BossChaseCalculator() {
     return defaultDropRate > 0 ? defaultDropRate : DEFAULT_BOSS_CHASE_VALUES.dropRateBonus
   })
   const [feeRate, setFeeRate] = useState(DEFAULT_BOSS_CHASE_VALUES.feeRate)
+  const [pitchedBoxProbabilities, setPitchedBoxProbabilities] = useState<PitchedBoxProbabilities>(DEFAULT_BOSS_CHASE_VALUES.pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES)
   
   // UI 상태
   const [activeTab, setActiveTab] = useState<'characters' | 'settings' | 'results'>('characters')
@@ -46,8 +48,9 @@ export default function BossChaseCalculator() {
     ringPrices,
     grindstonePrice,
     dropRateBonus: globalDropRateBonus, // 호환성을 위해 이전 필드명 유지
-    feeRate
-  }), [characters, customDropRates, customPrices, ringPrices, grindstonePrice, globalDropRateBonus, feeRate])
+    feeRate,
+    pitchedBoxProbabilities
+  }), [characters, customDropRates, customPrices, ringPrices, grindstonePrice, globalDropRateBonus, feeRate, pitchedBoxProbabilities])
 
   const loadData = useCallback((data: BossChaseSettings, onComplete?: () => void) => {
     if (data.characters !== undefined) setCharacters(data.characters)
@@ -57,6 +60,7 @@ export default function BossChaseCalculator() {
     if (data.grindstonePrice !== undefined) setGrindstonePrice(data.grindstonePrice)
     if (data.dropRateBonus !== undefined) setGlobalDropRateBonus(data.dropRateBonus)
     if (data.feeRate !== undefined) setFeeRate(data.feeRate)
+    if (data.pitchedBoxProbabilities !== undefined) setPitchedBoxProbabilities(data.pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES)
     
     if (onComplete) {
       setTimeout(onComplete, 100)
@@ -70,6 +74,7 @@ export default function BossChaseCalculator() {
     setRingPrices(DEFAULT_BOSS_CHASE_VALUES.ringPrices)
     setGrindstonePrice(DEFAULT_BOSS_CHASE_VALUES.grindstonePrice)
     setFeeRate(DEFAULT_BOSS_CHASE_VALUES.feeRate)
+    setPitchedBoxProbabilities(DEFAULT_BOSS_CHASE_VALUES.pitchedBoxProbabilities || PITCHED_BOX_DEFAULT_PROBABILITIES)
     
     // 드롭률 보너스는 사냥 기댓값 계산기 기본값에서 계산
     const defaultDropRate = getDefaultDropRateFromBasicCalculator()
@@ -97,7 +102,8 @@ export default function BossChaseCalculator() {
         ringPrices,
         grindstonePrice,
         globalDropRateBonus,
-        feeRate
+        feeRate,
+        pitchedBoxProbabilities
       }
       
       const result = calculateBossChaseExpectation(params)
@@ -111,7 +117,7 @@ export default function BossChaseCalculator() {
     } finally {
       setIsCalculating(false)
     }
-  }, [characters, customDropRates, customPrices, ringPrices, grindstonePrice, globalDropRateBonus, feeRate])
+  }, [characters, customDropRates, customPrices, ringPrices, grindstonePrice, globalDropRateBonus, feeRate, pitchedBoxProbabilities])
 
   // 결과 탭 진입 시 계산 수행
   const handleTabChange = (tab: 'characters' | 'settings' | 'results') => {
@@ -214,12 +220,14 @@ export default function BossChaseCalculator() {
               grindstonePrice={grindstonePrice}
               dropRateBonus={globalDropRateBonus}
               feeRate={feeRate}
+              pitchedBoxProbabilities={pitchedBoxProbabilities}
               onCustomDropRatesChange={setCustomDropRates}
               onCustomPricesChange={setCustomPrices}
               onRingPricesChange={setRingPrices}
               onGrindstoneePriceChange={setGrindstonePrice}
               onDropRateBonusChange={setGlobalDropRateBonus}
               onFeeRateChange={setFeeRate}
+              onPitchedBoxProbabilitiesChange={setPitchedBoxProbabilities}
             />
           )}
           
@@ -231,6 +239,7 @@ export default function BossChaseCalculator() {
               onRecalculate={handleCalculate}
               ringPrices={ringPrices}
               grindstonePrice={grindstonePrice}
+              pitchedBoxProbabilities={pitchedBoxProbabilities}
             />
           )}
         </div>
