@@ -24,13 +24,13 @@ export const BOSSES: Boss[] = [
         id: 'hard',
         name: '하드',
         requiredLevel: 235,
-        dropTable: ['berserked', 'black_heart', 'ring_box_lv2']
+        dropTable: ['berserked', 'ring_box_lv2']
       },
       {
         id: 'extreme',
         name: '익스트림',
         requiredLevel: 265,
-        dropTable: ['berserked', 'complete_under_control', 'black_heart', 'ring_box_lv4']
+        dropTable: ['berserked', 'complete_under_control', 'ring_box_lv4']
       }
     ]
   },
@@ -201,6 +201,33 @@ export const BOSSES: Boss[] = [
     ]
   },
   {
+    id: 'first_adversary',
+    name: '최초의 대적자',
+    type: 'weekly',
+    difficulties: [
+      {
+        id: 'easy',
+        name: '이지',
+        dropTable: ['ring_box_lv4']
+      },
+      {
+        id: 'normal',
+        name: '노말',
+        dropTable: ['ring_box_lv4', 'grindstone_lv5']
+      },
+      {
+        id: 'hard',
+        name: '하드',
+        dropTable: ['radiant_medal', 'ring_box_lv5', 'grindstone_lv5']
+      },
+      {
+        id: 'extreme',
+        name: '익스트림',
+        dropTable: ['exceptional_hammer_medal', 'radiant_medal', 'ring_box_lv5', 'grindstone_lv5']
+      }
+    ]
+  },
+  {
     id: 'kaling',
     name: '카링',
     type: 'weekly',
@@ -261,6 +288,7 @@ export const BOSSES: Boss[] = [
       }
     ]
   },
+  
   
   // 월간 보스
   {

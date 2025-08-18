@@ -174,7 +174,6 @@ const lifeRingBoxProbabilities = {
 ```typescript
 // 스우 드롭
 { id: 'loose_control_machine_mark', name: '루즈 컨트롤 머신 마크', category: 'pitched_boss', isDropAffected: 'normal' }
-{ id: 'damaged_black_heart', name: '손상된 블랙 하트', category: 'pitched_boss', isDropAffected: 'normal' }
 { id: 'complete_under_control', name: '컴플리트 언더컨트롤', category: 'pitched_boss', isDropAffected: 'normal' }
 
 // 데미안 드롭
@@ -252,11 +251,11 @@ interface DropTable {
 ```typescript
 // 하드
 { bossId: 'suu', difficulty: 'hard', 
-  items: ['loose_control_machine_mark', 'damaged_black_heart', 'ring_box_lv2'] }
+  items: ['loose_control_machine_mark', 'ring_box_lv2'] }
 
 // 익스트림
 { bossId: 'suu', difficulty: 'extreme', 
-  items: ['loose_control_machine_mark', 'complete_under_control', 'damaged_black_heart', 'ring_box_lv4'] }
+  items: ['loose_control_machine_mark', 'complete_under_control', 'ring_box_lv4'] }
 ```
 
 #### 데미안

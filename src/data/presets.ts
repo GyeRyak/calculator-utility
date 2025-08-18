@@ -58,6 +58,7 @@ export const CHARACTER_PRESETS: CharacterPreset[] = [
           // 추가 보스들
           { bossId: 'black_mage', difficulty: 'hard', partySize: 1 },
           { bossId: 'chosen_seren', difficulty: 'hard', partySize: 1 },
+          { bossId: 'first_adversary', difficulty: 'easy', partySize: 1 },
           { bossId: 'kalos', difficulty: 'easy', partySize: 1 }
         ]
       }
@@ -82,6 +83,7 @@ export const CHARACTER_PRESETS: CharacterPreset[] = [
           // 익검6인 전용 보스들
           { bossId: 'lotus', difficulty: 'extreme', partySize: 2 },
           { bossId: 'black_mage', difficulty: 'extreme', partySize: 6 },
+          { bossId: 'first_adversary', difficulty: 'normal', partySize: 2 },
           { bossId: 'kalos', difficulty: 'normal', partySize: 1 },
           { bossId: 'kaling', difficulty: 'easy', partySize: 1 },
           { bossId: 'chosen_seren', difficulty: 'hard', partySize: 1 }

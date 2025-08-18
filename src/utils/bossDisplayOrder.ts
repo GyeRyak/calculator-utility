@@ -1,25 +1,28 @@
 // 보스 표시 순서 정의
 export const BOSS_DISPLAY_ORDER = [
-  // 월간 보스 (제일 앞에 배치)
   { bossId: 'black_mage', difficulty: 'extreme' },
   { bossId: 'black_mage', difficulty: 'hard' },
+
+
   { bossId: 'kaling', difficulty: 'extreme' },
+  { bossId: 'first_adversary', difficulty: 'extreme' },
   { bossId: 'baldrix', difficulty: 'hard' },
   { bossId: 'kalos', difficulty: 'extreme' },
   { bossId: 'limbo', difficulty: 'hard' },
   { bossId: 'chosen_seren', difficulty: 'extreme' },
-  
-  // 주간 보스
   { bossId: 'kaling', difficulty: 'hard' },
-  { bossId: 'baldrix', difficulty: 'normal' },
+  { bossId: 'first_adversary', difficulty: 'hard' },
+  { bossId: 'baldrix', difficulty: 'normal' },  
   { bossId: 'kalos', difficulty: 'chaos' },
   { bossId: 'limbo', difficulty: 'normal' },
   { bossId: 'kaling', difficulty: 'normal' },
   { bossId: 'lotus', difficulty: 'extreme' },
+  { bossId: 'first_adversary', difficulty: 'normal' },
   { bossId: 'kalos', difficulty: 'normal' },
   { bossId: 'kaling', difficulty: 'easy' },
-  { bossId: 'kalos', difficulty: 'easy' },
   { bossId: 'chosen_seren', difficulty: 'hard' },
+  { bossId: 'first_adversary', difficulty: 'easy' },
+  { bossId: 'kalos', difficulty: 'easy' },  
   { bossId: 'chosen_seren', difficulty: 'normal' },
   { bossId: 'verus_hilla', difficulty: 'hard' },
   { bossId: 'darknell', difficulty: 'hard' },

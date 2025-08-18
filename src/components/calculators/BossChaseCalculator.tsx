@@ -149,6 +149,19 @@ export default function BossChaseCalculator() {
         message="이 계산기의 보스 물욕템 드롭률은 외부 연구 자료를 참고한 추정치입니다. 실제 드롭률과 차이가 있을 수 있으며, 필요한 경우 수정하시기 바랍니다."
       />
 
+      {/* 패치 변경사항 고지 */}
+      <DismissibleBanner 
+        bannerId="boss_chase_patch_notice_250821"
+        message="⚠️ 2025년 8월 21일 패치에 따른 변경사항이 적용됨에 따라, 일부 아이템의 확률은 기존 추정치를 기반으로 예상한 2차 추정치이므로 상당히 부정확할 수 있습니다."
+        bgColor="bg-red-50"
+        borderColor="border-red-200"
+        textColor="text-red-800"
+        buttonColor="text-red-600 hover:text-red-800 hover:bg-red-100"
+        linkText=""
+        showIcon={false}
+        className="mb-4"
+      />
+
       {/* AutoSlotManager */}
       <div className="mb-6">
         <AutoSlotManager

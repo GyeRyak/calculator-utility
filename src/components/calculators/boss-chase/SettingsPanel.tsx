@@ -440,6 +440,7 @@ export default function SettingsPanel({
               pitched_boss: '칠흑의 보스 세트',
               dawn_boss: '여명의 보스 세트', 
               radiant_boss: '광휘의 보스 세트',
+              grindstone: '연마석',
               exceptional: '익셉셔널 해머',
               misc_chase: '기타 물욕템'
             }

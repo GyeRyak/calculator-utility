@@ -67,13 +67,31 @@ export default function CharacterEditor({
     return Object.values(bossSettings)
   })
 
+  // 주간 보스 개수 계산
+  const getWeeklyBossCount = useCallback((bossListToCheck: BossEntry[]) => {
+    return bossListToCheck.filter(boss => {
+      const bossData = getBossById(boss.bossId)
+      return boss.partySize > 0 && bossData?.type === 'weekly'
+    }).length
+  }, [])
+
   // 보스 활성화/비활성화
   const handleBossToggle = (bossId: string, active: boolean) => {
+    const bossData = getBossById(bossId)
+    
+    // 주간 보스를 활성화하려고 할 때 12개 제한 확인
+    if (active && bossData?.type === 'weekly') {
+      const currentWeeklyCount = getWeeklyBossCount(bossList)
+      if (currentWeeklyCount >= 12) {
+        alert('주간 보스는 최대 12개까지만 선택할 수 있습니다.')
+        return
+      }
+    }
+    
     const newBossList = bossList.map(boss => {
       if (boss.bossId === bossId) {
         if (active) {
           // 활성화할 때: 최저 난이도로 설정하고 격파 인원 1로 설정
-          const bossData = BOSSES.find(b => b.id === bossId)
           const lowestDifficulty = bossData?.difficulties[0]?.id || boss.difficulty
           return {
             ...boss,
@@ -95,6 +113,18 @@ export default function CharacterEditor({
 
   // 보스 난이도 변경 (자동으로 활성화, 토글 기능)
   const handleDifficultyChange = (bossId: string, difficulty: string) => {
+    const bossData = getBossById(bossId)
+    const currentBoss = bossList.find(boss => boss.bossId === bossId)
+    
+    // 현재 비활성화 상태에서 주간 보스를 활성화하려고 할 때 12개 제한 확인
+    if (currentBoss && currentBoss.partySize === 0 && bossData?.type === 'weekly') {
+      const currentWeeklyCount = getWeeklyBossCount(bossList)
+      if (currentWeeklyCount >= 12) {
+        alert('주간 보스는 최대 12개까지만 선택할 수 있습니다.')
+        return
+      }
+    }
+    
     const newBossList = bossList.map(boss => {
       if (boss.bossId === bossId) {
         // 현재 선택된 난이도를 다시 클릭하면 체크 해제 (토글)
@@ -334,6 +364,31 @@ export default function CharacterEditor({
           <p className="text-sm text-gray-600">
             보스별로 하나의 난이도만 선택할 수 있습니다. 체크박스로 활성화/비활성화를 설정하세요.
           </p>
+          {(() => {
+            const weeklyCount = getWeeklyBossCount(bossList)
+            const monthlyCount = bossList.filter(boss => {
+              const bossData = getBossById(boss.bossId)
+              return boss.partySize > 0 && bossData?.type === 'monthly'
+            }).length
+            
+            return (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center space-x-4 text-sm">
+                  <div className={`font-medium ${weeklyCount >= 12 ? 'text-red-600' : 'text-blue-600'}`}>
+                    주간 보스: {weeklyCount}/12 {weeklyCount >= 12 && '(최대)'}
+                  </div>
+                  <div className="text-blue-600">
+                    월간 보스: {monthlyCount}개
+                  </div>
+                </div>
+                {weeklyCount >= 12 && (
+                  <p className="text-xs text-red-600 mt-1">
+                    ⚠️ 주간 보스는 최대 12개까지만 선택할 수 있습니다.
+                  </p>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
