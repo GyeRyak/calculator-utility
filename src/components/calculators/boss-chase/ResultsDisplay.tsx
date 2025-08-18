@@ -93,6 +93,10 @@ export default function ResultsDisplay({
     const basePercent = (item.baseDropRate * 100).toFixed(2)
     const actualPercent = (item.actualDropRate * 100).toFixed(2)
     
+    // 아이템 정보 가져오기 (드롭률 적용 여부 확인용)
+    const itemData = CHASE_ITEMS.find(chaseItem => chaseItem.id === item.itemId)
+    const isDropAffected = itemData?.isDropAffected || 'normal'
+    
     // 드롭률 증가가 있는 경우
     if (item.actualDropRate !== item.baseDropRate) {
       const multiplier = (item.actualDropRate / item.baseDropRate).toFixed(2)
@@ -100,6 +104,10 @@ export default function ResultsDisplay({
     }
     
     // 드롭률 증가가 없는 경우
+    if (isDropAffected === 'none') {
+      return `드롭률 ${actualPercent}% (아이템 드롭률 미적용)`
+    }
+    
     return `드롭률 ${actualPercent}%`
   }
 

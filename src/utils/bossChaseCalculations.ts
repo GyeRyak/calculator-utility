@@ -247,12 +247,12 @@ function calculateItemExpectation(
   
   // 반지 상자 처리 (ring 카테고리를 가진 box)
   if (item.categories.includes('ring') && item.categories.includes('box')) {
-    return calculateRingBoxExpectation(itemId, actualDropRate, partySize, params, bossSource, bossId)
+    return calculateRingBoxExpectation(itemId, actualDropRate, baseDropRate, partySize, params, bossSource, bossId)
   }
   
   // 칠흑 상자 처리 (pitched_boss 카테고리를 가진 box)
   if (item.categories.includes('pitched_boss') && item.categories.includes('box')) {
-    return calculatePitchedBoxExpectation(itemId, actualDropRate, partySize, params, bossSource, bossId)
+    return calculatePitchedBoxExpectation(itemId, actualDropRate, baseDropRate, partySize, params, bossSource, bossId)
   }
   
   // 보스 유형 확인 (주간/월간)
@@ -287,6 +287,7 @@ function calculateItemExpectation(
 function calculateRingBoxExpectation(
   ringBoxId: string,
   ringBoxDropRate: number,
+  baseDropRate: number,
   partySize: number,
   params: BossChaseCalculationParams,
   bossSource: string,
@@ -337,7 +338,7 @@ function calculateRingBoxExpectation(
     expectedCount,
     expectedValue,
     actualDropRate: ringBoxDropRate,
-    baseDropRate: ringBoxDropRate, // 반지 상자는 기본 드롭률과 동일
+    baseDropRate: baseDropRate, // 드롭률 증가 적용 전 기본 드롭률
     itemPrice: displayRingExpectedValue, // 표시용으로는 수수료 미적용 가격 사용
     bossSource,
     partySize
@@ -348,6 +349,7 @@ function calculateRingBoxExpectation(
 function calculatePitchedBoxExpectation(
   boxId: string,
   boxDropRate: number,
+  baseDropRate: number,
   partySize: number,
   params: BossChaseCalculationParams,
   bossSource: string,
@@ -427,7 +429,7 @@ function calculatePitchedBoxExpectation(
     expectedCount,
     expectedValue,
     actualDropRate: boxDropRate,
-    baseDropRate: boxDropRate,
+    baseDropRate: baseDropRate, // 드롭률 증가 적용 전 기본 드롭률
     itemPrice: displayBoxExpectedValue, // 표시용 기댓값
     bossSource,
     partySize
