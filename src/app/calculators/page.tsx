@@ -3,11 +3,15 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: '계산기 목록',
-  description: '다양한 사냥 및 게임 관련 계산 도구 모음',
+  description: '메이플스토리 사냥, 보스, 드롭률 계산기 모음',
+  alternates: {
+    canonical: 'https://www.maplecalc.com/calculators'
+  },
   openGraph: {
-    title: '계산기 목록',
-    description: '다양한 사냥 및 게임 관련 계산 도구 모음',
+    title: '계산기 목록 - 메이플 계산기',
+    description: '메이플스토리 사냥, 보스, 드롭률 계산기 모음',
     type: 'website',
+    url: 'https://www.maplecalc.com/calculators'
   },
 }
 

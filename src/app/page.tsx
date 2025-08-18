@@ -3,12 +3,16 @@ import { Hero } from '@/components/Hero'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '계산 유틸리티',
-  description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
+  title: '메이플 계산기',
+  description: '메이플스토리 사냥, 보스, 드롭률 계산기',
+  alternates: {
+    canonical: 'https://www.maplecalc.com'
+  },
   openGraph: {
-    title: '계산 유틸리티',
-    description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
+    title: '메이플 계산기',
+    description: '메이플스토리 사냥, 보스, 드롭률 계산기',
     type: 'website',
+    url: 'https://www.maplecalc.com'
   },
 }
 

@@ -14,14 +14,14 @@ export const metadata: Metadata = {
       ? 'https://www.maplecalc.com' 
       : 'http://localhost:3000'
   ),
-  title: '계산 유틸리티',
-  description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
-  keywords: ['계산기', '사냥', '기댓값', '드롭률', '메소', '획득량', '유틸리티'],
+  title: '메이플 계산기',
+  description: '메이플스토리 사냥, 보스, 드롭률 계산기',
+  keywords: ['메이플스토리', '메이플', '사냥', '계산기', '드롭률', '메소', '보스', '기댓값', '아드', '메획'],
   openGraph: {
     type: 'website',
-    title: '계산 유틸리티',
-    description: '사냥 기댓값 계산기를 포함한 다양한 계산 도구',
-    siteName: '계산 유틸리티',
+    title: '메이플 계산기',
+    description: '메이플스토리 사냥, 보스, 드롭률 계산기',
+    siteName: '메이플 계산기',
     locale: 'ko_KR',
   },
 }

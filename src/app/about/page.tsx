@@ -2,11 +2,15 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: '소개',
-  description: '계산 유틸리티 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+  description: '메이플 계산기 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+  alternates: {
+    canonical: 'https://www.maplecalc.com/about'
+  },
   openGraph: {
-    title: '소개 - 계산 유틸리티',
-    description: '계산 유틸리티 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+    title: '소개 - 메이플 계산기',
+    description: '메이플 계산기 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
     type: 'website',
+    url: 'https://www.maplecalc.com/about'
   },
 }
 
@@ -16,9 +20,9 @@ export default function AboutPage() {
       <h1 className="text-4xl font-bold text-center mb-8">소개</h1>
       <div className="max-w-4xl mx-auto prose prose-lg">
         <div className="bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-2xl font-semibold mb-4">계산 유틸리티에 대하여</h2>
+          <h2 className="text-2xl font-semibold mb-4">메이플 계산기에 대하여</h2>
           <p className="text-gray-700 mb-6">
-            이 웹사이트는 게임 및 일상생활에서 필요한 다양한 계산을 쉽고 빠르게 할 수 있도록 도와주는 유틸리티 모음입니다.
+            이 웹사이트는 메이플스토리 플레이에 필요한 다양한 계산을 쉽고 빠르게 할 수 있도록 도와주는 계산기 모음입니다.
           </p>
           
           <h3 className="text-xl font-semibold mb-3">현재 제공하는 계산기</h3>
