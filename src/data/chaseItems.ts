@@ -102,8 +102,8 @@ export const ITEM_DROP_RATES: ItemDropRate[] = [
   { bossId: 'kalos', difficulty: 'chaos', itemId: 'grindstone_lv5', defaultDropRate: 0.03 },
   { bossId: 'kalos', difficulty: 'extreme', itemId: 'grindstone_lv5', defaultDropRate: 0.04 },
   { bossId: 'kaling', difficulty: 'normal', itemId: 'grindstone_lv5', defaultDropRate: 0.02 },
-  { bossId: 'kaling', difficulty: 'hard', itemId: 'grindstone_lv5', defaultDropRate: 0.03 },
-  { bossId: 'kaling', difficulty: 'extreme', itemId: 'grindstone_lv5', defaultDropRate: 0.04 },
+  { bossId: 'kaling', difficulty: 'hard', itemId: 'grindstone_lv6', defaultDropRate: 0.03 },
+  { bossId: 'kaling', difficulty: 'extreme', itemId: 'grindstone_lv6', defaultDropRate: 0.04 },
   { bossId: 'limbo', difficulty: 'normal', itemId: 'grindstone_lv6', defaultDropRate: 0.02 },
   { bossId: 'limbo', difficulty: 'hard', itemId: 'grindstone_lv6', defaultDropRate: 0.03 },
   { bossId: 'baldrix', difficulty: 'normal', itemId: 'grindstone_lv6', defaultDropRate: 0.02 },
@@ -129,6 +129,7 @@ export const ITEM_DROP_RATES: ItemDropRate[] = [
   { bossId: 'damien', difficulty: 'hard', itemId: 'ruin_force_shield', defaultDropRate: 0.001 },
 
   // 혼돈의 칠흑 장신구 상자 (1% 기본값)
+  { bossId: 'kaling', difficulty: 'normal', itemId: 'pitched_boss_box', defaultDropRate: 0.003 },
   { bossId: 'kaling', difficulty: 'hard', itemId: 'pitched_boss_box', defaultDropRate: 0.005 },
   { bossId: 'kaling', difficulty: 'extreme', itemId: 'pitched_boss_box', defaultDropRate: 0.01 },
   { bossId: 'limbo', difficulty: 'normal', itemId: 'pitched_boss_box', defaultDropRate: 0.005 },
