@@ -15,6 +15,11 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://www.maplecalc.com/calculators/breakeven'
   },
+  twitter: {
+    card: 'summary',
+    title: '드메템 손익분기 계산기',
+    description: '메이플스토리 드롭률/메소 획득량 아이템의 손익분기점을 계산합니다.'
+  }
 }
 
 export default function BreakevenCalculatorPage() {

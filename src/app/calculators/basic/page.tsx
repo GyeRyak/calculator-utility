@@ -15,6 +15,11 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://www.maplecalc.com/calculators/basic'
   },
+  twitter: {
+    card: 'summary',
+    title: '메이플 사냥 기댓값 계산기',
+    description: '메이플 사냥 시 시간당 메소와 드롭 아이템의 기댓값을 계산합니다.'
+  }
 }
 
 export default function BasicCalculatorPage() {
