@@ -115,6 +115,10 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
 - 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
 - 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개 (개발 중)
+- **아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 3개
+  - Dynamic Programming 기반 9주간 최적 스킬 투자 전략 계산
+  - 장기 휴식 최대 레벨 제한 기능 (시간 제약이 있는 유저를 위한 옵션)
+  - 제한 설정 시 손실 비교 및 잠수 시간 정보 제공
 - AutoSlotManager 통합 슬롯 시스템 (저장/불러오기/내보내기/초기화)
 - DismissibleBanner 공통 컴포넌트 (해제 가능한 배너/안내문)
 - 설정 텍스트 내보내기/불러오기 기능 (Base64 인코딩된 텍스트로 설정 공유)

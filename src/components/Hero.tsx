@@ -15,6 +15,7 @@ export function Hero() {
           <div className="text-sm text-gray-700 space-y-1">
             <div>🎯 사냥 기댓값 계산기</div>
             <div>📊 손익분기 계산기</div>
+            <div>☕ 휴게실 경험치 최적화 계산기</div>
           </div>
         </div>
         <p className="text-sm text-gray-600 mt-3">

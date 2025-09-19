@@ -943,6 +943,14 @@ export interface LoungeCalculatorExportData {
     snack: number   // 간식 충전
   }
 
+  // 장기 휴식 제한 설정
+  isLimited?: boolean
+  maxLongRestLevel?: number
+  weeklyMaxHours?: number
+  lossComparedToUnlimited?: number
+  unlimitedTotalTime?: number
+  unlimitedTotalExp?: number
+
   // 계산 결과
   totalExpectedExp: number
   totalExpectedTime: number
@@ -974,6 +982,16 @@ export function exportLoungeCalculatorAsText(data: LoungeCalculatorExportData): 
   text += `남은 포인트: ${data.remainingPoints}포인트\n`
   text += `이번 주 남은 시간: ${data.remainingTimeThisWeek}시간\n`
   text += `현재 스킬 레벨: 장기 휴식 ${data.skillLevels.long}Lv, 역동적 휴식 ${data.skillLevels.dynamic}Lv, 간식 충전 ${data.skillLevels.snack}Lv\n`
+
+  // 장기 휴식 제한 정보
+  if (data.isLimited) {
+    text += `⚠️ 장기 휴식 제한: 최대 ${data.maxLongRestLevel}레벨 (주당 ${data.weeklyMaxHours}시간 이내)\n`
+    if (data.lossComparedToUnlimited && data.lossComparedToUnlimited > 0) {
+      const timeDiff = data.unlimitedTotalTime! - data.totalExpectedTime
+      const expPercentage = ((data.lossComparedToUnlimited / data.totalExpectedExp) * 100).toFixed(1)
+      text += `   제한 없을 때 대비 ${timeDiff}시간 덜 잠수하여 사우나 ${data.lossComparedToUnlimited.toFixed(2)}시간어치 (${expPercentage}%) 손실\n`
+    }
+  }
   text += `\n`
 
   // 전체 요약

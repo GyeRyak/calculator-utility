@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: '휴게실 경험치 최적화 계산기',
   description: '아지트 듀오 휴게실 이벤트의 최적 스킬 투자 전략을 Dynamic Programming으로 계산',
+  keywords: ['메이플스토리', '아지트 이벤트', '아지트 듀오', '아지트 휴게실', '휴게실 최적화', '메이플 아지트', '장기 휴식', '역동적 휴식', '간식 충전', '경험치 최적화', '스킬 투자', '휴게실 경험치'],
   alternates: {
     canonical: 'https://www.maplecalc.com/calculators/lounge'
   },

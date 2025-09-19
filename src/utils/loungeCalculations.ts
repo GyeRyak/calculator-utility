@@ -354,6 +354,7 @@ export interface LoungeCalculatorInput {
   skillLevels: SkillState
   remainingPoints: number
   remainingTimeThisWeek: number
+  maxLongRestLevel?: number // 장기 휴식 최대 레벨 제한 (null/undefined = 제한 없음)
 }
 
 // 계산 결과
@@ -363,6 +364,13 @@ export interface LoungeCalculationResult {
   totalExpectedExp: number
   totalExpectedTime: number
   recommendations: string[]
+  // 제한 관련 정보
+  isLimited: boolean // 장기 휴식 레벨 제한이 적용되었는지
+  maxLongRestLevel?: number // 적용된 최대 레벨
+  weeklyMaxHours?: number // 주당 최대 잠수 시간
+  lossComparedToUnlimited?: number // 제한 없을 때 대비 손실 (사우나 시간 기준)
+  unlimitedTotalTime?: number // 제한 없을 때의 총 시간
+  unlimitedTotalExp?: number // 제한 없을 때의 총 경험치
 }
 
 // DP 캐시
@@ -376,12 +384,16 @@ const levelsToCacheKey = (week: number, levels: SkillLevels): string => {
 // 모든 가능한 스킬 레벨 조합 생성
 const generateSkillCombinations = (
   currentLevels: SkillLevels,
-  availablePoints: number
+  availablePoints: number,
+  maxLongRestLevel?: number // 장기 휴식 최대 레벨 제한
 ): SkillLevels[] => {
   const [l1, l2, l3] = currentLevels
   const combinations: SkillLevels[] = []
 
-  for (let nl1 = l1; nl1 <= 8; nl1++) {
+  // 장기 휴식 최대 레벨 결정
+  const maxL1 = maxLongRestLevel !== undefined ? Math.min(8, maxLongRestLevel) : 8
+
+  for (let nl1 = l1; nl1 <= maxL1; nl1++) {
     const cost1 = CUMULATIVE_COST[nl1] - CUMULATIVE_COST[l1]
     if (cost1 > availablePoints) break
 
@@ -407,7 +419,8 @@ export const findOptimalPath = (
   week: number,
   levels: SkillLevels,
   remainingTimeThisWeek?: number,
-  currentRemainingPoints?: number
+  currentRemainingPoints?: number,
+  maxLongRestLevel?: number // 장기 휴식 최대 레벨 제한
 ): { totalExp: number; path: WeeklyStrategy[] } => {
   if (week > 9) {
     return { totalExp: 0, path: [] }
@@ -434,14 +447,14 @@ export const findOptimalPath = (
   let bestThisWeekExp = 0
 
   // 모든 가능한 스킬 조합을 시도
-  for (const newLevels of generateSkillCombinations(levels, pointsAvailableForUpgrade)) {
+  for (const newLevels of generateSkillCombinations(levels, pointsAvailableForUpgrade, maxLongRestLevel)) {
     // 최적 타이밍 전략 찾기 (하이브리드 중간 단계별 최적화)
     const { strategy, exp: thisWeekExp } = findOptimalTimingStrategy(levels, newLevels, remainingTimeThisWeek)
 
     // 다음 주차의 남은 포인트 계산
     const upgradesCost = getUpgradeCost(levels, newLevels)
     const nextWeekRemainingPoints = pointsAvailableForUpgrade - upgradesCost + 20 // 다음 주차에 20포인트 추가
-    const futureResult = findOptimalPath(week + 1, newLevels, undefined, nextWeekRemainingPoints)
+    const futureResult = findOptimalPath(week + 1, newLevels, undefined, nextWeekRemainingPoints, maxLongRestLevel)
     const totalExp = thisWeekExp + futureResult.totalExp
 
     if (totalExp > bestTotalExp) {
@@ -489,7 +502,7 @@ export const findOptimalPath = (
   }
 
   const nextWeekRemainingPoints = remainingPointsAfterThisWeek + 20 // 다음 주차에 20포인트 추가
-  const futureResult = findOptimalPath(week + 1, bestNextLevels, undefined, nextWeekRemainingPoints)
+  const futureResult = findOptimalPath(week + 1, bestNextLevels, undefined, nextWeekRemainingPoints, maxLongRestLevel)
   const result = {
     totalExp: bestTotalExp,
     path: [currentStrategy, ...futureResult.path]
@@ -505,8 +518,47 @@ export const optimizeLoungeStrategy = (input: LoungeCalculatorInput): LoungeCalc
   dpCache.clear()
 
   const skillLevels = skillStateToLevels(input.skillLevels)
-  // 시작 주차에 남은 시간과 남은 포인트 전달
-  const result = findOptimalPath(input.currentWeek, skillLevels, input.remainingTimeThisWeek, input.remainingPoints)
+  const isLimited = input.maxLongRestLevel !== undefined
+
+  // 제한이 있는 경우의 계산
+  const limitedResult = findOptimalPath(
+    input.currentWeek,
+    skillLevels,
+    input.remainingTimeThisWeek,
+    input.remainingPoints,
+    input.maxLongRestLevel
+  )
+
+  // 제한 없는 경우의 계산 (비교용)
+  let unlimitedResult: { totalExp: number; path: WeeklyStrategy[] } | null = null
+  let lossComparedToUnlimited: number | undefined = undefined
+  let unlimitedTotalTime: number | undefined = undefined
+  let unlimitedTotalExp: number | undefined = undefined
+
+  if (isLimited) {
+    dpCache.clear() // 캐시 다시 초기화
+    unlimitedResult = findOptimalPath(
+      input.currentWeek,
+      skillLevels,
+      input.remainingTimeThisWeek,
+      input.remainingPoints
+      // maxLongRestLevel 없음 = 제한 없음
+    )
+
+    // 제한 없는 경우의 총 시간 계산
+    unlimitedTotalTime = unlimitedResult.path.reduce((sum, week) => {
+      return sum + getTotalTime(week.endLevels[0])
+    }, 0)
+
+    unlimitedTotalExp = unlimitedResult.totalExp
+
+    // 손실 계산 (사우나 시간 기준: 차이 × 0.8)
+    const expDifference = unlimitedResult.totalExp - limitedResult.totalExp
+    lossComparedToUnlimited = expDifference * 0.8
+  }
+
+  // 사용할 결과 선택
+  const result = limitedResult
 
   // 현재 부스트 효과
   const currentBoost = getActiveBoostEffect(
@@ -520,6 +572,9 @@ export const optimizeLoungeStrategy = (input: LoungeCalculatorInput): LoungeCalc
     return sum + getTotalTime(week.endLevels[0]) // 장기 휴식 레벨로 시간 계산
   }, 0)
 
+  // 주당 최대 잠수 시간 계산
+  const weeklyMaxHours = isLimited ? getTotalTime(input.maxLongRestLevel!) : undefined
+
   // 추천사항 생성
   const recommendations = generateRecommendations(result.path, input)
 
@@ -528,7 +583,14 @@ export const optimizeLoungeStrategy = (input: LoungeCalculatorInput): LoungeCalc
     weeklyStrategy: result.path,
     totalExpectedExp: result.totalExp,
     totalExpectedTime,
-    recommendations
+    recommendations,
+    // 제한 관련 정보
+    isLimited,
+    maxLongRestLevel: input.maxLongRestLevel,
+    weeklyMaxHours,
+    lossComparedToUnlimited,
+    unlimitedTotalTime,
+    unlimitedTotalExp
   }
 }
 
@@ -639,8 +701,8 @@ export const generateShareText = (
         })
 
         if (week.timingStrategy?.description === "선소진") {
-          // 선소진: 시간 소진이 먼저
-          strategyText = ['시간 소진', ...upgrades].join(', ')
+          // 선소진: 시간 소진이 먼저, 그 후 업그레이드, 마지막에 시간 소진
+          strategyText = ['시간 소진', ...upgrades, '시간 소진'].join(', ')
         } else {
           // 선업글: 업그레이드가 먼저
           strategyText = [...upgrades, '시간 소진'].join(', ')

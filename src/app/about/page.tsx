@@ -29,6 +29,7 @@ export default function AboutPage() {
           <ul className="list-disc list-inside text-gray-700 mb-6">
             <li><strong>사냥 기댓값 계산기</strong>: 아이템 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산</li>
             <li><strong>손익분기 계산기</strong>: 재획득의 비약 적용 전후 수익성 비교</li>
+            <li><strong>휴게실 경험치 최적화 계산기</strong>: 아지트 듀오 휴게실 이벤트의 최적 스킬 투자 전략 계산</li>
             <li><strong>보스 물욕템 계산기</strong>: 보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산 <span className="text-sm text-orange-600 font-medium">(개발 중)</span></li>
           </ul>
           

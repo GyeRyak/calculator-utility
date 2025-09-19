@@ -40,7 +40,10 @@ const getCurrentDefaultValues = () => {
       snack: 0    // 간식 충전
     } as SkillState,
     remainingPoints: 20, // 1주차 기본 20포인트
-    remainingTimeThisWeek: 2 // 기본 2시간
+    remainingTimeThisWeek: 2, // 기본 2시간
+    // 장기 휴식 제한 관련
+    enableLongRestLimit: true, // 제한 활성화 여부
+    maxLongRestLevel: 5 // 기본 최대 레벨
   }
 }
 
@@ -81,6 +84,10 @@ export default function LoungeCalculator() {
   const [remainingPoints, setRemainingPoints] = useState(DEFAULT_VALUES.remainingPoints)
   const [remainingTimeThisWeek, setRemainingTimeThisWeek] = useState(DEFAULT_VALUES.remainingTimeThisWeek)
 
+  // 장기 휴식 제한 관련 상태
+  const [enableLongRestLimit, setEnableLongRestLimit] = useState(DEFAULT_VALUES.enableLongRestLimit)
+  const [maxLongRestLevel, setMaxLongRestLevel] = useState(DEFAULT_VALUES.maxLongRestLevel)
+
   // 자동 계산 설정
   const [autoCalculate, setAutoCalculate] = useState(true)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
@@ -100,9 +107,11 @@ export default function LoungeCalculator() {
       currentWeek,
       skillLevels,
       remainingPoints,
-      remainingTimeThisWeek
+      remainingTimeThisWeek,
+      enableLongRestLimit,
+      maxLongRestLevel
     }
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
 
   // 데이터 로드 (AutoSlotManager용)
   const loadData = useCallback((data: any, onComplete?: () => void) => {
@@ -110,6 +119,8 @@ export default function LoungeCalculator() {
     if (data.skillLevels !== undefined) setSkillLevels(data.skillLevels)
     if (data.remainingPoints !== undefined) setRemainingPoints(data.remainingPoints)
     if (data.remainingTimeThisWeek !== undefined) setRemainingTimeThisWeek(data.remainingTimeThisWeek)
+    if (data.enableLongRestLimit !== undefined) setEnableLongRestLimit(data.enableLongRestLimit)
+    if (data.maxLongRestLevel !== undefined) setMaxLongRestLevel(data.maxLongRestLevel)
     if (onComplete) onComplete()
   }, [])
 
@@ -120,6 +131,8 @@ export default function LoungeCalculator() {
     setSkillLevels(newDefaults.skillLevels)
     setRemainingPoints(newDefaults.remainingPoints)
     setRemainingTimeThisWeek(newDefaults.remainingTimeThisWeek)
+    setEnableLongRestLimit(newDefaults.enableLongRestLimit)
+    setMaxLongRestLevel(newDefaults.maxLongRestLevel)
   }, [])
 
   // Export 데이터 생성
@@ -133,6 +146,14 @@ export default function LoungeCalculator() {
       remainingPoints,
       remainingTimeThisWeek,
       skillLevels,
+
+      // 장기 휴식 제한 설정
+      isLimited: currentResult.isLimited,
+      maxLongRestLevel: currentResult.maxLongRestLevel,
+      weeklyMaxHours: currentResult.weeklyMaxHours,
+      lossComparedToUnlimited: currentResult.lossComparedToUnlimited,
+      unlimitedTotalTime: currentResult.unlimitedTotalTime,
+      unlimitedTotalExp: currentResult.unlimitedTotalExp,
 
       // 계산 결과
       totalExpectedExp: currentResult.totalExpectedExp,
@@ -190,8 +211,8 @@ export default function LoungeCalculator() {
           } else {
             // 단일 전략의 경우
             if (week.timingStrategy?.description === "선소진") {
-              // 선소진: 시간 소진이 먼저
-              timingStrategy = ['시간 소진', ...upgrades].join(', ')
+              // 선소진: 시간 소진이 먼저, 그 후 업그레이드, 마지막에 시간 소진
+              timingStrategy = ['시간 소진', ...upgrades, '시간 소진'].join(', ')
             } else {
               // 선업글: 업그레이드가 먼저
               timingStrategy = [...upgrades, '시간 소진'].join(', ')
@@ -290,7 +311,8 @@ export default function LoungeCalculator() {
         currentWeek,
         skillLevels,
         remainingPoints,
-        remainingTimeThisWeek
+        remainingTimeThisWeek,
+        maxLongRestLevel: enableLongRestLimit ? maxLongRestLevel : undefined
       }
 
       const result = optimizeLoungeStrategy(input)
@@ -305,7 +327,7 @@ export default function LoungeCalculator() {
         error: error instanceof Error ? error.message : '계산 중 오류가 발생했습니다.'
       }
     }
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
 
   // 자동 계산
   const calculate = useMemo(() => {
@@ -337,8 +359,13 @@ export default function LoungeCalculator() {
       errors.push(`남은 시간(${remainingTimeThisWeek}시간)이 장기휴식 ${skillLevels.long}레벨의 최대 시간(${maxPossibleTime}시간)을 초과합니다.`)
     }
 
+    // 3. 장기 휴식 제한이 활성화되어 있고 현재 레벨이 제한을 초과하는 경우
+    if (enableLongRestLimit && skillLevels.long > maxLongRestLevel) {
+      errors.push(`현재 장기 휴식 레벨(${skillLevels.long})이 설정된 최대 레벨(${maxLongRestLevel})을 초과합니다.`)
+    }
+
     return errors
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
 
   // 계산 결과 업데이트
   useEffect(() => {
@@ -463,6 +490,41 @@ export default function LoungeCalculator() {
                   max={60} // 장기 휴식 8레벨 기준 최대 시간
                   placeholder="남은 시간"
                 />
+              </div>
+
+              {/* 장기 휴식 최대 레벨 제한 */}
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <input
+                    type="checkbox"
+                    id="enableLongRestLimit"
+                    checked={enableLongRestLimit}
+                    onChange={(e) => setEnableLongRestLimit(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <label htmlFor="enableLongRestLimit" className="text-sm font-medium text-gray-700">
+                    장기 휴식 최대 레벨 제한
+                  </label>
+                </div>
+
+                {enableLongRestLimit && (
+                  <div className="ml-6 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-gray-600">최대 레벨:</label>
+                      <NumberInput
+                        value={maxLongRestLevel}
+                        onChange={setMaxLongRestLevel}
+                        min={0}
+                        max={8}
+                        placeholder="최대 레벨"
+                        className="w-20"
+                      />
+                    </div>
+                    <p className="text-xs text-blue-600">
+                      1주일 잠수 시간 {getTotalTime(maxLongRestLevel)}시간 이내
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -660,6 +722,31 @@ export default function LoungeCalculator() {
                     </p>
                   </div>
                 </div>
+
+                {/* 장기 휴식 제한 정보 */}
+                {calculationResult.result.isLimited && calculationResult.result.maxLongRestLevel !== undefined && calculationResult.result.maxLongRestLevel < 8 && (
+                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <span className="text-yellow-600 mr-2">⚠️</span>
+                      <div className="space-y-2">
+                        <p className="text-yellow-800 font-medium">
+                          장기 휴식 {calculationResult.result.maxLongRestLevel}레벨 제한 적용
+                        </p>
+                        <p className="text-yellow-700 text-sm">
+                          주당 최대 {calculationResult.result.weeklyMaxHours}시간 잠수
+                        </p>
+                        {calculationResult.result.lossComparedToUnlimited && calculationResult.result.lossComparedToUnlimited > 0 && (
+                          <p className="text-yellow-700 text-sm">
+                            제한 없을 때 대비{' '}
+                            {calculationResult.result.unlimitedTotalTime! - calculationResult.result.totalExpectedTime}시간 덜 잠수하여{' '}
+                            사우나 {calculationResult.result.lossComparedToUnlimited.toFixed(2)}시간어치
+                            ({((calculationResult.result.lossComparedToUnlimited / calculationResult.result.totalExpectedExp) * 100).toFixed(1)}%) 손실
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 추천사항 */}
                 {calculationResult.result.recommendations.length > 0 && (
