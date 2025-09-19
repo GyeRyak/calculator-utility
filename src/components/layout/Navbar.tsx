@@ -69,6 +69,12 @@ export function Navbar() {
                   >
                     보스 물욕템 계산기
                   </Link>
+                  <Link
+                    href="/calculators/lounge"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    휴게실 경험치 최적화 계산기
+                  </Link>
                 </div>
               )}
             </div>
@@ -133,12 +139,19 @@ export function Navbar() {
                   >
                     손익분기 계산기
                   </Link>
-                  <Link 
-                    href="/calculators/boss-chase" 
+                  <Link
+                    href="/calculators/boss-chase"
                     className="block text-sm text-gray-600 hover:text-primary transition-colors py-1"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     보스 물욕템 계산기
+                  </Link>
+                  <Link
+                    href="/calculators/lounge"
+                    className="block text-sm text-gray-600 hover:text-primary transition-colors py-1"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    휴게실 경험치 최적화 계산기
                   </Link>
                 </div>
               </div>

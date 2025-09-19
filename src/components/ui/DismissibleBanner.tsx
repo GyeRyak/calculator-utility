@@ -82,9 +82,11 @@ export default function DismissibleBanner({
       </button>
       <p className={`text-sm ${textColor} pr-8`}>
         {showIcon && '💡 '}{message}
-        <Link href={linkHref} className={`${linkColor} underline ml-1`}>
-          {linkText}
-        </Link>
+        {linkText && (
+          <Link href={linkHref} className={`${linkColor} underline ml-1`}>
+            {linkText}
+          </Link>
+        )}
       </p>
     </div>
   )

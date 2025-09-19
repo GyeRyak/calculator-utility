@@ -2,20 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { X, Copy, Download, Check } from 'lucide-react'
-import { 
-  generateImageFromData, 
-  exportBasicCalculatorAsText, 
+import {
+  generateImageFromData,
+  exportBasicCalculatorAsText,
   exportBreakevenCalculatorAsText,
+  exportLoungeCalculatorAsText,
   downloadFile,
   type BasicCalculatorExportData,
-  type BreakevenCalculatorExportData
+  type BreakevenCalculatorExportData,
+  type LoungeCalculatorExportData
 } from '@/utils/exportUtils'
 
 interface ExportModalProps {
   isOpen: boolean
   onClose: () => void
-  data: BasicCalculatorExportData | BreakevenCalculatorExportData
-  type: 'basic' | 'breakeven'
+  data: BasicCalculatorExportData | BreakevenCalculatorExportData | LoungeCalculatorExportData
+  type: 'basic' | 'breakeven' | 'lounge'
 }
 
 export default function ExportModal({ isOpen, onClose, data, type }: ExportModalProps) {
@@ -39,9 +41,14 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
 
     const generateContent = async () => {
       // 텍스트 생성
-      const text = type === 'basic' 
-        ? exportBasicCalculatorAsText(data as BasicCalculatorExportData)
-        : exportBreakevenCalculatorAsText(data as BreakevenCalculatorExportData)
+      let text: string
+      if (type === 'basic') {
+        text = exportBasicCalculatorAsText(data as BasicCalculatorExportData)
+      } else if (type === 'breakeven') {
+        text = exportBreakevenCalculatorAsText(data as BreakevenCalculatorExportData)
+      } else {
+        text = exportLoungeCalculatorAsText(data as LoungeCalculatorExportData)
+      }
       setTextContent(text)
 
       // 이미지 생성
@@ -117,19 +124,19 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
 
   const handleDownloadImage = () => {
     if (!imageBlob) return
-    
+
     const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '')
-    const calculatorName = type === 'basic' ? '사냥기댓값' : '손익분기'
+    const calculatorName = type === 'basic' ? '사냥기댓값' : type === 'breakeven' ? '손익분기' : '휴게실최적화'
     const filename = `${calculatorName}_계산결과_${timestamp}.png`
-    
+
     downloadFile(imageBlob, filename)
   }
 
   const handleDownloadText = () => {
     const timestamp = new Date().toISOString().split('T')[0].replace(/-/g, '')
-    const calculatorName = type === 'basic' ? '사냥기댓값' : '손익분기'
+    const calculatorName = type === 'basic' ? '사냥기댓값' : type === 'breakeven' ? '손익분기' : '휴게실최적화'
     const filename = `${calculatorName}_계산결과_${timestamp}.txt`
-    
+
     downloadFile(textContent, filename, 'text/plain;charset=utf-8')
   }
 
@@ -153,7 +160,7 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
                 결과 공유하기
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                {type === 'basic' ? '사냥 기댓값 계산기' : '손익분기 계산기'}
+                {type === 'basic' ? '사냥 기댓값 계산기' : type === 'breakeven' ? '손익분기 계산기' : '아지트 듀오 휴게실 계산기'}
               </p>
             </div>
             <button
@@ -230,7 +237,7 @@ export default function ExportModal({ isOpen, onClose, data, type }: ExportModal
                       <p className="text-xs mt-1">잠시만 기다려주세요</p>
                     </div>
                   ) : (
-                    <canvas 
+                    <canvas
                       ref={canvasRef}
                       className="max-w-full h-auto border rounded shadow-sm"
                       style={{ maxHeight: '400px', display: imageBlob ? 'block' : 'none' }}

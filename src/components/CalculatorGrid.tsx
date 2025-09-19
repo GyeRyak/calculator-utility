@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown } from 'lucide-react'
+import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee } from 'lucide-react'
 
 const calculatorCategories = [
   {
@@ -30,13 +30,13 @@ const calculatorCategories = [
     available: true
   },
   {
-    id: 'calculator4',
-    title: '계산기 4',
-    description: '개발 예정',
-    icon: Wrench,
-    href: null,
+    id: 'lounge-optimizer',
+    title: '휴게실 경험치 최적화 계산기',
+    description: '아지트 듀오 휴게실 이벤트의 최적 스킬 투자 전략 계산',
+    icon: Coffee,
+    href: '/calculators/lounge',
     color: 'bg-orange-500',
-    available: false
+    available: true
   },
   {
     id: 'calculator5',
