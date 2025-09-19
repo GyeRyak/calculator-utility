@@ -115,10 +115,13 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
 - 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
 - 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개 (개발 중)
-- **아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 3개
+- **아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 5개
   - Dynamic Programming 기반 9주간 최적 스킬 투자 전략 계산
   - 장기 휴식 최대 레벨 제한 기능 (시간 제약이 있는 유저를 위한 옵션)
   - 제한 설정 시 손실 비교 및 잠수 시간 정보 제공
+  - 성능 최적화: 문자열 키에서 비트 연산 키로 변경, 캐싱 최적화
+  - 2레벨 이상 업그레이드 및 선업글 장기 휴식 시각적 강조
+  - ActionItem 기반 구조화된 텍스트 생성 시스템
 - AutoSlotManager 통합 슬롯 시스템 (저장/불러오기/내보내기/초기화)
 - DismissibleBanner 공통 컴포넌트 (해제 가능한 배너/안내문)
 - 설정 텍스트 내보내기/불러오기 기능 (Base64 인코딩된 텍스트로 설정 공유)
@@ -357,3 +360,81 @@ const handleReset = () => {
 ### 예시 아이템 기본 제공
 - **드랍하프**: 드롭 1줄, 메획 0줄, 구매가=판매가 20억 (구매가와 동일 체크)
 - **드메얼장**: 드롭 1줄, 메획 1줄, 구매가 60억, 판매가 58억 (구매가와 동일 해제)
+
+## 코딩 주의사항
+
+### JavaScript/TypeScript null/undefined/0 체크 주의사항
+
+**⚠️ 중요: falsy 값 체크 시 주의 필요**
+
+JavaScript/TypeScript에서 `!value` 또는 `!obj.property` 체크는 다음 값들을 모두 `true`로 판단함:
+- `false`
+- `0` (숫자 0)
+- `""` (빈 문자열)
+- `null`
+- `undefined`
+- `NaN`
+
+**문제 상황:**
+```typescript
+// ❌ 잘못된 예시 - 0일 때도 true가 됨
+if (!currentInfo.pastState) break  // pastState가 0이면 잘못 break
+
+// ❌ 잘못된 예시 - 0일 때도 true가 됨
+if (!obj.index) return  // index가 0이면 잘못 return
+```
+
+**올바른 해결책:**
+```typescript
+// ✅ 올바른 예시 - undefined/null만 체크
+if (currentInfo.pastState === undefined) break
+
+// ✅ 또는 명시적으로 null/undefined 체크
+if (currentInfo.pastState == null) break  // null과 undefined 모두 체크
+
+// ✅ 숫자 0이 유효한 값인 경우
+if (typeof obj.index !== 'number') return
+```
+
+**특히 주의해야 할 상황:**
+1. **배열 인덱스**: `array[0]`은 유효한 값이지만 `!array[0]`은 `true`
+2. **ID나 키 값**: `encodeState(0,0,0) = 0`처럼 0이 유효한 키값인 경우
+3. **카운터나 레벨**: 0레벨, 0개 등이 유효한 값인 경우
+4. **좌표나 위치**: x=0, y=0이 유효한 좌표인 경우
+
+**권장사항:**
+- 명시적 체크 사용: `=== undefined`, `=== null`, `== null`
+- 타입 체크 활용: `typeof value === 'number'`
+- 값의 범위 체크: `value >= 0`, `value > -1`
+- eslint 규칙 활용으로 실수 방지
+
+### Git 변경사항 롤백 주의사항
+
+**⚠️ 중요: 커밋되지 않은 변경사항을 되돌릴 때 주의사항**
+
+사용자가 "롤백하라"고 할 때는 **특정 변경사항만 되돌리라**는 의미이므로, 전체 커밋을 되돌리지 말 것.
+
+**❌ 잘못된 방식:**
+```bash
+git checkout -- filename.ts  # 전체 파일을 되돌림 (사용자의 다른 변경사항도 사라짐)
+git reset HEAD filename.ts   # unstage (요청하지 않은 작업)
+```
+
+**✅ 올바른 방식:**
+```bash
+# 1. 사용자가 수정한 내용을 파악
+# 2. Edit 도구를 사용해서 특정 변경사항만 되돌리기
+# 3. 사용자의 다른 변경사항은 그대로 유지
+```
+
+**권장 접근법:**
+1. **변경사항 범위 확인**: 사용자가 어떤 부분의 롤백을 원하는지 정확히 파악
+2. **선택적 되돌리기**: Edit 도구로 해당 부분만 수정
+3. **다른 변경사항 보존**: 사용자가 수정한 다른 부분은 건드리지 않음
+4. **확인 요청**: 불확실한 경우 사용자에게 구체적으로 어떤 부분을 되돌릴지 확인
+
+**예시 상황:**
+- 사용자: "야 롤백해"
+- 의미: "내가 방금 한 특정 수정사항만 되돌려라"
+- 실행: Edit 도구로 해당 변경사항만 원래대로 수정
+- 주의: git 명령어로 전체 파일을 되돌리지 말 것

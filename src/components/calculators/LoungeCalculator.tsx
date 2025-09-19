@@ -11,7 +11,10 @@ import { formatNumber } from '../../utils/formatUtils'
 import {
   getCurrentWeek,
   optimizeLoungeStrategy,
+  OptimizedLoungeCalculator,
   getActiveBoostEffect,
+  actionsToDetailedString,
+  actionsToDetailedItems,
   SKILLS,
   BOOST_EFFECTS,
   LOUNGE_EVENT,
@@ -21,6 +24,7 @@ import {
   GANSIK_MULT,
   getTotalTime,
   CUMULATIVE_COST,
+  SCALE_FACTORS,
   generateShareText,
   calculateSaunaEfficiency,
   type LoungeCalculatorInput,
@@ -56,15 +60,15 @@ const getSkillEffectText = (skillType: keyof SkillState, level: number): string 
   switch (skillType) {
     case 'long':
       const totalTime = getTotalTime(level)
-      const expReduction = ((1 - JANGGI_MULT[level]) * 100).toFixed(0)
+      const expReduction = ((1 - JANGGI_MULT[level] / SCALE_FACTORS.long) * 100).toFixed(0)
       return `총 ${totalTime}시간 (기본 2시간 + ${HOURS_INCREASE[level]}시간), 경험치 ${expReduction}% 감소`
 
     case 'dynamic':
-      const dynamicBonus = ((YEONGDONG_MULT_AVG[level] - 1) * 100).toFixed(1)
+      const dynamicBonus = ((YEONGDONG_MULT_AVG[level] / SCALE_FACTORS.dynamic - 1) * 100).toFixed(1)
       return `경험치 +${dynamicBonus}% (평균)`
 
     case 'snack':
-      const snackBonus = ((GANSIK_MULT[level] - 1) * 100).toFixed(0)
+      const snackBonus = ((GANSIK_MULT[level] / SCALE_FACTORS.snack - 1) * 100).toFixed(0)
       return `경험치 +${snackBonus}%`
 
     default:
@@ -97,6 +101,10 @@ export default function LoungeCalculator() {
     result: null,
     error: null
   })
+
+  // 최적화된 계산기 인스턴스
+  const [optimizedCalculator] = useState(() => new OptimizedLoungeCalculator())
+  const [lastInputKey, setLastInputKey] = useState('')
 
   // 알림 시스템
   const { showNotification } = useNotification()
@@ -167,60 +175,10 @@ export default function LoungeCalculator() {
           return `${skill.name} ${upgrade.fromLevel}->${upgrade.toLevel}`
         })
 
-        // 타이밍 전략 처리
-        let timingStrategy = ''
-        if (week.skillUpgrades.length > 0) {
-          // 하이브리드 타이밍 전략 처리 (콤마가 포함된 복합 전략)
-          if (week.timingStrategy && week.timingStrategy.description.includes(',')) {
-            // 하이브리드 전략의 경우: "장기휴식1→2선소진, 장기휴식2→3선소진" 형태를 파싱
-            const timingParts = week.timingStrategy.description.split(',').map(s => s.trim())
-            const strategies: string[] = []
-
-            timingParts.forEach(part => {
-              // "장기휴식1→2선소진" 형태를 "시간 소진, 장기 휴식 1->2"로 변환 (선소진 = 시간 먼저 소진)
-              const matchSeonSojin = part.match(/(\S+)(\d+)→(\d+)선소진/)
-              if (matchSeonSojin) {
-                const [, skillName, fromLevel, toLevel] = matchSeonSojin
-                const fullSkillName = skillName === '장기휴식' ? '장기 휴식' :
-                                      skillName === '역동휴식' ? '역동적 휴식' :
-                                      skillName === '간식충전' ? '간식 충전' : skillName
-                strategies.push(`시간 소진, ${fullSkillName} ${fromLevel}->${toLevel}`)
-              } else {
-                // "선업글" 패턴도 확인 (예: "장기휴식1→2선업글")
-                const matchSeonUpgrade = part.match(/(\S+)(\d+)→(\d+)선업글/)
-                if (matchSeonUpgrade) {
-                  const [, skillName, fromLevel, toLevel] = matchSeonUpgrade
-                  const fullSkillName = skillName === '장기휴식' ? '장기 휴식' :
-                                        skillName === '역동휴식' ? '역동적 휴식' :
-                                        skillName === '간식충전' ? '간식 충전' : skillName
-                  strategies.push(`${fullSkillName} ${fromLevel}->${toLevel}, 시간 소진`)
-                }
-              }
-            })
-
-            if (strategies.length > 0) {
-              timingStrategy = strategies.join(', ')
-              // 마지막이 시간 소진으로 끝나지 않으면 추가
-              if (!timingStrategy.endsWith('시간 소진')) {
-                timingStrategy += ', 시간 소진'
-              }
-            } else {
-              // 파싱에 실패한 경우 기본 처리
-              timingStrategy = [...upgrades, '시간 소진'].join(', ')
-            }
-          } else {
-            // 단일 전략의 경우
-            if (week.timingStrategy?.description === "선소진") {
-              // 선소진: 시간 소진이 먼저, 그 후 업그레이드, 마지막에 시간 소진
-              timingStrategy = ['시간 소진', ...upgrades, '시간 소진'].join(', ')
-            } else {
-              // 선업글: 업그레이드가 먼저
-              timingStrategy = [...upgrades, '시간 소진'].join(', ')
-            }
-          }
-        } else {
-          timingStrategy = '시간 소진'
-        }
+        // actions를 사용한 타이밍 전략 생성
+        const timingStrategy = week.actions.length > 0
+          ? actionsToDetailedString(week.actions, week.startLevels)
+          : '시간 소진'
 
         return {
           week: week.week,
@@ -315,7 +273,27 @@ export default function LoungeCalculator() {
         maxLongRestLevel: enableLongRestLimit ? maxLongRestLevel : undefined
       }
 
-      const result = optimizeLoungeStrategy(input)
+      // 최적화된 계산기 사용
+      // 기본 입력(제한 제외)이 변경되면 재초기화, 제한만 변경되면 재구성만
+      // 실제 DP 시작 주차(currentWeek-1)를 포함한 키 생성
+      const actualStartWeek = currentWeek - 1
+      const inputKey = `${actualStartWeek}-${JSON.stringify(skillLevels)}-${remainingPoints}-${remainingTimeThisWeek}`
+
+      if (lastInputKey !== inputKey) {
+        // 기본 입력이 변경됨 - 전체 재계산 필요
+        optimizedCalculator.calculateFull({
+          ...input,
+          maxLongRestLevel: undefined // 제한 없이 전체 계산
+        })
+        setLastInputKey(inputKey)
+      }
+
+      // 제한 레벨에 따른 결과 반환 (빠른 재구성)
+      const result = optimizedCalculator.getResultForLimit(
+        input,
+        enableLongRestLimit ? maxLongRestLevel : undefined
+      )
+
 
       return {
         result,
@@ -381,7 +359,16 @@ export default function LoungeCalculator() {
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold">휴게실 경험치 최적화 계산기</h1>
         <p className="text-gray-600">
-          아지트 듀오 휴게실 이벤트의 최적 스킬 투자 전략을 Dynamic Programming으로 계산합니다
+          아지트 듀오 휴게실 이벤트의 최적 스킬 투자 전략을{' '}
+          <a
+            href="https://namu.wiki/w/Dynamic%20Programming"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline"
+          >
+            Dynamic Programming
+          </a>
+          으로 계산합니다
         </p>
       </div>
 
@@ -412,7 +399,7 @@ export default function LoungeCalculator() {
       {/* 포인트 계산 주의사항 안내 */}
       <DismissibleBanner
         bannerId="lounge-points-notice"
-        message="⚠️ 이번 주 포인트는 남은 스킬 포인트에 포함하여 작성해 주세요. 이후 다음 주차부터 매주 20포인트를 획득하는 것으로 가정합니다. 1주차/20포인트/2시간을 제외한 계산에 대해 검증하지 않았으니 유의해 주세요."
+        message="⚠️ 이번 주 포인트는 남은 스킬 포인트에 포함하여 작성해 주세요. 이후 다음 주차부터 매주 20포인트를 획득하는 것으로 가정합니다. 기본 설정(1주차/20포인트/2시간)을 제외한 상황에 대해서는 충분히 검증되지 않았으니 유의해 주세요."
         bgColor="bg-orange-50"
         borderColor="border-orange-200"
         textColor="text-orange-800"
@@ -602,7 +589,7 @@ export default function LoungeCalculator() {
             {currentBoost ? (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <h3 className="font-semibold text-green-800">{currentBoost.name}</h3>
-                <p className="text-green-700">경험치 {((currentBoost.multiplier - 1) * 100).toFixed(0)}% 증가</p>
+                <p className="text-green-700">경험치 {((currentBoost.multiplier / SCALE_FACTORS.boost - 1) * 100).toFixed(0)}% 증가</p>
                 <p className="text-sm text-green-600 mt-1">{currentBoost.description}</p>
               </div>
             ) : (
@@ -624,7 +611,7 @@ export default function LoungeCalculator() {
                   }`}
                 >
                   <span className="font-medium">{boost.name}</span>
-                  <span className="ml-2">({((boost.multiplier - 1) * 100).toFixed(0)}% 증가)</span>
+                  <span className="ml-2">({((boost.multiplier / SCALE_FACTORS.boost - 1) * 100).toFixed(0)}% 증가)</span>
                   <br />
                   <span className="text-xs">{boost.description}</span>
                 </div>
@@ -710,6 +697,9 @@ export default function LoungeCalculator() {
                     <p className="text-xs text-blue-600 mt-1">
                       최적 전략 적용 시 상대적 경험치
                     </p>
+                    <p className="text-xs text-blue-500 mt-1">
+                      사우나 기준 {(calculationResult.result.totalExpectedExp * 0.8).toFixed(1)}시간
+                    </p>
                   </div>
 
                   <div className="bg-green-50 rounded-lg p-4">
@@ -719,6 +709,9 @@ export default function LoungeCalculator() {
                     </p>
                     <p className="text-xs text-green-600 mt-1">
                       9주간 누적 휴게실 이용 시간
+                    </p>
+                    <p className="text-xs text-green-500 mt-1">
+                      {(9 - currentWeek + 1)}주간 주 평균 {(calculationResult.result.totalExpectedTime / (9 - currentWeek + 1)).toFixed(1)}시간
                     </p>
                   </div>
                 </div>
@@ -753,12 +746,52 @@ export default function LoungeCalculator() {
                   <div className="mt-4">
                     <h4 className="font-medium text-gray-700 mb-2">추천사항:</h4>
                     <ul className="space-y-1">
-                      {calculationResult.result.recommendations.map((rec, index) => (
-                        <li key={index} className="text-sm text-gray-600 flex items-start">
-                          <Info className="mr-2 h-4 w-4 mt-0.5 flex-shrink-0" />
-                          {rec}
-                        </li>
-                      ))}
+                      {calculationResult.result.recommendations.map((rec, index) => {
+                        // "이번 주 추천: " 부분이 있으면 색상 적용
+                        const prefix = '이번 주 추천: '
+                        if (rec.startsWith(prefix)) {
+                          const actionText = rec.substring(prefix.length)
+                          // 현재 주차의 전략에서 actions 찾기
+                          const currentWeekStrategy = calculationResult.result?.weeklyStrategy.find(s => s.week === currentWeek)
+                          if (currentWeekStrategy && currentWeekStrategy.actions.length > 0) {
+                            const items = actionsToDetailedItems(currentWeekStrategy.actions, currentWeekStrategy.startLevels)
+                            return (
+                              <li key={index} className="text-sm text-gray-600 flex items-start">
+                                <Info className="mr-2 h-4 w-4 mt-0.5 flex-shrink-0" />
+                                <span>
+                                  {prefix}
+                                  {items.map((item, itemIndex) => (
+                                    <span key={itemIndex}>
+                                      {item.parts ? (
+                                        <span>
+                                          <span className={item.isLongRestWithoutExhaust ? 'text-orange-600 font-semibold' : ''}>
+                                            {item.parts.prefix}
+                                          </span>
+                                          {item.parts.startLevel}
+                                          <span className={item.isMultiLevel ? 'text-orange-600 font-semibold' : ''}>
+                                            {item.parts.arrow}{item.parts.endLevel}
+                                          </span>
+                                          {item.parts.suffix}
+                                        </span>
+                                      ) : (
+                                        <span>{item.text}</span>
+                                      )}
+                                      {itemIndex < items.length - 1 && ', '}
+                                    </span>
+                                  ))}
+                                </span>
+                              </li>
+                            )
+                          }
+                        }
+                        // 기본 표시
+                        return (
+                          <li key={index} className="text-sm text-gray-600 flex items-start">
+                            <Info className="mr-2 h-4 w-4 mt-0.5 flex-shrink-0" />
+                            {rec}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </div>
                 )}
@@ -806,12 +839,36 @@ function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
   const [long, dynamic, snack] = strategy.endLevels
 
   return (
-    <div className="border rounded-lg p-4 space-y-3">
+    <div className="border rounded-lg p-4 space-y-3 min-w-0">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">{strategy.week}주차</h3>
-        <div className="text-sm text-gray-600">
-          {strategy.timingStrategy?.description || '변화없음'}
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-semibold flex-shrink-0" style={{ minWidth: '60px' }}>{strategy.week}주차</h3>
+        <div className="text-sm text-gray-600 min-w-0 flex-1 text-right">
+          <span style={{ whiteSpace: 'nowrap', overflowWrap: 'anywhere' }}>
+            {strategy.actions.length > 0 ?
+              actionsToDetailedItems(strategy.actions, strategy.startLevels)
+                .map((item, index, array) => (
+                  <span key={index}>
+                    {item.parts ? (
+                      <span>
+                        <span className={item.isLongRestWithoutExhaust ? 'text-orange-600 font-semibold' : ''}>
+                          {item.parts.prefix}
+                        </span>
+                        {item.parts.startLevel}
+                        <span className={item.isMultiLevel ? 'text-orange-600 font-semibold' : ''}>
+                          {item.parts.arrow}{item.parts.endLevel}
+                        </span>
+                        {item.parts.suffix}
+                      </span>
+                    ) : (
+                      <span>{item.text}</span>
+                    )}
+                    {index < array.length - 1 && <><span>, </span><wbr /></>}
+                  </span>
+                ))
+              : '변화없음'
+            }
+          </span>
         </div>
       </div>
 
@@ -837,7 +894,7 @@ function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
         <div className="bg-green-50 rounded p-2">
           <div className="text-sm font-medium text-green-800">{strategy.boostEffect.name}</div>
           <div className="text-xs text-green-600">
-            경험치 {((strategy.boostEffect.multiplier - 1) * 100).toFixed(0)}% 증가
+            경험치 {((strategy.boostEffect.multiplier / SCALE_FACTORS.boost - 1) * 100).toFixed(0)}% 증가
           </div>
         </div>
       ) : (
@@ -849,6 +906,7 @@ function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
         <div>
           <span className="text-gray-600">예상 경험치: </span>
           <span className="font-medium">{strategy.expectedExp.toFixed(3)}</span>
+          <span className="text-gray-500 ml-1">(사우나 {(strategy.expectedExp * 0.8).toFixed(1)}시간)</span>
         </div>
         <div>
           <span className="text-gray-600">총 시간: </span>
