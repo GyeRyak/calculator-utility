@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { Calendar, Clock, Zap, Target, TrendingUp, Info, Share2, ChevronDown, ChevronUp } from 'lucide-react'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import DismissibleBanner from '../ui/DismissibleBanner'
@@ -81,11 +81,6 @@ const getSkillEffectText = (skillType: keyof SkillState, level: number): string 
   }
 }
 
-interface CalculationResult {
-  result: LoungeCalculationResult | null
-  error: string | null
-}
-
 export default function LoungeCalculator() {
   // 기본 상태
   const [currentWeek, setCurrentWeek] = useState(DEFAULT_VALUES.currentWeek)
@@ -107,11 +102,8 @@ export default function LoungeCalculator() {
   // 주간 포인트 상세 입력 표시 상태
   const [showWeeklyPointsDetail, setShowWeeklyPointsDetail] = useState(false)
 
-  // 계산 결과
-  const [calculationResult, setCalculationResult] = useState<CalculationResult>({
-    result: null,
-    error: null
-  })
+  // 수동 계산 결과 (버튼 클릭 시에만 사용)
+  const [manualCalculation, setManualCalculation] = useState<{ result: LoungeCalculationResult | null; error: string | null } | null>(null)
 
   // 최적화된 계산기 인스턴스
   const [optimizedCalculator] = useState(() => new OptimizedLoungeCalculator())
@@ -159,7 +151,8 @@ export default function LoungeCalculator() {
 
   // Export 데이터 생성
   const getExportData = (): LoungeCalculatorExportData | null => {
-    const currentResult = calculationResult?.result || performCalculation().result
+    const currentCalculation = manualCalculation || autoCalculation
+    const currentResult = currentCalculation?.result || performCalculation().result
     if (!currentResult) return null
 
     return {
@@ -167,6 +160,7 @@ export default function LoungeCalculator() {
       currentWeek,
       remainingPoints,
       remainingTimeThisWeek,
+      weeklyPoints,
       skillLevels,
 
       // 장기 휴식 제한 설정
@@ -249,17 +243,23 @@ export default function LoungeCalculator() {
       [skillType]: newLevel
     }))
 
-    // 장기 휴식 레벨이 증가한 경우 남은 시간 업데이트
-    if (skillType === 'long' && newLevel > oldLevel) {
-      // utils에서 정의된 HOURS_INCREASE 배열 사용
-      const timeIncrease = HOURS_INCREASE[newLevel] - HOURS_INCREASE[oldLevel]
-      setRemainingTimeThisWeek(prev => prev + timeIncrease)
+    // 장기 휴식 레벨 변경 시 남은 시간 업데이트
+    if (skillType === 'long') {
+      if (newLevel > oldLevel) {
+        // 레벨 증가: 시간 추가
+        const timeIncrease = HOURS_INCREASE[newLevel] - HOURS_INCREASE[oldLevel]
+        setRemainingTimeThisWeek(prev => prev + timeIncrease)
+      } else if (newLevel < oldLevel) {
+        // 레벨 감소: 최대 시간을 초과하지 않도록 조정
+        const maxTime = getTotalTime(newLevel)
+        setRemainingTimeThisWeek(prev => Math.min(prev, maxTime))
+      }
     }
   }
 
   // 특정 주차의 포인트 업데이트
   const updateWeeklyPoint = (weekIndex: number, points: number) => {
-    const newPoints = points // Math.max(0, Math.min(20, points)) // 0~20 범위로 제한
+    const newPoints = Math.max(0, Math.min(20, Math.round(points))) // 0~20 정수로 제한
     setWeeklyPoints(prev => {
       const newWeeklyPoints = [...prev]
       newWeeklyPoints[weekIndex] = newPoints
@@ -314,15 +314,13 @@ export default function LoungeCalculator() {
         weeklyPoints
       }
 
-      // 입력 상태 해시 생성 (제한 설정 포함)
+      // 입력 상태 해시 생성 (제한 설정 제외 - 제한은 사전계산 결과 재조립만 하므로)
       const currentState = JSON.stringify({
         currentWeek,
         skillLevels,
         remainingPoints,
         remainingTimeThisWeek,
-        weeklyPoints,
-        enableLongRestLimit,
-        maxLongRestLevel
+        weeklyPoints
       })
 
       // 기본 입력이 변경되면 캐시 초기화하고 재계산
@@ -354,7 +352,7 @@ export default function LoungeCalculator() {
   }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
 
   // 자동 계산
-  const calculate = useMemo(() => {
+  const autoCalculation = useMemo(() => {
     if (!autoCalculate) {
       return {
         result: null,
@@ -390,11 +388,6 @@ export default function LoungeCalculator() {
 
     return errors
   }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
-
-  // 계산 결과 업데이트
-  useEffect(() => {
-    setCalculationResult(calculate)
-  }, [calculate])
 
   // 현재 활성 부스트 효과 (파이썬 순서: 장기, 역동, 간식)
   const currentBoost = getActiveBoostEffect(skillLevels.long, skillLevels.dynamic, skillLevels.snack)
@@ -551,9 +544,10 @@ export default function LoungeCalculator() {
                         max={8}
                         placeholder="최대 레벨"
                         className="w-20"
+                        aria-describedby="maxLongRestLevel-help"
                       />
                     </div>
-                    <p className="text-xs text-blue-600">
+                    <p id="maxLongRestLevel-help" className="text-xs text-blue-600">
                       1주일 잠수 시간 {getTotalTime(maxLongRestLevel)}시간 이내
                     </p>
                   </div>
@@ -683,8 +677,9 @@ export default function LoungeCalculator() {
                   min={0}
                   max={8}
                   placeholder="레벨"
+                  aria-describedby="skillLevels-long-help"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p id="skillLevels-long-help" className="text-xs text-gray-500 mt-1">
                   {getSkillEffectText('long', skillLevels.long)}
                 </p>
               </div>
@@ -700,8 +695,9 @@ export default function LoungeCalculator() {
                   min={0}
                   max={8}
                   placeholder="레벨"
+                  aria-describedby="skillLevels-dynamic-help"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p id="skillLevels-dynamic-help" className="text-xs text-gray-500 mt-1">
                   {getSkillEffectText('dynamic', skillLevels.dynamic)}
                 </p>
               </div>
@@ -717,8 +713,9 @@ export default function LoungeCalculator() {
                   min={0}
                   max={8}
                   placeholder="레벨"
+                  aria-describedby="skillLevels-snack-help"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p id="skillLevels-snack-help" className="text-xs text-gray-500 mt-1">
                   {getSkillEffectText('snack', skillLevels.snack)}
                 </p>
               </div>
@@ -748,9 +745,9 @@ export default function LoungeCalculator() {
             {/* 부스트 효과 목록 */}
             <div className="mt-4 space-y-2">
               <h4 className="font-medium text-sm text-gray-700">모든 부스트 효과:</h4>
-              {BOOST_EFFECTS.map((boost, index) => (
+              {BOOST_EFFECTS.map((boost) => (
                 <div
-                  key={index}
+                  key={boost.name}
                   className={`text-xs p-2 rounded ${
                     currentBoost?.name === boost.name
                       ? 'bg-green-100 text-green-800'
@@ -790,7 +787,7 @@ export default function LoungeCalculator() {
               {/* 수동 계산 버튼 */}
               {!autoCalculate && (
                 <button
-                  onClick={() => setCalculationResult(performCalculation())}
+                  onClick={() => setManualCalculation(performCalculation())}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
                 >
                   계산하기
@@ -798,12 +795,14 @@ export default function LoungeCalculator() {
               )}
             </div>
           </div>
-          {calculationResult.error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-              <h2 className="text-xl font-semibold text-red-800 mb-2">계산 오류</h2>
-              <p className="text-red-700">{calculationResult.error}</p>
-            </div>
-          ) : calculationResult.result ? (
+          {(() => {
+            const currentCalculation = manualCalculation || autoCalculation
+            return currentCalculation.error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                <h2 className="text-xl font-semibold text-red-800 mb-2">계산 오류</h2>
+                <p className="text-red-700">{currentCalculation.error}</p>
+              </div>
+            ) : currentCalculation.result ? (
             <>
               {/* 전체 요약 섹션 시작 */}
               <div className="bg-white border rounded-lg p-6">
@@ -823,7 +822,7 @@ export default function LoungeCalculator() {
 
                 {/* 유효성 검증 경고 */}
                 {validationErrors.length > 0 && (
-                  <div className="mb-4 space-y-2">
+                  <div className="mb-4 space-y-2" role="alert" aria-live="polite">
                     {validationErrors.map((error, index) => (
                       <div key={index} className="bg-red-50 border border-red-200 rounded-lg p-3">
                         <div className="flex items-start">
@@ -839,48 +838,48 @@ export default function LoungeCalculator() {
                   <div className="bg-blue-50 rounded-lg p-4">
                     <h3 className="font-semibold text-blue-800">총 예상 경험치</h3>
                     <p className="text-2xl font-bold text-blue-900">
-                      {calculationResult.result.totalExpectedExp.toFixed(3)}
+                      {currentCalculation.result.totalExpectedExp.toFixed(3)}
                     </p>
                     <p className="text-xs text-blue-600 mt-1">
                       최적 전략 적용 시 상대적 경험치
                     </p>
                     <p className="text-xs text-blue-500 mt-1">
-                      사우나 기준 {(calculationResult.result.totalExpectedExp * 0.8).toFixed(1)}시간
+                      사우나 기준 {(currentCalculation.result.totalExpectedExp * 0.8).toFixed(1)}시간
                     </p>
                   </div>
 
                   <div className="bg-green-50 rounded-lg p-4">
                     <h3 className="font-semibold text-green-800">총 예상 시간</h3>
                     <p className="text-2xl font-bold text-green-900">
-                      {formatNumber(calculationResult.result.totalExpectedTime)}시간
+                      {formatNumber(currentCalculation.result.totalExpectedTime)}시간
                     </p>
                     <p className="text-xs text-green-600 mt-1">
                       9주간 누적 휴게실 이용 시간
                     </p>
                     <p className="text-xs text-green-500 mt-1">
-                      {(9 - currentWeek + 1)}주간 주 평균 {(calculationResult.result.totalExpectedTime / (9 - currentWeek + 1)).toFixed(1)}시간
+                      {(9 - currentWeek + 1)}주간 주 평균 {(currentCalculation.result.totalExpectedTime / (9 - currentWeek + 1)).toFixed(1)}시간
                     </p>
                   </div>
                 </div>
 
                 {/* 장기 휴식 제한 정보 */}
-                {calculationResult.result.isLimited && calculationResult.result.maxLongRestLevel !== undefined && calculationResult.result.maxLongRestLevel < 8 && (
+                {currentCalculation.result.isLimited && currentCalculation.result.maxLongRestLevel !== undefined && currentCalculation.result.maxLongRestLevel < 8 && (
                   <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <div className="flex items-start">
                       <span className="text-yellow-600 mr-2">⚠️</span>
                       <div className="space-y-2">
                         <p className="text-yellow-800 font-medium">
-                          장기 휴식 {calculationResult.result.maxLongRestLevel}레벨 제한 적용
+                          장기 휴식 {currentCalculation.result.maxLongRestLevel}레벨 제한 적용
                         </p>
                         <p className="text-yellow-700 text-sm">
-                          주당 최대 {calculationResult.result.weeklyMaxHours}시간 잠수
+                          주당 최대 {currentCalculation.result.weeklyMaxHours}시간 잠수
                         </p>
-                        {calculationResult.result.lossComparedToUnlimited && calculationResult.result.lossComparedToUnlimited > 0 ? (
+                        {currentCalculation.result.lossComparedToUnlimited && currentCalculation.result.lossComparedToUnlimited > 0 ? (
                           <p className="text-yellow-700 text-sm">
                             제한 없을 때 대비{' '}
-                            {calculationResult.result.unlimitedTotalTime! - calculationResult.result.totalExpectedTime}시간 덜 잠수하여{' '}
-                            사우나 {calculationResult.result.lossComparedToUnlimited.toFixed(2)}시간어치
-                            ({((calculationResult.result.lossComparedToUnlimited / calculationResult.result.totalExpectedExp) * 100).toFixed(1)}%) 손실
+                            {currentCalculation.result.unlimitedTotalTime! - currentCalculation.result.totalExpectedTime}시간 덜 잠수하여{' '}
+                            사우나 {currentCalculation.result.lossComparedToUnlimited.toFixed(2)}시간어치
+                            ({((currentCalculation.result.lossComparedToUnlimited / currentCalculation.result.totalExpectedExp) * 100).toFixed(1)}%) 손실
                           </p>
                         ) : (
                           <p className="text-green-700 text-sm">
@@ -894,7 +893,7 @@ export default function LoungeCalculator() {
 
                 {/* 최대 포인트 미획득 경고 */}
                 {(() => {
-                  const maxPointsComparison = optimizedCalculator.getMaxPointsComparison(calculationResult.result)
+                  const maxPointsComparison = optimizedCalculator.getMaxPointsComparison(currentCalculation.result)
                   return maxPointsComparison && maxPointsComparison.lossExp > 0 ? (
                     <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-start">
@@ -905,10 +904,10 @@ export default function LoungeCalculator() {
                           </p>
                           <p className="text-orange-700 text-sm">
                             매주 20포인트 모두 획득 및 장기 휴식 제한 없는 최적 전략 사용 시 사우나 {maxPointsComparison.lossSaunaHours.toFixed(1)}시간어치
-                            ({((maxPointsComparison.lossExp / calculationResult.result.totalExpectedExp) * 100).toFixed(1)}%) 추가 획득 가능
+                            ({((maxPointsComparison.lossExp / currentCalculation.result.totalExpectedExp) * 100).toFixed(1)}%) 추가 획득 가능
                           </p>
                           <p className="text-orange-600 text-xs">
-                            현재 설정: {calculationResult.result.totalExpectedExp.toFixed(3)} → 최대 포인트: {maxPointsComparison.maxPointsExp.toFixed(3)}
+                            현재 설정: {currentCalculation.result.totalExpectedExp.toFixed(3)} → 최대 포인트: {maxPointsComparison.maxPointsExp.toFixed(3)}
                           </p>
                         </div>
                       </div>
@@ -917,17 +916,17 @@ export default function LoungeCalculator() {
                 })()}
 
                 {/* 추천사항 */}
-                {calculationResult.result.recommendations.length > 0 && (
+                {currentCalculation.result.recommendations.length > 0 && (
                   <div className="mt-4">
                     <h4 className="font-medium text-gray-700 mb-2">추천사항:</h4>
                     <ul className="space-y-1">
-                      {calculationResult.result.recommendations.map((rec, index) => {
+                      {currentCalculation.result.recommendations.map((rec, index) => {
                         // "이번 주 추천: " 부분이 있으면 색상 적용
                         const prefix = '이번 주 추천: '
                         if (rec.startsWith(prefix)) {
                           const actionText = rec.substring(prefix.length)
                           // 현재 주차의 전략에서 actions 찾기
-                          const currentWeekStrategy = calculationResult.result?.weeklyStrategy.find(s => s.week === currentWeek)
+                          const currentWeekStrategy = currentCalculation.result?.weeklyStrategy.find(s => s.week === currentWeek)
                           if (currentWeekStrategy && currentWeekStrategy.actions.length > 0) {
                             const items = actionsToDetailedItems(currentWeekStrategy.actions, currentWeekStrategy.startLevels)
                             return (
@@ -981,36 +980,40 @@ export default function LoungeCalculator() {
                 </h2>
 
                 <div className="space-y-4">
-                  {calculationResult.result.weeklyStrategy.map((week) => (
+                  {currentCalculation.result.weeklyStrategy.map((week) => (
                     <WeeklyStrategyCard key={week.week} strategy={week} />
                   ))}
                 </div>
               </div>
               {/* 주차별 전략 섹션 끝 */}
             </>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <p className="text-gray-600 text-center">계산 결과가 여기에 표시됩니다</p>
-            </div>
-          )}
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                <p className="text-gray-600 text-center">계산 결과가 여기에 표시됩니다</p>
+              </div>
+            )
+          })()}
         </div>
       </div>
 
       {/* 내보내기 모달 */}
-      {calculationResult.result && (
-        <ExportModal
-          isOpen={isExportModalOpen}
-          onClose={() => setIsExportModalOpen(false)}
-          data={getExportData()!}
-          type="lounge"
-        />
-      )}
+      {(() => {
+        const currentCalculation = manualCalculation || autoCalculation
+        return currentCalculation.result && (
+          <ExportModal
+            isOpen={isExportModalOpen}
+            onClose={() => setIsExportModalOpen(false)}
+            data={getExportData()!}
+            type="lounge"
+          />
+        )
+      })()}
     </div>
   )
 }
 
 // 주차별 전략 카드 컴포넌트
-function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
+const WeeklyStrategyCard = memo(function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
   const [long, dynamic, snack] = strategy.endLevels
 
   return (
@@ -1099,4 +1102,4 @@ function WeeklyStrategyCard({ strategy }: { strategy: WeeklyStrategy }) {
       </div>
     </div>
   )
-}
+})

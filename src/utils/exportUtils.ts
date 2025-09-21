@@ -500,6 +500,24 @@ export function generateImageFromData(
       ctx.fillText(`${loungeData.currentWeek}주차, ${loungeData.remainingPoints}포인트, ${loungeData.remainingTimeThisWeek}시간 남은 상황에서`, 20, y)
       y += lineHeight + 3
       ctx.fillText(`장기 휴식 ${loungeData.skillLevels.long}Lv, 역동적 휴식 ${loungeData.skillLevels.dynamic}Lv, 간식 충전 ${loungeData.skillLevels.snack}Lv 기준`, 20, y)
+      y += lineHeight + 3
+
+      // 매주 획득 포인트 정보
+      const weeklyPointsText = (() => {
+        if (!loungeData.weeklyPoints || loungeData.weeklyPoints.length === 0) {
+          return '매주 20포인트 획득'
+        }
+        const futurePoints = loungeData.weeklyPoints.slice(loungeData.currentWeek)
+        const firstPoint = futurePoints[0]
+        const allSame = futurePoints.every(point => point === firstPoint)
+        if (allSame) {
+          return `${loungeData.currentWeek + 1}주차부터 매주 ${firstPoint}포인트 획득`
+        } else {
+          const pointsStr = futurePoints.join('/')
+          return `${loungeData.currentWeek + 1}주차부터 ${pointsStr}포인트 획득`
+        }
+      })()
+      ctx.fillText(weeklyPointsText, 20, y)
       y += sectionGap + 10
 
       // 총 결과 (메이플 폰트 - 중요한 결과)
@@ -735,6 +753,24 @@ export function generateImageFromData(
       ctx.fillText(`${loungeData.currentWeek}주차, ${loungeData.remainingPoints}포인트, ${loungeData.remainingTimeThisWeek}시간 남은 상황에서`, 20, y)
       y += lineHeight + 3
       ctx.fillText(`장기 휴식 ${loungeData.skillLevels.long}Lv, 역동적 휴식 ${loungeData.skillLevels.dynamic}Lv, 간식 충전 ${loungeData.skillLevels.snack}Lv 기준`, 20, y)
+      y += lineHeight + 3
+
+      // 매주 획득 포인트 정보
+      const weeklyPointsText = (() => {
+        if (!loungeData.weeklyPoints || loungeData.weeklyPoints.length === 0) {
+          return '매주 20포인트 획득'
+        }
+        const futurePoints = loungeData.weeklyPoints.slice(loungeData.currentWeek)
+        const firstPoint = futurePoints[0]
+        const allSame = futurePoints.every(point => point === firstPoint)
+        if (allSame) {
+          return `${loungeData.currentWeek + 1}주차부터 매주 ${firstPoint}포인트 획득`
+        } else {
+          const pointsStr = futurePoints.join('/')
+          return `${loungeData.currentWeek + 1}주차부터 ${pointsStr}포인트 획득`
+        }
+      })()
+      ctx.fillText(weeklyPointsText, 20, y)
       y += sectionGap + 10
 
       // 총 결과 (메이플 폰트 - 중요한 결과)
@@ -937,6 +973,7 @@ export interface LoungeCalculatorExportData {
   currentWeek: number
   remainingPoints: number
   remainingTimeThisWeek: number
+  weeklyPoints?: number[]
   skillLevels: {
     long: number    // 장기 휴식
     dynamic: number // 역동적 휴식
@@ -981,16 +1018,28 @@ export function exportLoungeCalculatorAsText(data: LoungeCalculatorExportData): 
   text += `현재 주차: ${data.currentWeek}주차\n`
   text += `남은 포인트: ${data.remainingPoints}포인트\n`
   text += `이번 주 남은 시간: ${data.remainingTimeThisWeek}시간\n`
+
+  // 매주 획득 포인트 정보
+  const weeklyPointsText = (() => {
+    if (!data.weeklyPoints || data.weeklyPoints.length === 0) {
+      return '매주 20포인트 획득'
+    }
+    const futurePoints = data.weeklyPoints.slice(data.currentWeek)
+    const firstPoint = futurePoints[0]
+    const allSame = futurePoints.every(point => point === firstPoint)
+    if (allSame) {
+      return `${data.currentWeek + 1}주차부터 매주 ${firstPoint}포인트 획득`
+    } else {
+      const pointsStr = futurePoints.join('/')
+      return `${data.currentWeek + 1}주차부터 ${pointsStr}포인트 획득`
+    }
+  })()
+  text += `${weeklyPointsText}\n`
   text += `현재 스킬 레벨: 장기 휴식 ${data.skillLevels.long}Lv, 역동적 휴식 ${data.skillLevels.dynamic}Lv, 간식 충전 ${data.skillLevels.snack}Lv\n`
 
   // 장기 휴식 제한 정보
   if (data.isLimited) {
     text += `⚠️ 장기 휴식 제한: 최대 ${data.maxLongRestLevel}레벨 (주당 ${data.weeklyMaxHours}시간 이내)\n`
-    if (data.lossComparedToUnlimited && data.lossComparedToUnlimited > 0) {
-      const timeDiff = data.unlimitedTotalTime! - data.totalExpectedTime
-      const expPercentage = ((data.lossComparedToUnlimited / data.totalExpectedExp) * 100).toFixed(1)
-      text += `   제한 없을 때 대비 ${timeDiff}시간 덜 잠수하여 사우나 ${data.lossComparedToUnlimited.toFixed(2)}시간어치 (${expPercentage}%) 손실\n`
-    }
   }
   text += `\n`
 

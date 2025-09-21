@@ -188,7 +188,11 @@ export const getBoostMultiplier = (l1: number, l2: number, l3: number): number =
 
   // 캐시에서 확인
   if (boostMultiplierCache.has(cacheKey)) {
-    return boostMultiplierCache.get(cacheKey)!
+    const value = boostMultiplierCache.get(cacheKey)!
+    // LRU: 키를 삭제했다가 다시 추가하여 최신으로 만듦
+    boostMultiplierCache.delete(cacheKey)
+    boostMultiplierCache.set(cacheKey, value)
+    return value
   }
 
   const levels = [l1, l2, l3].sort((a, b) => b - a) // 내림차순 정렬
@@ -202,7 +206,7 @@ export const getBoostMultiplier = (l1: number, l2: number, l3: number): number =
 
   // 캐시에 저장 (크기 제한)
   if (boostMultiplierCache.size >= MAX_BOOST_CACHE_SIZE) {
-    // 가장 오래된 항목 제거 (FIFO)
+    // 가장 오래된 항목 제거 (LRU)
     const firstKey = boostMultiplierCache.keys().next().value
     if (firstKey !== undefined) {
       boostMultiplierCache.delete(firstKey)
@@ -405,7 +409,11 @@ export const calculateExpWithTimingStrategy = (
   const fullCacheKey = (cacheKey << 17) | (remainingTimeInt & 0x1FFFF)
 
   if (expWithTimingStrategyCache.has(fullCacheKey)) {
-    return scaleToOriginal(expWithTimingStrategyCache.get(fullCacheKey)!)
+    const value = expWithTimingStrategyCache.get(fullCacheKey)!
+    // LRU: 키를 삭제했다가 다시 추가하여 최신으로 만듦
+    expWithTimingStrategyCache.delete(fullCacheKey)
+    expWithTimingStrategyCache.set(fullCacheKey, value)
+    return scaleToOriginal(value)
   }
 
   const [l1Start] = oldLevels
@@ -418,6 +426,7 @@ export const calculateExpWithTimingStrategy = (
 
   // 캐시에 저장 (크기 제한)
   if (expWithTimingStrategyCache.size >= MAX_EXP_TIMING_CACHE_SIZE) {
+    // 가장 오래된 항목 제거 (LRU)
     const firstKey = expWithTimingStrategyCache.keys().next().value
     if (firstKey !== undefined) {
       expWithTimingStrategyCache.delete(firstKey)
@@ -696,7 +705,11 @@ const generateSkillCombinations = (
 
   // 캐시에서 확인
   if (skillCombinationsCache.has(cacheKey)) {
-    return skillCombinationsCache.get(cacheKey)!
+    const value = skillCombinationsCache.get(cacheKey)!
+    // LRU: 키를 삭제했다가 다시 추가하여 최신으로 만듦
+    skillCombinationsCache.delete(cacheKey)
+    skillCombinationsCache.set(cacheKey, value)
+    return value
   }
 
   const [l1, l2, l3] = currentLevels
@@ -722,7 +735,7 @@ const generateSkillCombinations = (
 
   // 캐시에 저장 (크기 제한)
   if (skillCombinationsCache.size >= MAX_SKILL_COMBINATIONS_CACHE_SIZE) {
-    // 가장 오래된 항목 제거 (FIFO)
+    // 가장 오래된 항목 제거 (LRU)
     const firstKey = skillCombinationsCache.keys().next().value
     if (firstKey !== undefined) {
       skillCombinationsCache.delete(firstKey)
@@ -902,6 +915,7 @@ const backtrackPath = (
   weeklyStates: WeeklyStates,
   finalStateKey: number,
   startWeek: number,
+  initialLevels: SkillState,
   startRemainingPoints: number,
   weeklyPoints?: number[]
 ): WeeklyStrategy[] => {
@@ -911,6 +925,8 @@ const backtrackPath = (
   let currentStateKey = finalStateKey
 
   let totalAcquiredPoints = startRemainingPoints
+  const [l1, l2, l3] = skillStateToLevels(initialLevels)
+  totalAcquiredPoints += CUMULATIVE_COST[l1] + CUMULATIVE_COST[l2] + CUMULATIVE_COST[l3]
   if (weeklyPoints) {
     for (let week = startWeek + 1; week <= currentWeek; week++) {
       if (weeklyPoints && week <= weeklyPoints.length) {
@@ -1032,7 +1048,7 @@ export class OptimizedLoungeCalculator {
     for (const limit of [5, 8]) {
       const bestResult = bestExp.get(limit)
       if (bestResult && bestResult.totalExp >= 0) {
-        const path = backtrackPath(weeklyStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
+        const path = backtrackPath(weeklyStates, bestResult.stateKey, input.currentWeek, input.skillLevels, input.remainingPoints, input.weeklyPoints)
         this.precomputedResults.set(limit, {
           totalExp: bestResult.totalExp,
           path
@@ -1110,7 +1126,7 @@ export class OptimizedLoungeCalculator {
       const bestExp = findBestFinalStatesWithLimits(this.fullStates)
       const bestResult = bestExp.get(8)
       if (bestResult && bestResult.totalExp >= 0) {
-        const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
+        const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.skillLevels, input.remainingPoints, input.weeklyPoints)
         unlimitedResult = { totalExp: bestResult.totalExp, path }
       } else {
         unlimitedResult = { totalExp: 0, path: [] }
@@ -1126,7 +1142,7 @@ export class OptimizedLoungeCalculator {
         const bestExp = findBestFinalStatesWithLimits(this.fullStates)
         const bestResult = bestExp.get(maxLevel)
         if (bestResult && bestResult.totalExp >= 0) {
-          const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
+          const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.skillLevels, input.remainingPoints, input.weeklyPoints)
           limitedResult = { totalExp: bestResult.totalExp, path }
         } else {
           limitedResult = { totalExp: 0, path: [] }
@@ -1251,9 +1267,35 @@ export const generateShareText = (
   // 사우나 효율 계산
   const saunaEfficiency = calculateSaunaEfficiency(totalExpectedExp)
 
+  // 매주 획득 포인트 정보 생성
+  const weeklyPointsText = (() => {
+    if (!input.weeklyPoints || input.weeklyPoints.length === 0) {
+      return '매주 20포인트 획득'
+    }
+
+    // 2주차부터의 포인트들만 확인 (1주차는 남은 포인트에 포함됨)
+    const futurePoints = input.weeklyPoints.slice(currentWeek) // currentWeek부터 끝까지
+
+    if (futurePoints.length === 0) {
+      return '매주 20포인트 획득'
+    }
+
+    // 모든 포인트가 같은지 확인
+    const firstPoint = futurePoints[0]
+    const allSame = futurePoints.every(point => point === firstPoint)
+
+    if (allSame) {
+      return `${currentWeek + 1}주차부터 매주 ${firstPoint}포인트 획득`
+    } else {
+      const pointsStr = futurePoints.join('/')
+      return `${currentWeek + 1}주차부터 ${pointsStr}포인트 획득`
+    }
+  })()
+
   // 헤더 정보
   const lines: string[] = []
   lines.push(`${currentWeek}주차, ${remainingPoints}포인트, ${remainingTimeThisWeek}시간 남은 기준으로`)
+  lines.push(weeklyPointsText)
   lines.push(`이벤트 최대 참여 시 ${totalExpectedTime}시간동안 잠수 시 ${totalExpectedExp.toFixed(2)}시간 사우나와 동일한 효율`)
 
   // 주차별 전략
