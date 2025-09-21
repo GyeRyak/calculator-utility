@@ -314,13 +314,15 @@ export default function LoungeCalculator() {
         weeklyPoints
       }
 
-      // 입력 상태 해시 생성 (제한 설정 제외)
+      // 입력 상태 해시 생성 (제한 설정 포함)
       const currentState = JSON.stringify({
         currentWeek,
         skillLevels,
         remainingPoints,
         remainingTimeThisWeek,
-        weeklyPoints
+        weeklyPoints,
+        enableLongRestLimit,
+        maxLongRestLevel
       })
 
       // 기본 입력이 변경되면 캐시 초기화하고 재계산
