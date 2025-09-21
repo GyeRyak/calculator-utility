@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Calendar, Clock, Zap, Target, TrendingUp, Info, Share2 } from 'lucide-react'
+import { Calendar, Clock, Zap, Target, TrendingUp, Info, Share2, ChevronDown, ChevronUp } from 'lucide-react'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import DismissibleBanner from '../ui/DismissibleBanner'
 import ExportModal from '../ui/ExportModal'
@@ -36,6 +36,9 @@ import { type LoungeCalculatorExportData } from '../../utils/exportUtils'
 
 // 기본값 정의
 const getCurrentDefaultValues = () => {
+  // 기본 주간 포인트 배열 (1주차부터 9주차까지, 모든 주 20포인트)
+  const defaultWeeklyPoints = Array(9).fill(20)
+
   return {
     currentWeek: 1, // 기본값을 1주차로 설정
     skillLevels: {
@@ -47,7 +50,9 @@ const getCurrentDefaultValues = () => {
     remainingTimeThisWeek: 2, // 기본 2시간
     // 장기 휴식 제한 관련
     enableLongRestLimit: true, // 제한 활성화 여부
-    maxLongRestLevel: 5 // 기본 최대 레벨
+    maxLongRestLevel: 5, // 기본 최대 레벨
+    // 주간 획득 포인트 (1주차부터 9주차까지)
+    weeklyPoints: defaultWeeklyPoints
   }
 }
 
@@ -92,9 +97,15 @@ export default function LoungeCalculator() {
   const [enableLongRestLimit, setEnableLongRestLimit] = useState(DEFAULT_VALUES.enableLongRestLimit)
   const [maxLongRestLevel, setMaxLongRestLevel] = useState(DEFAULT_VALUES.maxLongRestLevel)
 
+  // 주간 획득 포인트 상태
+  const [weeklyPoints, setWeeklyPoints] = useState<number[]>(DEFAULT_VALUES.weeklyPoints)
+
   // 자동 계산 설정
   const [autoCalculate, setAutoCalculate] = useState(true)
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  // 주간 포인트 상세 입력 표시 상태
+  const [showWeeklyPointsDetail, setShowWeeklyPointsDetail] = useState(false)
 
   // 계산 결과
   const [calculationResult, setCalculationResult] = useState<CalculationResult>({
@@ -104,7 +115,7 @@ export default function LoungeCalculator() {
 
   // 최적화된 계산기 인스턴스
   const [optimizedCalculator] = useState(() => new OptimizedLoungeCalculator())
-  const [lastInputKey, setLastInputKey] = useState('')
+  const [lastCalculatorState, setLastCalculatorState] = useState<string>('')
 
   // 알림 시스템
   const { showNotification } = useNotification()
@@ -117,9 +128,10 @@ export default function LoungeCalculator() {
       remainingPoints,
       remainingTimeThisWeek,
       enableLongRestLimit,
-      maxLongRestLevel
+      maxLongRestLevel,
+      weeklyPoints
     }
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
 
   // 데이터 로드 (AutoSlotManager용)
   const loadData = useCallback((data: any, onComplete?: () => void) => {
@@ -129,6 +141,7 @@ export default function LoungeCalculator() {
     if (data.remainingTimeThisWeek !== undefined) setRemainingTimeThisWeek(data.remainingTimeThisWeek)
     if (data.enableLongRestLimit !== undefined) setEnableLongRestLimit(data.enableLongRestLimit)
     if (data.maxLongRestLevel !== undefined) setMaxLongRestLevel(data.maxLongRestLevel)
+    if (data.weeklyPoints !== undefined) setWeeklyPoints(data.weeklyPoints)
     if (onComplete) onComplete()
   }, [])
 
@@ -141,6 +154,7 @@ export default function LoungeCalculator() {
     setRemainingTimeThisWeek(newDefaults.remainingTimeThisWeek)
     setEnableLongRestLimit(newDefaults.enableLongRestLimit)
     setMaxLongRestLevel(newDefaults.maxLongRestLevel)
+    setWeeklyPoints(newDefaults.weeklyPoints)
   }, [])
 
   // Export 데이터 생성
@@ -216,9 +230,12 @@ export default function LoungeCalculator() {
     const oldWeek = currentWeek
     setCurrentWeek(newWeek)
 
-    // 스킬 포인트가 기존 주차의 최대값(20 × 기존주차)인 경우 새 주차에 맞게 업데이트
-    if (remainingPoints === oldWeek * 20) {
-      setRemainingPoints(newWeek * 20)
+    // 스킬 포인트가 기존 주차의 최대값인 경우 새 주차에 맞게 업데이트
+    const oldMaxPoints = weeklyPoints.slice(0, oldWeek).reduce((sum, points) => sum + points, 0)
+    const newMaxPoints = weeklyPoints.slice(0, newWeek).reduce((sum, points) => sum + points, 0)
+
+    if (remainingPoints === oldMaxPoints) {
+      setRemainingPoints(newMaxPoints)
     }
   }
 
@@ -238,6 +255,29 @@ export default function LoungeCalculator() {
       const timeIncrease = HOURS_INCREASE[newLevel] - HOURS_INCREASE[oldLevel]
       setRemainingTimeThisWeek(prev => prev + timeIncrease)
     }
+  }
+
+  // 특정 주차의 포인트 업데이트
+  const updateWeeklyPoint = (weekIndex: number, points: number) => {
+    const newPoints = points // Math.max(0, Math.min(20, points)) // 0~20 범위로 제한
+    setWeeklyPoints(prev => {
+      const newWeeklyPoints = [...prev]
+      newWeeklyPoints[weekIndex] = newPoints
+      return newWeeklyPoints
+    })
+  }
+
+  // 모든 미래 주차를 같은 포인트로 설정
+  const setAllFutureWeeksPoints = (points: number) => {
+    const validPoints = Math.max(0, Math.min(20, points))
+    setWeeklyPoints(prev => {
+      const newWeeklyPoints = [...prev]
+      // 현재 주차 이후의 모든 주차를 같은 포인트로 설정
+      for (let i = currentWeek; i < 9; i++) {
+        newWeeklyPoints[i] = validPoints
+      }
+      return newWeeklyPoints
+    })
   }
 
   // 실제 계산 로직 (자동/수동 계산 모두 사용)
@@ -270,22 +310,26 @@ export default function LoungeCalculator() {
         skillLevels,
         remainingPoints,
         remainingTimeThisWeek,
-        maxLongRestLevel: enableLongRestLimit ? maxLongRestLevel : undefined
+        maxLongRestLevel: enableLongRestLimit ? maxLongRestLevel : undefined,
+        weeklyPoints
       }
 
-      // 최적화된 계산기 사용
-      // 기본 입력(제한 제외)이 변경되면 재초기화, 제한만 변경되면 재구성만
-      // 실제 DP 시작 주차(currentWeek-1)를 포함한 키 생성
-      const actualStartWeek = currentWeek - 1
-      const inputKey = `${actualStartWeek}-${JSON.stringify(skillLevels)}-${remainingPoints}-${remainingTimeThisWeek}`
+      // 입력 상태 해시 생성 (제한 설정 제외)
+      const currentState = JSON.stringify({
+        currentWeek,
+        skillLevels,
+        remainingPoints,
+        remainingTimeThisWeek,
+        weeklyPoints
+      })
 
-      if (lastInputKey !== inputKey) {
-        // 기본 입력이 변경됨 - 전체 재계산 필요
+      // 기본 입력이 변경되면 캐시 초기화하고 재계산
+      if (lastCalculatorState !== currentState) {
         optimizedCalculator.calculateFull({
           ...input,
           maxLongRestLevel: undefined // 제한 없이 전체 계산
         })
-        setLastInputKey(inputKey)
+        setLastCalculatorState(currentState)
       }
 
       // 제한 레벨에 따른 결과 반환 (빠른 재구성)
@@ -305,7 +349,7 @@ export default function LoungeCalculator() {
         error: error instanceof Error ? error.message : '계산 중 오류가 발생했습니다.'
       }
     }
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
 
   // 자동 계산
   const calculate = useMemo(() => {
@@ -322,10 +366,10 @@ export default function LoungeCalculator() {
   const validationErrors = useMemo(() => {
     const errors: string[] = []
 
-    // 1. 현재 투자된 스킬 + 남은 스킬 포인트가 주차 × 20보다 큰 경우
+    // 1. 현재 투자된 스킬 + 남은 스킬 포인트가 현재 주차까지 최대 포인트보다 큰 경우
     const currentlyInvested = CUMULATIVE_COST[skillLevels.long] + CUMULATIVE_COST[skillLevels.dynamic] + CUMULATIVE_COST[skillLevels.snack]
     const totalPoints = currentlyInvested + remainingPoints
-    const maxPossiblePoints = currentWeek * 20
+    const maxPossiblePoints = 20 * currentWeek
 
     if (totalPoints > maxPossiblePoints) {
       errors.push(`투자된 포인트 + 남은 포인트(${totalPoints})가 ${currentWeek}주차 최대 포인트(${maxPossiblePoints})를 초과합니다.`)
@@ -343,7 +387,7 @@ export default function LoungeCalculator() {
     }
 
     return errors
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
 
   // 계산 결과 업데이트
   useEffect(() => {
@@ -375,7 +419,7 @@ export default function LoungeCalculator() {
       {/* 안내 배너 */}
       <DismissibleBanner
         bannerId="lounge-calculator-info"
-        message="📅 휴게실 이벤트 정보: 2025년 9월 18일 ~ 11월 19일 (9주). 주간 최대 20포인트 획득 가능."
+        message="📅 휴게실 이벤트 정보: 2025년 9월 18일 ~ 11월 19일 (9주). 주간 최대 20포인트 획득 가능. 휴게실에서 모든 메소레인저와 대화하면 메소레인저 화이트 코디 세트를 받을 수 있습니다. 놓치지 마세요!"
         bgColor="bg-blue-50"
         borderColor="border-blue-200"
         textColor="text-blue-800"
@@ -384,22 +428,22 @@ export default function LoungeCalculator() {
         showIcon={false}
       />
 
-      {/* 메소레인저 화이트 세트 안내 */}
+      {/* 메소레인저 화이트 다이아 세트 안내 */}
       <DismissibleBanner
         bannerId="lounge-mesoranger-white-set"
-        message="💡 휴게실에서 모든 메소레인저와 대화하면 메소레인저 화이트 코디 세트를 받을 수 있습니다. 놓치지 마세요!"
+        message="💡 [히든미션] 모든 메소레인저와 대화를 3일 진행하면 메소레인저 화이트 다이아 세트를 받을 수 있습니다. 놓치지 마세요!"
         bgColor="bg-yellow-50"
         borderColor="border-yellow-200"
         textColor="text-yellow-800"
-        linkHref="https://maplestory.nexon.com/News/Event/Ongoing/1200"
-        linkText="이벤트 페이지 보기"
+        linkHref="https://www.inven.co.kr/board/maple/5974/5678876"
+        linkText="관련 게시글 보기"
         showIcon={false}
       />
 
       {/* 포인트 계산 주의사항 안내 */}
       <DismissibleBanner
         bannerId="lounge-points-notice"
-        message="⚠️ 이번 주 포인트는 남은 스킬 포인트에 포함하여 작성해 주세요. 이후 다음 주차부터 매주 20포인트를 획득하는 것으로 가정합니다. 기본 설정(1주차/20포인트/2시간)을 제외한 상황에 대해서는 충분히 검증되지 않았으니 유의해 주세요."
+        message="⚠️ 기본 설정(1주차/20포인트/2시간/매주20포인트)을 제외한 상황에 대해서는 충분히 검증되지 않았으니 유의해 주세요."
         bgColor="bg-orange-50"
         borderColor="border-orange-200"
         textColor="text-orange-800"
@@ -516,6 +560,107 @@ export default function LoungeCalculator() {
             </div>
           </div>
           {/* 현재 상태 입력 섹션 끝 */}
+
+          {/* 주간 획득 포인트 설정 섹션 시작 */}
+          <div className="bg-white border rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center">
+              <Calendar className="mr-2 h-5 w-5" />
+              주간 획득 포인트 설정
+            </h2>
+
+            <div className="space-y-4">
+              {/* 기본 설정 영역 */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-medium text-blue-800">
+                    {currentWeek + 1}주차부터 9주차까지 기본 설정
+                  </h3>
+                  <span className="text-sm text-blue-600">
+                    ({9 - currentWeek}주간)
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-medium text-blue-700">
+                    모든 주차 포인트:
+                  </label>
+                  <NumberInput
+                    value={currentWeek < 9 ? weeklyPoints[currentWeek] : 20}
+                    onChange={(value) => setAllFutureWeeksPoints(value)}
+                    min={0}
+                    max={20}
+                    placeholder="포인트"
+                    className="w-24"
+                  />
+                  <span className="text-sm text-blue-600">포인트/주</span>
+                </div>
+
+                <div className="text-xs text-blue-600 mt-2 space-y-1">
+                  <p>💡 위 설정을 변경하면 {currentWeek + 1}주차부터 9주차까지 모든 주차가 같은 포인트로 설정됩니다.</p>
+                  <p>⚠️ {currentWeek}주차 포인트는 위의 '남은 스킬 포인트'에 합산하여 입력해 주세요.</p>
+                </div>
+              </div>
+
+              {/* 상세 설정 접기/펼치기 */}
+              {currentWeek < 9 && (
+                <div className="border border-gray-200 rounded-lg">
+                  <button
+                    onClick={() => setShowWeeklyPointsDetail(!showWeeklyPointsDetail)}
+                    className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="font-medium text-gray-700">
+                      주차별 상세 설정 ({currentWeek + 1}주차 ~ 9주차)
+                    </span>
+                    {showWeeklyPointsDetail ? (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+
+                  {showWeeklyPointsDetail && (
+                    <div className="border-t border-gray-200 p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {Array.from({ length: 9 - currentWeek }, (_, index) => {
+                          const weekIndex = currentWeek + index
+                          const weekNum = weekIndex + 1
+                          return (
+                            <div key={weekIndex} className="flex items-center gap-2">
+                              <label className="text-sm font-medium text-gray-600 min-w-[50px]">
+                                {weekNum}주차:
+                              </label>
+                              <NumberInput
+                                value={weeklyPoints[weekIndex]}
+                                onChange={(value) => updateWeeklyPoint(weekIndex, value)}
+                                min={0}
+                                max={20}
+                                placeholder="포인트"
+                                className="flex-1"
+                                forceCompact={true}
+                                size="sm"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="mt-3 p-3 bg-gray-50 rounded text-xs text-gray-600">
+                        💡 각 주차별로 0~20포인트 범위에서 획득할 포인트를 개별 설정할 수 있습니다.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 현재 주차가 9주차인 경우 안내 */}
+              {currentWeek >= 9 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600">9주차는 마지막 주차입니다. 추가 포인트 설정이 불필요합니다.</p>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* 주간 획득 포인트 설정 섹션 끝 */}
 
           {/* 스킬 레벨 입력 섹션 시작 */}
           <div className="bg-white border rounded-lg p-6">
@@ -728,18 +873,46 @@ export default function LoungeCalculator() {
                         <p className="text-yellow-700 text-sm">
                           주당 최대 {calculationResult.result.weeklyMaxHours}시간 잠수
                         </p>
-                        {calculationResult.result.lossComparedToUnlimited && calculationResult.result.lossComparedToUnlimited > 0 && (
+                        {calculationResult.result.lossComparedToUnlimited && calculationResult.result.lossComparedToUnlimited > 0 ? (
                           <p className="text-yellow-700 text-sm">
                             제한 없을 때 대비{' '}
                             {calculationResult.result.unlimitedTotalTime! - calculationResult.result.totalExpectedTime}시간 덜 잠수하여{' '}
                             사우나 {calculationResult.result.lossComparedToUnlimited.toFixed(2)}시간어치
                             ({((calculationResult.result.lossComparedToUnlimited / calculationResult.result.totalExpectedExp) * 100).toFixed(1)}%) 손실
                           </p>
+                        ) : (
+                          <p className="text-green-700 text-sm">
+                            ✅ 현재 설정에서는 제한이 최적 전략에 영향을 주지 않습니다. 제한을 풀어도 결과가 동일합니다.
+                          </p>
                         )}
                       </div>
                     </div>
                   </div>
                 )}
+
+                {/* 최대 포인트 미획득 경고 */}
+                {(() => {
+                  const maxPointsComparison = optimizedCalculator.getMaxPointsComparison(calculationResult.result)
+                  return maxPointsComparison && maxPointsComparison.lossExp > 0 ? (
+                    <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <span className="text-orange-600 mr-2">📈</span>
+                        <div className="space-y-2">
+                          <p className="text-orange-800 font-medium">
+                            최대 포인트 미획득
+                          </p>
+                          <p className="text-orange-700 text-sm">
+                            매주 20포인트 모두 획득 및 장기 휴식 제한 없는 최적 전략 사용 시 사우나 {maxPointsComparison.lossSaunaHours.toFixed(1)}시간어치
+                            ({((maxPointsComparison.lossExp / calculationResult.result.totalExpectedExp) * 100).toFixed(1)}%) 추가 획득 가능
+                          </p>
+                          <p className="text-orange-600 text-xs">
+                            현재 설정: {calculationResult.result.totalExpectedExp.toFixed(3)} → 최대 포인트: {maxPointsComparison.maxPointsExp.toFixed(3)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
 
                 {/* 추천사항 */}
                 {calculationResult.result.recommendations.length > 0 && (

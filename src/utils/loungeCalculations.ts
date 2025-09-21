@@ -495,6 +495,7 @@ export interface LoungeCalculatorInput {
   remainingPoints: number
   remainingTimeThisWeek: number
   maxLongRestLevel?: number // 장기 휴식 최대 레벨 제한 (null/undefined = 제한 없음)
+  weeklyPoints?: number[] // 주차별 획득 포인트 (1주차~9주차, undefined면 기본 20포인트)
 }
 
 // 계산 결과
@@ -761,12 +762,27 @@ const decodeSkillState = (state: number): [number, number, number] => {
   ]
 }
 
+// 주차별 포인트에서 특정 주차까지의 누적 포인트 계산
+const getTotalPointsUpToWeek = (weekIndex: number, weeklyPoints?: number[]): number => {
+  if (!weeklyPoints || weeklyPoints.length !== 9) {
+    // 기본값: 모든 주차에서 20포인트
+    return (weekIndex + 1) * LOUNGE_EVENT.WEEKLY_MAX_POINTS
+  }
+
+  let total = 0
+  for (let i = 0; i <= weekIndex && i < weeklyPoints.length; i++) {
+    total += weeklyPoints[i]
+  }
+  return total
+}
+
 // Forward DP 함수 (week별 분리)
 const findOptimalPathWithParents = (
   startWeek: number,
   startLevels: SkillLevels,
   remainingTimeThisWeek?: number,
-  currentRemainingPoints?: number
+  currentRemainingPoints?: number,
+  weeklyPoints?: number[]
 ): WeeklyStates => {
   const startLevelCost = CUMULATIVE_COST[startLevels[0]] + CUMULATIVE_COST[startLevels[1]] + CUMULATIVE_COST[startLevels[2]]
   const weeklyStates: WeeklyStates = {}
@@ -777,10 +793,15 @@ const findOptimalPathWithParents = (
   const startState = encodeSkillState(startLevels[0], startLevels[1], startLevels[2])
   weeklyStates[actualStartWeek].set(startState, { totalExp: 0 })
 
+  let availableMaxPoints = currentRemainingPoints || 0
+  const [l1, l2, l3] = startLevels
+  const initialPointsSpent = CUMULATIVE_COST[l1] + CUMULATIVE_COST[l2] + CUMULATIVE_COST[l3]
+  availableMaxPoints += initialPointsSpent
+
   // Forward DP: actualStartWeek부터 9주차까지
   for (let previousWeek = actualStartWeek; previousWeek < 9; previousWeek++) {
+    availableMaxPoints += previousWeek >= startWeek ? (weeklyPoints?.[previousWeek] || 0) : 0
     if (!weeklyStates[previousWeek]) continue // 이 주차에 도달 가능한 상태가 없음
-
     const currentWeekStates = weeklyStates[previousWeek]
 
     // 다음 주차 상태 맵 초기화
@@ -791,25 +812,10 @@ const findOptimalPathWithParents = (
     for (const [currentStateKey, currentInfo] of Array.from(currentWeekStates.entries())) {
       const [l1, l2, l3] = decodeSkillState(currentStateKey)
       const currentLevels: SkillLevels = [l1, l2, l3]
+      const currentPointsSpent = CUMULATIVE_COST[l1] + CUMULATIVE_COST[l2] + CUMULATIVE_COST[l3]
 
       // 사용 가능한 포인트 계산
-      const pointsSpentSoFar = CUMULATIVE_COST[l1] + CUMULATIVE_COST[l2] + CUMULATIVE_COST[l3]
-      let pointsAvailable: number
-
-      if (currentRemainingPoints !== undefined) {
-        if (previousWeek === actualStartWeek) {
-          // 시작 상태: 현재 남은 포인트만 사용
-          pointsAvailable = currentRemainingPoints
-        } else {
-          // 이후 주차: 시작시 남은 포인트 + 추가로 받은 포인트 - 추가로 사용한 포인트
-          const additionalPointsEarned = (targetWeek - startWeek) * 20
-          const totalAvailablePoints = currentRemainingPoints + additionalPointsEarned
-          const additionalPointsUsed = pointsSpentSoFar - startLevelCost
-          pointsAvailable = totalAvailablePoints - additionalPointsUsed
-        }
-      } else {
-        pointsAvailable = -1
-      }
+      let pointsAvailable = availableMaxPoints - currentPointsSpent
 
       if (pointsAvailable < 0) continue
 
@@ -896,12 +902,24 @@ const backtrackPath = (
   weeklyStates: WeeklyStates,
   finalStateKey: number,
   startWeek: number,
-  startRemainingPoints: number
+  startRemainingPoints: number,
+  weeklyPoints?: number[]
 ): WeeklyStrategy[] => {
   const traceResult: WeeklyStrategy[] = []
 
   let currentWeek = 9
   let currentStateKey = finalStateKey
+
+  let totalAcquiredPoints = startRemainingPoints 
+  console.log('startRemainingPoints', startRemainingPoints)
+  console.log('weeklyPoints', weeklyPoints)
+  if (weeklyPoints) {
+    for (let week = startWeek + 1; week <= currentWeek; week++) {
+      if (weeklyPoints && week <= weeklyPoints.length) {
+        totalAcquiredPoints += weeklyPoints[week-1] // week-1은 배열 인덱스
+      }
+    }
+  }
 
   // 9주차부터 actualStartWeek까지 역추적
   while (currentWeek >= startWeek) {
@@ -949,7 +967,9 @@ const backtrackPath = (
     const pastWeek = currentWeek - 1
     const pointsSpentAtStart = CUMULATIVE_COST[pl1] + CUMULATIVE_COST[pl2] + CUMULATIVE_COST[pl3]
     const upgradesCost = getUpgradeCost(startLevels, endLevels)
-    const remainingPoints = startRemainingPoints + (pastWeek * 20) - pointsSpentAtStart - upgradesCost
+
+    const totalSpentPoints = pointsSpentAtStart + upgradesCost
+    const remainingPoints = totalAcquiredPoints - totalSpentPoints
 
     // actions 저장
     const actions = currentInfo.weeklyUpgrade?.actions || []
@@ -969,8 +989,13 @@ const backtrackPath = (
 
     traceResult.unshift(weeklyStrategy) // 앞에 추가 (시간순으로)
 
+    console.log(`totalAcquiredPoints: ${totalAcquiredPoints}, currentWeek: ${currentWeek}, weeklyPoints: ${weeklyPoints?.[currentWeek - 1]}`)
     // 이전 주차로 이동
-    currentWeek--
+    if (currentWeek > startWeek) {
+      totalAcquiredPoints -= weeklyPoints?.[currentWeek - 1] || 0
+    }
+    currentWeek--    
+    console.log(`totalAcquiredPoints: ${totalAcquiredPoints}, currentWeek: ${currentWeek}, weeklyPoints: ${weeklyPoints?.[currentWeek - 1]}`)
     currentStateKey = currentInfo.pastState
   }
 
@@ -981,9 +1006,12 @@ const backtrackPath = (
 export class OptimizedLoungeCalculator {
   private fullStates: WeeklyStates | null = null
   private precomputedResults: Map<number, { totalExp: number; path: WeeklyStrategy[] }> = new Map()
+  private currentInput: LoungeCalculatorInput | null = null
+  private maxPointsResult: LoungeCalculationResult | null = null
 
   // 제한 없이 전체 계산 실행 (한 번만)
   calculateFull(input: LoungeCalculatorInput): void {
+    this.currentInput = input
     const skillLevels = skillStateToLevels(input.skillLevels)
 
     // 새로운 Forward DP 함수로 계산
@@ -991,10 +1019,15 @@ export class OptimizedLoungeCalculator {
       input.currentWeek,
       skillLevels,
       input.remainingTimeThisWeek,
-      input.remainingPoints
+      input.remainingPoints,
+      input.weeklyPoints
     )
 
     this.fullStates = weeklyStates
+
+    // 최대 포인트 시나리오 계산 (모든 주차 20포인트)
+    const maxWeeklyPoints = Array(9).fill(20)
+    this.calculateMaxPointsScenario(input, maxWeeklyPoints)
 
     // 9주차에서 제한별 최적값 찾기 (bestExp[0~8])
     const bestExp = findBestFinalStatesWithLimits(weeklyStates)
@@ -1003,12 +1036,60 @@ export class OptimizedLoungeCalculator {
     for (const limit of [5, 8]) {
       const bestResult = bestExp.get(limit)
       if (bestResult && bestResult.totalExp >= 0) {
-        const path = backtrackPath(weeklyStates, bestResult.stateKey, input.currentWeek, input.remainingPoints)
+        const path = backtrackPath(weeklyStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
         this.precomputedResults.set(limit, {
           totalExp: bestResult.totalExp,
           path
         })
       }
+    }
+  }
+
+  // 최대 포인트 시나리오 계산
+  private calculateMaxPointsScenario(baseInput: LoungeCalculatorInput, maxWeeklyPoints: number[]): void {
+    // 현재 주차 이후의 포인트만 비교 (이미 지난 주차는 변경할 수 없음)
+    const currentWeek = baseInput.currentWeek
+    const hasPointsDifference = baseInput.weeklyPoints?.some((points, index) => {
+      // 현재 주차 이후의 주차만 확인
+      return index >= currentWeek && points !== maxWeeklyPoints[index]
+    }) || !baseInput.weeklyPoints
+
+    if (!hasPointsDifference) {
+      // 이미 최대 포인트로 설정되어 있으면 계산하지 않음
+      this.maxPointsResult = null
+      return
+    }
+
+    try {
+      // 최대 포인트로 설정한 입력으로 계산
+      const maxPointsInput: LoungeCalculatorInput = {
+        ...baseInput,
+        weeklyPoints: maxWeeklyPoints
+      }
+
+      const result = optimizeLoungeStrategy(maxPointsInput)
+      this.maxPointsResult = result
+    } catch (error) {
+      console.warn('최대 포인트 시나리오 계산 실패:', error)
+      this.maxPointsResult = null
+    }
+  }
+
+  // 최대 포인트 대비 손실 정보 가져오기
+  getMaxPointsComparison(currentResult: LoungeCalculationResult): {
+    maxPointsExp: number;
+    lossExp: number;
+    lossSaunaHours: number
+  } | null {
+    if (!this.maxPointsResult || !this.currentInput) return null
+
+    const lossExp = this.maxPointsResult.totalExpectedExp - currentResult.totalExpectedExp
+    const lossSaunaHours = lossExp * 0.8
+
+    return {
+      maxPointsExp: this.maxPointsResult.totalExpectedExp,
+      lossExp,
+      lossSaunaHours
     }
   }
 
@@ -1033,7 +1114,7 @@ export class OptimizedLoungeCalculator {
       const bestExp = findBestFinalStatesWithLimits(this.fullStates)
       const bestResult = bestExp.get(8)
       if (bestResult && bestResult.totalExp >= 0) {
-        const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints)
+        const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
         unlimitedResult = { totalExp: bestResult.totalExp, path }
       } else {
         unlimitedResult = { totalExp: 0, path: [] }
@@ -1049,7 +1130,7 @@ export class OptimizedLoungeCalculator {
         const bestExp = findBestFinalStatesWithLimits(this.fullStates)
         const bestResult = bestExp.get(maxLevel)
         if (bestResult && bestResult.totalExp >= 0) {
-          const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints)
+          const path = backtrackPath(this.fullStates, bestResult.stateKey, input.currentWeek, input.remainingPoints, input.weeklyPoints)
           limitedResult = { totalExp: bestResult.totalExp, path }
         } else {
           limitedResult = { totalExp: 0, path: [] }
