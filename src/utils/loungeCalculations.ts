@@ -910,9 +910,7 @@ const backtrackPath = (
   let currentWeek = 9
   let currentStateKey = finalStateKey
 
-  let totalAcquiredPoints = startRemainingPoints 
-  console.log('startRemainingPoints', startRemainingPoints)
-  console.log('weeklyPoints', weeklyPoints)
+  let totalAcquiredPoints = startRemainingPoints
   if (weeklyPoints) {
     for (let week = startWeek + 1; week <= currentWeek; week++) {
       if (weeklyPoints && week <= weeklyPoints.length) {
@@ -989,13 +987,11 @@ const backtrackPath = (
 
     traceResult.unshift(weeklyStrategy) // 앞에 추가 (시간순으로)
 
-    console.log(`totalAcquiredPoints: ${totalAcquiredPoints}, currentWeek: ${currentWeek}, weeklyPoints: ${weeklyPoints?.[currentWeek - 1]}`)
     // 이전 주차로 이동
     if (currentWeek > startWeek) {
       totalAcquiredPoints -= weeklyPoints?.[currentWeek - 1] || 0
     }
-    currentWeek--    
-    console.log(`totalAcquiredPoints: ${totalAcquiredPoints}, currentWeek: ${currentWeek}, weeklyPoints: ${weeklyPoints?.[currentWeek - 1]}`)
+    currentWeek--
     currentStateKey = currentInfo.pastState
   }
 
