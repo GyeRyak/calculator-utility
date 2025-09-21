@@ -597,7 +597,7 @@ export default function LoungeCalculator() {
 
                 <div className="text-xs text-blue-600 mt-2 space-y-1">
                   <p>💡 위 설정을 변경하면 {currentWeek + 1}주차부터 9주차까지 모든 주차가 같은 포인트로 설정됩니다.</p>
-                  <p>⚠️ {currentWeek}주차 포인트는 위의 '남은 스킬 포인트'에 합산하여 입력해 주세요.</p>
+                  <p>⚠️ {currentWeek}주차 포인트는 위의 &apos;남은 스킬 포인트&apos;에 합산하여 입력해 주세요.</p>
                 </div>
               </div>
 
