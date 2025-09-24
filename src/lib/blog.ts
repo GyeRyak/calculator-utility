@@ -60,12 +60,7 @@ export async function getBlogPost(slug: string): Promise<BlogPost | null> {
       .use(remarkGfm)
       .use(remarkMath)
       .use(remarkRehype, { allowDangerousHtml: true })
-      .use(rehypeKatex, {
-        strict: 'warn',
-        throwOnError: false,
-        trust: true,
-        displayMode: false
-      })
+      .use(rehypeKatex)
       .use(rehypeStringify, { allowDangerousHtml: true })
       .process(matterResult.content)
 
