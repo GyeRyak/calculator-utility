@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee } from 'lucide-react'
+import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee, Sparkles } from 'lucide-react'
 
 const calculatorCategories = [
   {
@@ -39,13 +39,13 @@ const calculatorCategories = [
     available: true
   },
   {
-    id: 'calculator5',
-    title: '계산기 5',
-    description: '개발 예정',
-    icon: Cog,
-    href: null,
+    id: 'origami-event',
+    title: '록 스타 돌의 정령! 확률 계산기',
+    description: '알파벳 색종이 이벤트 달성 확률 계산 - 보유 자산과 구매 계획에 따른 성공 확률 분석',
+    icon: Sparkles,
+    href: '/calculators/origami',
     color: 'bg-pink-500',
-    available: false
+    available: true
   },
   {
     id: 'calculator6',

@@ -407,7 +407,14 @@ export default function LoungeCalculator() {
           >
             Dynamic Programming
           </a>
-          으로 계산합니다
+          으로 계산합니다 ({' '}
+          <a
+            href="/blog/agit-duo-lounge-dp"
+            className="text-purple-600 underline hover:no-underline text-sm"
+          >
+            관련 블로그 글 보기
+          </a>
+          {' '})
         </p>
       </div>
 

@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -87,4 +88,177 @@ body {
 
 .animate-slide-in-bottom {
   animation: slide-in-bottom 0.3s ease-out;
+}
+
+
+/* 블로그 콘텐츠 스타일링 */
+.blog-content {
+  line-height: 1.7;
+  color: hsl(var(--foreground));
+}
+
+.blog-content h1,
+.blog-content h2,
+.blog-content h3,
+.blog-content h4,
+.blog-content h5,
+.blog-content h6 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  scroll-margin-top: 2rem;
+}
+
+.blog-content h1 {
+  font-size: 2rem;
+  border-bottom: 2px solid hsl(var(--border));
+  padding-bottom: 0.5rem;
+}
+
+.blog-content h2 {
+  font-size: 1.75rem;
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 0.25rem;
+}
+
+.blog-content h3 {
+  font-size: 1.5rem;
+}
+
+.blog-content h4 {
+  font-size: 1.25rem;
+}
+
+.blog-content h5,
+.blog-content h6 {
+  font-size: 1rem;
+}
+
+.blog-content p {
+  margin-bottom: 1.5rem;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin-bottom: 1.5rem;
+  padding-left: 2rem;
+}
+
+.blog-content ul {
+  list-style-type: disc;
+}
+
+.blog-content ol {
+  list-style-type: decimal;
+}
+
+.blog-content ul ul {
+  list-style-type: circle;
+}
+
+.blog-content ul ul ul {
+  list-style-type: square;
+}
+
+.blog-content li {
+  margin-bottom: 0.5rem;
+}
+
+.blog-content blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: hsl(var(--muted-foreground));
+}
+
+.blog-content pre {
+  background-color: hsl(var(--muted));
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+}
+
+.blog-content code {
+  background-color: hsl(var(--muted));
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+  font-family: 'Courier New', monospace;
+}
+
+.blog-content pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.blog-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+}
+
+.blog-content th,
+.blog-content td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.blog-content th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.blog-content img {
+  max-width: 100%;
+  height: auto;
+  margin: 1.5rem 0;
+  border-radius: 0.5rem;
+}
+
+.blog-content a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.blog-content a:hover {
+  opacity: 0.8;
+}
+
+/* KaTeX 수식 스타일 조정 */
+.blog-content .katex {
+  font-size: 1.1em;
+}
+
+.blog-content .katex-display {
+  margin: 2rem 0;
+  overflow-x: auto;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .blog-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .blog-content h2 {
+    font-size: 1.5rem;
+  }
+
+  .blog-content h3 {
+    font-size: 1.25rem;
+  }
+
+  .blog-content pre {
+    padding: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .blog-content ul,
+  .blog-content ol {
+    padding-left: 1.5rem;
+  }
 } 

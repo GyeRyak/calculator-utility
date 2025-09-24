@@ -75,10 +75,20 @@ export function Navbar() {
                   >
                     휴게실 경험치 최적화 계산기
                   </Link>
+                  <Link
+                    href="/calculators/origami"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                  >
+                    록 스타 돌의 정령! (색종이 이벤트)
+                  </Link>
                 </div>
               )}
             </div>
             
+            <Link href="/blog" className="text-foreground hover:text-primary transition-colors">
+              블로그
+            </Link>
+
             <Link href="/about" className="text-foreground hover:text-primary transition-colors">
               소개
             </Link>
@@ -153,11 +163,26 @@ export function Navbar() {
                   >
                     휴게실 경험치 최적화 계산기
                   </Link>
+                  <Link
+                    href="/calculators/origami"
+                    className="block text-sm text-gray-600 hover:text-primary transition-colors py-1"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    록 스타 돌의 정령! (색종이 이벤트)
+                  </Link>
                 </div>
               </div>
               
-              <Link 
-                href="/about" 
+              <Link
+                href="/blog"
+                className="text-foreground hover:text-primary transition-colors px-2 py-1"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                블로그
+              </Link>
+
+              <Link
+                href="/about"
                 className="text-foreground hover:text-primary transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
