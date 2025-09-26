@@ -284,11 +284,9 @@ export interface TimingStrategy {
 }
 
 
-// calculateExpWithTimingStrategy 캐시 (환경별 크기 조정, 단순화된 키)
-const expWithTimingStrategyCache = new Map<number, number>()
-const MAX_EXP_TIMING_CACHE_SIZE = getCacheSize(1000)
+// 그리디 알고리즘으로 인해 캐시 불필요 (O(n) 시간 복잡도)
 
-// 장기휴식 타이밍 최적화를 위한 2차원 DP (경로 추적 포함)
+// 역방향 그리디 알고리즘으로 장기휴식 타이밍 최적화 (O(n) 시간 복잡도)
 const findOptimalLongRestTiming = (
   oldL1: number,
   newL1: number,
@@ -306,139 +304,80 @@ const findOptimalLongRestTiming = (
     }
   }
 
-  // DP 테이블: dp[step][integerHours][hasInitialTime] = 최대 경험치
-  // 키: (step << 8) | (integerHours << 1) | hasInitialTime
-  // step: 4비트, integerHours: 7비트, hasInitialTime: 1비트
-  const dp = new Map<number, number>()
-  // 경로 추적을 위한 parent 포인터
-  const parent = new Map<number, { prev: number; exhaustFirst: boolean }>()
+  // Backward pass: 역방향으로 순회하며 배율이 갱신될 때마다 소진 표시
+  const stepTiming: boolean[] = new Array(steps).fill(false)
+  let maxMultiplierSeen = 0
 
-  // 초기 상태: step=0, integerHours=0, hasInitialTime=true
-  const initialKey = (0 << 8) | (0 << 1) | 1
-  dp.set(initialKey, 0)
+  for (let level = newL1; level >= oldL1; level--) {
+    const multiplier = getTotalMultiplier(level, nl2, nl3)
 
-  // DP 전이
+    if (multiplier > maxMultiplierSeen) {
+      // 새로운 최대 배율 발견 - 이 레벨에서 소진
+      maxMultiplierSeen = multiplier
+
+      if (level < newL1) {
+        // 최종 레벨이 아닌 경우만 stepTiming에 설정
+        // stepTiming[i] = (oldL1+i) → (oldL1+i+1) 업그레이드 직전 소진 여부
+        const stepIndex = level - oldL1
+        if (stepIndex >= 0 && stepIndex < steps) {
+          stepTiming[stepIndex] = true
+        }
+      }
+      // level === newL1인 경우: 마지막 시간 소진은 항상 발생하므로 stepTiming에 포함 안함
+    }
+  }
+
+  // Forward pass: 경험치 계산 (기존 DP와 동일한 방식)
+  let totalExp = 0
+  let currentTime = initialTime
+  let currentLevel = oldL1
+
   for (let step = 0; step < steps; step++) {
-    const currentLevel = oldL1 + step
     const nextLevel = currentLevel + 1
     const timeAdded = HOURS_INCREASE[nextLevel] - HOURS_INCREASE[currentLevel]
 
-    for (const [key, exp] of Array.from(dp.entries())) {
-      const keyStep = key >> 8
-      if (keyStep !== step) continue
-
-      const integerHours = (key >> 1) & 0x7F
-      const hasInitialTime = (key & 1) === 1
-
-      // 현재 총 시간 계산
-      const currentTime = integerHours + (hasInitialTime ? initialTime : 0)
-
-      // 선택 1: 선소진 (시간 먼저 소진 후 업그레이드)
-      const multiplierCurrent = getTotalMultiplier(currentLevel, nl2, nl3)
-      const expFromCurrentTime = currentTime * multiplierCurrent
-      // 선소진 후에는 추가된 정수 시간만 남음 (initialTime 소진됨)
-      const newKey1 = ((step + 1) << 8) | (timeAdded << 1) | 0
-      const newExp1 = exp + expFromCurrentTime
-
-      if (!dp.has(newKey1) || dp.get(newKey1)! < newExp1) {
-        dp.set(newKey1, newExp1)
-        parent.set(newKey1, { prev: key, exhaustFirst: true })
-      }
-
-      // 선택 2: 선업글 (업그레이드 후 시간 누적)
-      const newIntegerHours = integerHours + timeAdded
-      const newKey2 = ((step + 1) << 8) | (newIntegerHours << 1) | (hasInitialTime ? 1 : 0)
-
-      if (!dp.has(newKey2) || dp.get(newKey2)! < exp) {
-        dp.set(newKey2, exp)
-        parent.set(newKey2, { prev: key, exhaustFirst: false })
-      }
+    if (stepTiming[step]) {
+      // 현재 레벨에서 시간 소진 후 업그레이드
+      const multiplier = getTotalMultiplier(currentLevel, nl2, nl3)
+      totalExp += currentTime * multiplier
+      currentTime = timeAdded // 업그레이드로 추가된 시간만 남음
+    } else {
+      // 선업글: 시간 누적
+      currentTime += timeAdded
     }
+
+    currentLevel = nextLevel
   }
 
-  // 최종 단계에서 최대 경험치와 해당 상태 찾기
-  let maxExp = 0
-  let bestFinalState = 0
-  const finalMultiplier = getTotalMultiplier(newL1, nl2, nl3)
-
-  for (const [key, exp] of Array.from(dp.entries())) {
-    const keyStep = key >> 8
-    if (keyStep !== steps) continue
-
-    const integerHours = (key >> 1) & 0x7F
-    const hasInitialTime = (key & 1) === 1
-
-    // 최종 총 시간 계산
-    const finalTime = integerHours + (hasInitialTime ? initialTime : 0)
-    const finalExp = exp + finalTime * finalMultiplier
-
-    if (finalExp > maxExp) {
-      maxExp = finalExp
-      bestFinalState = key
-    }
+  // 마지막에 남은 시간 소진 (최종 레벨에서)
+  if (currentTime > 0) {
+    const finalMultiplier = getTotalMultiplier(newL1, nl2, nl3)
+    totalExp += currentTime * finalMultiplier
   }
 
-  // 경로 복원을 통해 strategy 생성
-  const stepTiming: boolean[] = []
-  let currentState = bestFinalState
-
-  while (parent.has(currentState)) {
-    const parentInfo = parent.get(currentState)!
-    stepTiming.unshift(parentInfo.exhaustFirst) // 앞에 추가 (역순이므로)
-    currentState = parentInfo.prev
-  }
-
-  const strategy: TimingStrategy = {
-    stepTiming
-  }
-
-  return { maxExp, strategy }
+  const strategy: TimingStrategy = { stepTiming }
+  return { maxExp: totalExp, strategy }
 }
 
-// 하이브리드 타이밍 전략으로 경험치 계산 (2차원 DP 사용)
+// 그리디 알고리즘으로 경험치 계산 (캐싱 불필요)
 export const calculateExpWithTimingStrategy = (
   oldLevels: SkillLevels,
   newLevels: SkillLevels,
   strategy: TimingStrategy,
   remainingTimeThisWeek?: number
 ): number => {
-  // 단순화된 캐시 키 (oldL1, newL1, nl2, nl3, time만 사용)
-  const remainingTimeInt = remainingTimeThisWeek !== undefined ? Math.floor(remainingTimeThisWeek * 100) : 99999
-  const cacheKey = (oldLevels[0] << 20) | (newLevels[0] << 16) |
-                   (newLevels[1] << 12) | (newLevels[2] << 8)
-  const fullCacheKey = (cacheKey << 17) | (remainingTimeInt & 0x1FFFF)
-
-  if (expWithTimingStrategyCache.has(fullCacheKey)) {
-    const value = expWithTimingStrategyCache.get(fullCacheKey)!
-    // LRU: 키를 삭제했다가 다시 추가하여 최신으로 만듦
-    expWithTimingStrategyCache.delete(fullCacheKey)
-    expWithTimingStrategyCache.set(fullCacheKey, value)
-    return scaleToOriginal(value)
-  }
-
   const [l1Start] = oldLevels
   const [nl1, nl2, nl3] = newLevels
   const initialTime = remainingTimeThisWeek !== undefined ? remainingTimeThisWeek : getTotalTime(l1Start)
 
-  // 2차원 DP로 최적 경험치 계산
+  // 그리디 알고리즘으로 최적 경험치 계산
   const result = findOptimalLongRestTiming(l1Start, nl1, nl2, nl3, initialTime)
-  const totalExp = result.maxExp
-
-  // 캐시에 저장 (크기 제한)
-  if (expWithTimingStrategyCache.size >= MAX_EXP_TIMING_CACHE_SIZE) {
-    // 가장 오래된 항목 제거 (LRU)
-    const firstKey = expWithTimingStrategyCache.keys().next().value
-    if (firstKey !== undefined) {
-      expWithTimingStrategyCache.delete(firstKey)
-    }
-  }
-  expWithTimingStrategyCache.set(fullCacheKey, totalExp)
-  return scaleToOriginal(totalExp)
+  return scaleToOriginal(result.maxExp)
 }
 
 
 
-// 장기휴식 관련 모든 계산을 DP로 통합 처리
+// 장기휴식 관련 모든 계산을 그리디로 통합 처리
 export const findOptimalTimingStrategy = (
   oldLevels: SkillLevels,
   newLevels: SkillLevels,
@@ -458,7 +397,7 @@ export const findOptimalTimingStrategy = (
     }
   }
 
-  // DP를 통한 최적 타이밍 계산
+  // 그리디를 통한 최적 타이밍 계산
   const result = findOptimalLongRestTiming(l1Start, nl1, nl2, nl3, initialTime)
   return {
     strategy: result.strategy,
