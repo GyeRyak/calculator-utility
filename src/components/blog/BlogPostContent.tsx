@@ -18,18 +18,28 @@ export function BlogPostContent({ post }: BlogPostContentProps) {
     const generateTocFromDOM = () => {
       const headings = document.querySelectorAll('.blog-content h1, .blog-content h2, .blog-content h3, .blog-content h4, .blog-content h5, .blog-content h6')
       const tocItems: { id: string; text: string; level: number }[] = []
+      const usedIds = new Set<string>()
 
-      headings.forEach((heading) => {
+      headings.forEach((heading, index) => {
         const text = heading.textContent || ''
         const tagName = heading.tagName.toLowerCase()
         const level = parseInt(tagName.charAt(1))
-        const id = text
+        let id = text
           .toLowerCase()
           .replace(/[^\w\s-가-힣]/g, '')
           .replace(/\s+/g, '-')
 
-        heading.id = id
-        tocItems.push({ id, text, level })
+        // 중복 ID 처리: 숫자 접미사 추가
+        let uniqueId = id
+        let counter = 1
+        while (usedIds.has(uniqueId)) {
+          uniqueId = `${id}-${counter}`
+          counter++
+        }
+        usedIds.add(uniqueId)
+
+        heading.id = uniqueId
+        tocItems.push({ id: uniqueId, text, level })
       })
 
       setToc(tocItems)

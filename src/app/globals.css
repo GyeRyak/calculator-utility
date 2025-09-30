@@ -264,8 +264,12 @@ body {
 }
 
 /* 광고 차단 시 빈 컨테이너 숨김 처리 */
+/* .adsbygoogle가 없거나, 있어도 비어있으면 숨김 */
 .ad-container:not(:has(.adsbygoogle)),
+.ad-container:has(.adsbygoogle:empty),
 .adsense-container:not(:has(.adsbygoogle)),
-.multiplex-container:not(:has(.adsbygoogle)) {
+.adsense-container:has(.adsbygoogle:empty),
+.multiplex-container:not(:has(.adsbygoogle)),
+.multiplex-container:has(.adsbygoogle:empty) {
   display: none;
 } 
