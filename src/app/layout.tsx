@@ -5,6 +5,7 @@ import { Navbar } from '@/components/layout/Navbar'
 import CookieProvider from '@/components/providers/CookieProvider'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import GoogleAnalytics from '@/components/GoogleAnalytics'
+import { AdSenseScript } from '@/components/AdSenseScript'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -56,6 +57,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} min-h-screen bg-background flex flex-col`}>
+        <AdSenseScript />
         <CookieProvider>
           <NotificationProvider>
             <Navbar />

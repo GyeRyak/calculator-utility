@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+// import { Toaster } from 'react-hot-toast'
 import { BlogPost, formatDate } from '@/lib/blog-types'
+// import { CommentSection } from './CommentSection'
+import { AdSenseInArticle } from '@/components/ads/AdSenseInArticle'
 
 interface BlogPostContentProps {
   post: BlogPost
@@ -96,11 +99,20 @@ export function BlogPostContent({ post }: BlogPostContentProps) {
         </div>
       )}
 
+      {/* 광고 1: 목차 아래 */}
+      <AdSenseInArticle adSlot="8083207095" />
+
       {/* 블로그 본문 */}
       <div
         className="blog-content prose prose-lg max-w-none"
         dangerouslySetInnerHTML={{ __html: post.content }}
       />
+
+      {/* 광고 2: 댓글창 위 */}
+      <AdSenseInArticle adSlot="2511316219" />
+
+      {/* 댓글 및 피드백 섹션 - 임시 비활성화 */}
+      {/* <CommentSection postSlug={post.slug} postTitle={post.title} /> */}
 
       {/* 하단 네비게이션 */}
       <footer className="mt-12 pt-8 border-t border-gray-200">
@@ -113,6 +125,18 @@ export function BlogPostContent({ post }: BlogPostContentProps) {
           </a>
         </div>
       </footer>
+
+      {/* Toast 알림 - 임시 비활성화 */}
+      {/* <Toaster
+        position="bottom-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+        }}
+      /> */}
     </article>
   )
 }

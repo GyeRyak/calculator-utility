@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import OrigamiCalculator from '@/components/calculators/OrigamiCalculator';
+import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 
 export const metadata: Metadata = {
   title: '록 스타 돌의 정령! 계산기 | 메이플 계산기',
@@ -30,6 +31,11 @@ export default function OrigamiPage() {
         </div>
 
         <OrigamiCalculator />
+
+        {/* 광고: 계산기 아래, 푸터 위 */}
+        <div className="mt-12">
+          <AdSenseUnit adSlot="2796781897" />
+        </div>
       </div>
     </main>
   );

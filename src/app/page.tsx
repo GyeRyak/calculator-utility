@@ -1,5 +1,6 @@
 import { CalculatorGrid } from '@/components/CalculatorGrid'
 import { Hero } from '@/components/Hero'
+import { AdSenseBanner } from '@/components/ads/AdSenseBanner'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -21,6 +22,10 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <Hero />
+
+      {/* 광고: Hero 아래, 계산기 그리드 위 */}
+      <AdSenseBanner adSlot="1483700226" />
+
       <CalculatorGrid />
     </div>
   )

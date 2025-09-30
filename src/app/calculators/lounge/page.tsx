@@ -1,4 +1,5 @@
 import LoungeCalculator from '@/components/calculators/LoungeCalculator'
+import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -31,5 +32,14 @@ export const metadata: Metadata = {
 }
 
 export default function LoungePage() {
-  return <LoungeCalculator />
+  return (
+    <>
+      <LoungeCalculator />
+
+      {/* 광고: 계산기 아래, 푸터 위 */}
+      <div className="max-w-6xl mx-auto mt-12 px-4">
+        <AdSenseUnit adSlot="1517798748" />
+      </div>
+    </>
+  )
 }

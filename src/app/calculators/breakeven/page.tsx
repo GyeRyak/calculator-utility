@@ -1,5 +1,6 @@
 import { BreakevenCalculator } from '@/components/calculators/BreakevenCalculator'
 import { StructuredData } from '@/components/StructuredData'
+import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default function BreakevenCalculatorPage() {
   return (
     <>
-      <StructuredData 
+      <StructuredData
         name="드메템 손익분기 계산기"
         description="메이플스토리 드롭률/메소 획득량 증가 아이템 구매 손익분기점 계산"
         url="https://www.maplecalc.com/calculators/breakeven"
@@ -29,6 +30,11 @@ export default function BreakevenCalculatorPage() {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">드메템 손익분기 계산기</h1>
         <BreakevenCalculator />
+
+        {/* 광고: 계산기 아래, 푸터 위 */}
+        <div className="mt-12">
+          <AdSenseUnit adSlot="4171882243" />
+        </div>
       </div>
     </>
   )
