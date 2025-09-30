@@ -5,6 +5,7 @@ import {
   calculateProbabilityDistribution,
   SLOT_WORD_COUNTS,
   WORD_LISTS,
+  groupWordsByCategory,
   type TitleState,
   type TargetCombination,
   type CalculationResult,
@@ -20,9 +21,9 @@ import { Search, Check } from 'lucide-react';
 const DEFAULT_VALUES = {
   currentState: [0, 0, 0] as TitleState,
   targetCombination: {
-    X: WORD_LISTS.X[0],
-    Y: WORD_LISTS.Y[0],
-    Z: WORD_LISTS.Z[0]
+    X: '나랏말싸미',
+    Y: '전설의',
+    Z: '한글'
   } as TargetCombination
 };
 
@@ -58,15 +59,43 @@ export default function HangeulTitleCalculator() {
     Y: null,
     Z: null
   });
+  const scrollContainerRefs = useRef<Record<SlotType, HTMLDivElement | null>>({
+    X: null,
+    Y: null,
+    Z: null
+  });
+  const selectedWordRefs = useRef<Record<SlotType, HTMLButtonElement | null>>({
+    X: null,
+    Y: null,
+    Z: null
+  });
 
   // 필터링된 단어 목록 (한국어 fuzzy search + 초성 검색 지원)
-  const getFilteredWords = (slot: SlotType): Array<{ word: string; highlighted: string }> => {
+  const getFilteredWords = (slot: SlotType): Array<{ word: string; highlighted: string; category?: string }> => {
     const query = searchQueries[slot];
     if (!query) {
-      // 검색어가 없으면 전체 목록 반환 (하이라이트 없음)
-      return WORD_LISTS[slot].map(word => ({ word, highlighted: word }));
+      // 검색어가 없으면 카테고리별로 그룹화해서 반환
+      const grouped = groupWordsByCategory(WORD_LISTS[slot]);
+      const result: Array<{ word: string; highlighted: string; category?: string }> = [];
+
+      for (const group of grouped) {
+        // 카테고리 헤더 추가
+        result.push({
+          word: `__CATEGORY_${group.category}__`,
+          highlighted: group.category,
+          category: group.category
+        });
+
+        // 해당 카테고리의 단어들 추가
+        for (const word of group.words) {
+          result.push({ word, highlighted: word });
+        }
+      }
+
+      return result;
     }
 
+    // 검색어가 있으면 검색 결과만 반환 (카테고리 헤더 없음)
     const results = searchKorean(query, WORD_LISTS[slot], {
       maxResults: 50
     });
@@ -114,6 +143,28 @@ export default function HangeulTitleCalculator() {
     });
   };
 
+  // 선택된 단어로 스크롤
+  const scrollToSelectedWord = (slot: SlotType) => {
+    setTimeout(() => {
+      const container = scrollContainerRefs.current[slot];
+      const selectedButton = selectedWordRefs.current[slot];
+
+      if (container && selectedButton) {
+        const containerRect = container.getBoundingClientRect();
+        const buttonRect = selectedButton.getBoundingClientRect();
+        const scrollTop = container.scrollTop;
+
+        // 버튼이 컨테이너의 중앙에 오도록 스크롤
+        const targetScroll = scrollTop + (buttonRect.top - containerRect.top) - (containerRect.height / 2) + (buttonRect.height / 2);
+
+        container.scrollTo({
+          top: targetScroll,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
+  };
+
   // 목표 조합 변경
   const handleTargetChange = (slot: SlotType, value: string) => {
     setTargetCombination(prev => ({
@@ -122,6 +173,9 @@ export default function HangeulTitleCalculator() {
     }));
     setSearchQueries(prev => ({ ...prev, [slot]: '' }));
     setSelectedIndices(prev => ({ ...prev, [slot]: -1 }));
+
+    // 선택 후 스크롤
+    scrollToSelectedWord(slot);
   };
 
   // 키보드 이벤트 핸들러
@@ -129,22 +183,50 @@ export default function HangeulTitleCalculator() {
     const filteredWords = getFilteredWords(slot);
     const currentIndex = selectedIndices[slot];
 
+    // 카테고리 헤더가 아닌 다음 인덱스 찾기
+    const findNextValidIndex = (startIdx: number, direction: 1 | -1): number => {
+      let idx = startIdx;
+      const maxAttempts = filteredWords.length;
+      let attempts = 0;
+
+      while (attempts < maxAttempts) {
+        idx = direction === 1
+          ? (idx < filteredWords.length - 1 ? idx + 1 : 0)
+          : (idx > 0 ? idx - 1 : filteredWords.length - 1);
+
+        // 카테고리 헤더가 아니면 반환
+        if (!filteredWords[idx]?.word.startsWith('__CATEGORY_')) {
+          return idx;
+        }
+
+        attempts++;
+      }
+
+      return startIdx; // 유효한 인덱스를 못 찾으면 원래 인덱스 반환
+    };
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      const nextIndex = currentIndex < filteredWords.length - 1 ? currentIndex + 1 : 0;
+      const nextIndex = findNextValidIndex(currentIndex, 1);
       setSelectedIndices(prev => ({ ...prev, [slot]: nextIndex }));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      const prevIndex = currentIndex > 0 ? currentIndex - 1 : filteredWords.length - 1;
+      const prevIndex = findNextValidIndex(currentIndex, -1);
       setSelectedIndices(prev => ({ ...prev, [slot]: prevIndex }));
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (currentIndex >= 0 && currentIndex < filteredWords.length) {
-        // 선택된 아이템이 있으면 선택
-        handleTargetChange(slot, filteredWords[currentIndex].word);
+        const selectedWord = filteredWords[currentIndex];
+        // 카테고리 헤더가 아닌 경우에만 선택
+        if (!selectedWord.word.startsWith('__CATEGORY_')) {
+          handleTargetChange(slot, selectedWord.word);
+        }
       } else if (filteredWords.length > 0) {
-        // 선택된 아이템이 없으면 첫 번째 선택
-        handleTargetChange(slot, filteredWords[0].word);
+        // 선택된 아이템이 없으면 첫 번째 유효한 단어 선택
+        const firstValid = filteredWords.find(w => !w.word.startsWith('__CATEGORY_'));
+        if (firstValid) {
+          handleTargetChange(slot, firstValid.word);
+        }
       }
     } else if (e.key === 'Tab') {
       // 탭 키는 기본 동작 유지 (다음 검색창으로 포커스 이동)
@@ -186,6 +268,13 @@ export default function HangeulTitleCalculator() {
       setJustLoaded(false);
     }
   }, [currentState, targetCombination, calculate, justLoaded]);
+
+  // 페이지 로드 시 또는 targetCombination 변경 시 선택된 단어로 스크롤
+  useEffect(() => {
+    (['X', 'Y', 'Z'] as SlotType[]).forEach(slot => {
+      scrollToSelectedWord(slot);
+    });
+  }, [targetCombination]);
 
   const slotNames: Record<number, string> = {
     0: 'X',
@@ -285,14 +374,37 @@ export default function HangeulTitleCalculator() {
                 </div>
 
                 {/* 단어 목록 (항상 표시) */}
-                <div className="h-64 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm" tabIndex={-1}>
-                  {getFilteredWords(slot).map(({ word, highlighted }, index) => {
+                <div
+                  ref={(el) => {
+                    scrollContainerRefs.current[slot] = el;
+                  }}
+                  className="h-64 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm"
+                  tabIndex={-1}
+                >
+                  {getFilteredWords(slot).map(({ word, highlighted, category }, index) => {
+                    // 카테고리 헤더인 경우
+                    if (word.startsWith('__CATEGORY_')) {
+                      return (
+                        <div
+                          key={word}
+                          className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-50 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-300 z-10"
+                        >
+                          {highlighted}
+                        </div>
+                      );
+                    }
+
                     const isSelected = targetCombination[slot] === word;
                     const isHighlighted = selectedIndices[slot] === index;
 
                     return (
                       <button
-                        key={word}
+                        key={`${word}_${index}`}
+                        ref={(el) => {
+                          if (isSelected) {
+                            selectedWordRefs.current[slot] = el;
+                          }
+                        }}
                         onClick={() => handleTargetChange(slot, word)}
                         tabIndex={-1}
                         className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors ${
