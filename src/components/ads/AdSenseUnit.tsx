@@ -82,11 +82,6 @@ export function AdSenseUnit({
 
   return (
     <div className={className}>
-      <style jsx>{`
-        .adsense-container:not(:has(.adsbygoogle)) {
-          display: none;
-        }
-      `}</style>
       <div
         ref={adRef}
         className="adsense-container"

@@ -68,11 +68,6 @@ export function AdSenseMultiplex({ adSlot, className = '' }: AdSenseMultiplexPro
 
   return (
     <div className={`my-8 ${className}`}>
-      <style jsx>{`
-        .multiplex-container:not(:has(.adsbygoogle)) {
-          display: none;
-        }
-      `}</style>
       <div
         ref={adRef}
         className="multiplex-container"

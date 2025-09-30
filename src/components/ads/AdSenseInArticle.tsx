@@ -69,11 +69,6 @@ export function AdSenseInArticle({ adSlot, className = '' }: AdSenseInArticlePro
 
   return (
     <div className={`my-8 ${className}`}>
-      <style jsx>{`
-        .ad-container:not(:has(.adsbygoogle)) {
-          display: none;
-        }
-      `}</style>
       <div
         ref={adRef}
         className="ad-container"
