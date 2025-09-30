@@ -23,7 +23,6 @@ declare global {
  */
 export function AdSenseMultiplex({ adSlot, className = '' }: AdSenseMultiplexProps) {
   const adRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -67,29 +66,16 @@ export function AdSenseMultiplex({ adSlot, className = '' }: AdSenseMultiplexPro
     }
   }, [isVisible, isLoaded])
 
-  // 광고 차단 감지 및 컨테이너 숨김
-  useEffect(() => {
-    if (!isLoaded || !adRef.current || !containerRef.current) return
-
-    const checkAdBlocked = () => {
-      const insElement = adRef.current?.querySelector('.adsbygoogle')
-      if (!insElement) {
-        // ins 요소가 제거되었으면 광고 차단으로 판단
-        if (containerRef.current) {
-          containerRef.current.style.display = 'none'
-        }
-      }
-    }
-
-    // 광고 로드 시도 후 1초 뒤 체크
-    const timer = setTimeout(checkAdBlocked, 1000)
-    return () => clearTimeout(timer)
-  }, [isLoaded])
-
   return (
-    <div ref={containerRef} className={`my-8 ${className}`}>
+    <div className={`my-8 ${className}`}>
+      <style jsx>{`
+        .multiplex-container:not(:has(.adsbygoogle)) {
+          display: none;
+        }
+      `}</style>
       <div
         ref={adRef}
+        className="multiplex-container"
         style={{
           minHeight: '250px',
           display: 'flex',

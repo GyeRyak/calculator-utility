@@ -36,7 +36,6 @@ export function AdSenseUnit({
   showLabel = true
 }: AdSenseUnitProps) {
   const adRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
   const [isVisible, setIsVisible] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -81,27 +80,13 @@ export function AdSenseUnit({
     }
   }, [isVisible, isLoaded])
 
-  // 광고 차단 감지 및 컨테이너 숨김
-  useEffect(() => {
-    if (!isLoaded || !adRef.current || !containerRef.current) return
-
-    const checkAdBlocked = () => {
-      const insElement = adRef.current?.querySelector('.adsbygoogle')
-      if (!insElement) {
-        // ins 요소가 제거되었으면 광고 차단으로 판단
-        if (containerRef.current) {
-          containerRef.current.style.display = 'none'
-        }
-      }
-    }
-
-    // 광고 로드 시도 후 1초 뒤 체크
-    const timer = setTimeout(checkAdBlocked, 1000)
-    return () => clearTimeout(timer)
-  }, [isLoaded])
-
   return (
-    <div ref={containerRef} className={className}>
+    <div className={className}>
+      <style jsx>{`
+        .adsense-container:not(:has(.adsbygoogle)) {
+          display: none;
+        }
+      `}</style>
       <div
         ref={adRef}
         className="adsense-container"
