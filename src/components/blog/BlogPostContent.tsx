@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 // import { Toaster } from 'react-hot-toast'
 import { BlogPost, formatDate } from '@/lib/blog-types'
 // import { CommentSection } from './CommentSection'
-import { AdSenseInArticle } from '@/components/ads/AdSenseInArticle'
+import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 
 interface BlogPostContentProps {
   post: BlogPost
@@ -110,7 +110,9 @@ export function BlogPostContent({ post }: BlogPostContentProps) {
       )}
 
       {/* 광고 1: 목차 아래 */}
-      <AdSenseInArticle adSlot="8083207095" />
+      <div className="my-8">
+        <AdSenseUnit adSlot="8083207095" adFormat="horizontal" />
+      </div>
 
       {/* 블로그 본문 */}
       <div
@@ -119,7 +121,9 @@ export function BlogPostContent({ post }: BlogPostContentProps) {
       />
 
       {/* 광고 2: 댓글창 위 */}
-      <AdSenseInArticle adSlot="2511316219" />
+      <div className="my-8">
+        <AdSenseUnit adSlot="2511316219" adFormat="horizontal" />
+      </div>
 
       {/* 댓글 및 피드백 섹션 - 임시 비활성화 */}
       {/* <CommentSection postSlug={post.slug} postTitle={post.title} /> */}
