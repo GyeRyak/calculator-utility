@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee, Sparkles } from 'lucide-react'
+import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee, Sparkles, Award } from 'lucide-react'
 
 const calculatorCategories = [
   {
@@ -48,13 +48,13 @@ const calculatorCategories = [
     available: true
   },
   {
-    id: 'calculator6',
-    title: '계산기 6',
-    description: '개발 예정',
-    icon: Zap,
-    href: null,
+    id: 'hangeul-medal',
+    title: '한글날 훈장 행사 계산기',
+    description: '한글날 훈장 행사 재설정 비용 계산 - 원하는 조합 완성까지의 예상 비용과 확률 분포 분석',
+    icon: Award,
+    href: '/calculators/hangeul-medal',
     color: 'bg-indigo-500',
-    available: false
+    available: true
   }
 ]
 
