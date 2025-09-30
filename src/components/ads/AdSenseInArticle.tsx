@@ -91,11 +91,11 @@ export function AdSenseInArticle({ adSlot, className = '' }: AdSenseInArticlePro
         {isVisible && (
           <ins
             className="adsbygoogle"
-            style={{ display: 'block', textAlign: 'center' }}
-            data-ad-layout="in-article"
-            data-ad-format="fluid"
+            style={{ display: 'block' }}
+            data-ad-format="horizontal"
             data-ad-client="ca-pub-6146739804286620"
             data-ad-slot={adSlot}
+            data-full-width-responsive="true"
           />
         )}
 
