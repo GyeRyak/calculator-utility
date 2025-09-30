@@ -1,0 +1,453 @@
+'use client';
+
+import { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  calculateProbabilityDistribution,
+  SLOT_WORD_COUNTS,
+  WORD_LISTS,
+  type TitleState,
+  type TargetCombination,
+  type CalculationResult,
+  type SlotType
+} from '@/utils/hangeulTitleCalculations';
+import { searchKorean, highlightMatches } from '@/utils/koreanSearch';
+import AutoSlotManager from '@/components/ui/AutoSlotManager';
+import DismissibleBanner from '@/components/ui/DismissibleBanner';
+import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
+import { Search, Check } from 'lucide-react';
+
+// 기본값 상수
+const DEFAULT_VALUES = {
+  currentState: [0, 0, 0] as TitleState,
+  targetCombination: {
+    X: WORD_LISTS.X[0],
+    Y: WORD_LISTS.Y[0],
+    Z: WORD_LISTS.Z[0]
+  } as TargetCombination
+};
+
+interface HangeulTitleData {
+  currentState: TitleState;
+  targetCombination: TargetCombination;
+}
+
+export default function HangeulTitleCalculator() {
+  const [currentState, setCurrentState] = useState<TitleState>(DEFAULT_VALUES.currentState);
+  const [targetCombination, setTargetCombination] = useState<TargetCombination>(DEFAULT_VALUES.targetCombination);
+  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [justLoaded, setJustLoaded] = useState(false);
+
+  // 검색어 상태
+  const [searchQueries, setSearchQueries] = useState<Record<SlotType, string>>({
+    X: '',
+    Y: '',
+    Z: ''
+  });
+
+  // 선택된 리스트 아이템 인덱스 (키보드 네비게이션용)
+  const [selectedIndices, setSelectedIndices] = useState<Record<SlotType, number>>({
+    X: -1,
+    Y: -1,
+    Z: -1
+  });
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRefs = useRef<Record<SlotType, HTMLInputElement | null>>({
+    X: null,
+    Y: null,
+    Z: null
+  });
+
+  // 필터링된 단어 목록 (한국어 fuzzy search + 초성 검색 지원)
+  const getFilteredWords = (slot: SlotType): Array<{ word: string; highlighted: string }> => {
+    const query = searchQueries[slot];
+    if (!query) {
+      // 검색어가 없으면 전체 목록 반환 (하이라이트 없음)
+      return WORD_LISTS[slot].map(word => ({ word, highlighted: word }));
+    }
+
+    const results = searchKorean(query, WORD_LISTS[slot], {
+      maxResults: 50
+    });
+
+    return results.map(result => ({
+      word: result.item,
+      highlighted: highlightMatches(result.item, result.matches)
+    }));
+  };
+
+  // AutoSlotManager 함수들
+  const getCurrentData = (): HangeulTitleData => ({
+    currentState,
+    targetCombination
+  });
+
+  const loadData = (data: any, onComplete?: () => void) => {
+    setJustLoaded(true);
+
+    if (data.currentState !== undefined) {
+      setCurrentState(data.currentState);
+    }
+    if (data.targetCombination !== undefined) {
+      setTargetCombination(data.targetCombination);
+    }
+
+    if (onComplete) {
+      setTimeout(onComplete, 100);
+    }
+  };
+
+  const resetAllData = () => {
+    setJustLoaded(true);
+    setCurrentState(DEFAULT_VALUES.currentState);
+    setTargetCombination(DEFAULT_VALUES.targetCombination);
+    setResult(null);
+  };
+
+  // 슬롯 상태 토글
+  const toggleSlot = (slotIndex: 0 | 1 | 2) => {
+    setCurrentState(prev => {
+      const newState = [...prev] as TitleState;
+      newState[slotIndex] = prev[slotIndex] === 0 ? 1 : 0;
+      return newState;
+    });
+  };
+
+  // 목표 조합 변경
+  const handleTargetChange = (slot: SlotType, value: string) => {
+    setTargetCombination(prev => ({
+      ...prev,
+      [slot]: value
+    }));
+    setSearchQueries(prev => ({ ...prev, [slot]: '' }));
+    setSelectedIndices(prev => ({ ...prev, [slot]: -1 }));
+  };
+
+  // 키보드 이벤트 핸들러
+  const handleKeyDown = (slot: SlotType, e: React.KeyboardEvent<HTMLInputElement>) => {
+    const filteredWords = getFilteredWords(slot);
+    const currentIndex = selectedIndices[slot];
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = currentIndex < filteredWords.length - 1 ? currentIndex + 1 : 0;
+      setSelectedIndices(prev => ({ ...prev, [slot]: nextIndex }));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : filteredWords.length - 1;
+      setSelectedIndices(prev => ({ ...prev, [slot]: prevIndex }));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentIndex >= 0 && currentIndex < filteredWords.length) {
+        // 선택된 아이템이 있으면 선택
+        handleTargetChange(slot, filteredWords[currentIndex].word);
+      } else if (filteredWords.length > 0) {
+        // 선택된 아이템이 없으면 첫 번째 선택
+        handleTargetChange(slot, filteredWords[0].word);
+      }
+    } else if (e.key === 'Tab') {
+      // 탭 키는 기본 동작 유지 (다음 검색창으로 포커스 이동)
+      setSelectedIndices(prev => ({ ...prev, [slot]: -1 }));
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setSelectedIndices(prev => ({ ...prev, [slot]: -1 }));
+      setSearchQueries(prev => ({ ...prev, [slot]: '' }));
+    }
+  };
+
+  // 계산 실행
+  const calculate = useCallback(() => {
+    setIsCalculating(true);
+
+    // 비동기로 계산 (UI 블로킹 방지)
+    setTimeout(() => {
+      try {
+        const calculationResult = calculateProbabilityDistribution({
+          currentState,
+          targetCombination,
+          maxIterations: 2000
+        });
+
+        setResult(calculationResult);
+      } catch (error) {
+        console.error('계산 중 오류 발생:', error);
+      } finally {
+        setIsCalculating(false);
+      }
+    }, 50);
+  }, [currentState, targetCombination]);
+
+  // 자동 계산
+  useEffect(() => {
+    if (!justLoaded) {
+      calculate();
+    } else {
+      setJustLoaded(false);
+    }
+  }, [currentState, targetCombination, calculate, justLoaded]);
+
+  const slotNames: Record<number, string> = {
+    0: 'X',
+    1: 'Y',
+    2: 'Z'
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* 헤더 */}
+      <div className="text-center">
+        <h1 className="text-4xl font-bold">한글날 훈장 행사 계산기</h1>
+      </div>
+
+      {/* 개발 중 경고 배너 */}
+      <DismissibleBanner
+        bannerId="hangeul-title-dev-warning"
+        message="⚠️ 이 계산기는 현재 개발 중입니다. 계산 결과가 정확하지 않을 수 있으니 참고용으로만 사용해 주세요."
+        bgColor="bg-red-50"
+        borderColor="border-red-200"
+        textColor="text-red-800"
+        linkHref=""
+        linkText=""
+        showIcon={false}
+      />
+
+      {/* 행사 정보 배너 */}
+      <DismissibleBanner
+        bannerId="hangeul-title-event-info"
+        message="🎖️ 한글날 훈장 행사: 세 칸에 단어를 조합하여 원하는 훈장을 만드세요! 특정 칸을 잠그고 재설정할 수 있으며, 잠글 때마다 한글의 기운 소모량이 곱절이 됩니다."
+        bgColor="bg-blue-50"
+        borderColor="border-blue-200"
+        textColor="text-blue-800"
+        linkHref=""
+        linkText=""
+        showIcon={false}
+      />
+
+      <DismissibleBanner
+        bannerId="hangeul-title-how-it-works"
+        message="💡 계산 방식: 상태 전이 확률을 기반으로 기억하며 계산하기 연산법을 사용하여 비교적 정확하게 기댓값을 계산합니다."
+        bgColor="bg-green-50"
+        borderColor="border-green-200"
+        textColor="text-green-800"
+        linkHref=""
+        linkText=""
+        showIcon={false}
+      />
+
+      <DismissibleBanner
+        bannerId="hangeul-title-optimal-strategy"
+        message="✨ 재설정 중 원하는 단어가 나오면 해당 칸을 잠그고 진행하는 것이 최적입니다."
+        bgColor="bg-yellow-50"
+        borderColor="border-yellow-200"
+        textColor="text-yellow-900"
+        linkHref=""
+        linkText=""
+        showIcon={false}
+      />
+
+      {/* AutoSlotManager */}
+      <AutoSlotManager
+        calculatorId="hangeul_title"
+        maxSlots={2}
+        getCurrentData={getCurrentData}
+        loadData={loadData}
+        onReset={resetAllData}
+      />
+
+      {/* 목표 훈장 선택 섹션 시작 */}
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-center">목표 훈장 고르기</h2>
+
+        {/* 3열 그리드 레이아웃 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6" ref={dropdownRef}>
+          {(['X', 'Y', 'Z'] as SlotType[]).map((slot, slotIndex) => (
+            <div key={slot} className="bg-gray-50 rounded-lg p-4">
+              {/* 검색 및 선택 영역 시작 */}
+              <div className="space-y-3">
+                {/* 검색창 */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    ref={(el) => {
+                      searchInputRefs.current[slot] = el;
+                    }}
+                    type="text"
+                    placeholder="검색..."
+                    value={searchQueries[slot]}
+                    onChange={(e) => {
+                      setSearchQueries(prev => ({ ...prev, [slot]: e.target.value }));
+                      setSelectedIndices(prev => ({ ...prev, [slot]: -1 }));
+                    }}
+                    onKeyDown={(e) => handleKeyDown(slot, e)}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* 단어 목록 (항상 표시) */}
+                <div className="h-64 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm" tabIndex={-1}>
+                  {getFilteredWords(slot).map(({ word, highlighted }, index) => {
+                    const isSelected = targetCombination[slot] === word;
+                    const isHighlighted = selectedIndices[slot] === index;
+
+                    return (
+                      <button
+                        key={word}
+                        onClick={() => handleTargetChange(slot, word)}
+                        tabIndex={-1}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition-colors ${
+                          isSelected ? 'bg-blue-100 font-semibold' : ''
+                        } ${
+                          isHighlighted ? 'bg-gray-100 ring-2 ring-blue-400 ring-inset' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="break-words"
+                            dangerouslySetInnerHTML={{
+                              __html: slot === 'Z' && word === '캐릭터명'
+                                ? '캐릭터명 (실제 이름 출력, 영문/숫자 포함 시 "아무개")'
+                                : highlighted
+                            }}
+                          />
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {getFilteredWords(slot).length === 0 && (
+                    <div className="px-3 py-4 text-center text-sm text-gray-500">
+                      검색 결과가 없습니다
+                    </div>
+                  )}
+                </div>
+
+                {/* 선택된 단어 표시 */}
+                <div className="p-3 bg-white rounded-lg border-2 border-blue-200 h-20">
+                  <p className="text-xs text-gray-600 mb-1">선택된 단어:</p>
+                  <p className="text-base font-bold text-blue-600 break-words line-clamp-2">
+                    {slot === 'Z' && targetCombination[slot] === '캐릭터명'
+                      ? '인물이름'
+                      : targetCombination[slot]}
+                  </p>
+                </div>
+
+                {/* 이미 맞춰짐 체크박스 */}
+                <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-100 rounded transition-colors h-10">
+                  <input
+                    type="checkbox"
+                    checked={currentState[slotIndex] === 1}
+                    onChange={() => toggleSlot(slotIndex as 0 | 1 | 2)}
+                    tabIndex={-1}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    이미 맞춤
+                  </span>
+                </label>
+              </div>
+              {/* 검색 및 선택 영역 끝 */}
+            </div>
+          ))}
+        </div>
+
+        {/* 목표 훈장 미리보기 시작 */}
+        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+          <p className="text-sm text-gray-600 mb-2 text-center">목표 훈장:</p>
+          <p className="text-2xl font-bold text-center text-purple-900">
+            {targetCombination.X === '(공백)' ? '' : targetCombination.X}{' '}
+            {targetCombination.Y}{' '}
+            {targetCombination.Z === '캐릭터명' ? '[인물이름]' : targetCombination.Z}
+          </p>
+        </div>
+        {/* 목표 훈장 미리보기 끝 */}
+      </div>
+      {/* 목표 훈장 선택 섹션 끝 */}
+
+      {/* 계산 결과 섹션 시작 */}
+      <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-6 min-h-[600px]">
+        {result ? (
+          <>
+            <h2 className="text-2xl font-bold mb-6 text-center text-gray-900">계산 결과</h2>
+
+            {/* 주요 지표 그리드 시작 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* 평균 재설정 횟수 */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="text-sm text-gray-600 mb-1">평균 재설정 횟수</div>
+                <div className="text-3xl font-bold text-blue-600">
+                  {result.expectedResets.toFixed(1)}회
+                </div>
+              </div>
+
+              {/* 평균 한글의 기운 */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <div className="text-sm text-gray-600 mb-1">평균 한글의 기운</div>
+                <div className="text-3xl font-bold text-purple-600">
+                  {result.expectedCost.toFixed(1)}개
+                </div>
+              </div>
+            </div>
+            {/* 주요 지표 그리드 끝 */}
+
+            {/* 백분위 정보 시작 */}
+            <div className="bg-white rounded-lg p-5 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900">확률 분포 (백분위)</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">5할 확률로 완성</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    한글의 기운 {result.percentile50Cost}개 이내
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">9할 확률로 완성</span>
+                  <span className="text-lg font-bold text-purple-600">
+                    한글의 기운 {result.percentile90Cost}개 이내
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-pink-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">9할9푼 확률로 완성</span>
+                  <span className="text-lg font-bold text-pink-600">
+                    한글의 기운 {result.percentile99Cost}개 이내
+                  </span>
+                </div>
+              </div>
+            </div>
+            {/* 백분위 정보 끝 */}
+
+            {/* 재설정 비용 안내 시작 */}
+            <div className="mt-6 bg-white rounded-lg p-5 shadow-sm">
+              <h3 className="text-lg font-semibold mb-3 text-gray-900">재설정 비용 안내</h3>
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center justify-between">
+                  <span>전체 재설정 (0개 잠금)</span>
+                  <span className="font-bold text-blue-600">한글의 기운 1개</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>1개 칸 잠금</span>
+                  <span className="font-bold text-purple-600">한글의 기운 2개</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>2개 칸 잠금</span>
+                  <span className="font-bold text-pink-600">한글의 기운 4개</span>
+                </div>
+              </div>
+            </div>
+            {/* 재설정 비용 안내 끝 */}
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-[552px]">
+            <p className="text-gray-500">목표 훈장을 선택하면 계산 결과가 표시됩니다</p>
+          </div>
+        )}
+      </div>
+      {/* 계산 결과 섹션 끝 */}
+
+    </div>
+  );
+}

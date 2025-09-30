@@ -122,6 +122,19 @@ This is a Next.js 14 application using App Router for building calculator utilit
   - 성능 최적화: 문자열 키에서 비트 연산 키로 변경, 캐싱 최적화
   - 2레벨 이상 업그레이드 및 선업글 장기 휴식 시각적 강조
   - ActionItem 기반 구조화된 텍스트 생성 시스템
+- **한글날 훈장 행사 계산기** (`/calculators/hangeul-medal`) - 기본 슬롯 2개 (개발 중)
+  - 상태 전이 확률 기반 동적 프로그래밍 알고리즘 적용
+  - 한국어 퍼지 검색 및 초성 검색 지원 (kled-js 라이브러리 활용)
+  - 겹자음 분해 검색 지원 (예: "ㅂㅅ" → "ㅄ" 매칭)
+  - 키보드 네비게이션 완전 지원 (Enter, 화살표, Tab, Escape)
+  - 확률 분포 백분위 계산 (50%, 90%, 99%)
+  - 평균/중앙값 재설정 횟수 및 비용 계산
+- **블로그 댓글 및 피드백 시스템**
+  - GitHub Issues 기반 공개 댓글 시스템 (투명하고 안전한 소통)
+  - Supabase 기반 좋아요 기능 (IP 중복 방지)
+  - 비공개 의견 전달 시스템 (관리자에게만 전달, 작성자도 조회 불가)
+  - 실시간 댓글 로딩 및 새로고침
+  - 자동 Issue 생성 및 연결 관리
 - AutoSlotManager 통합 슬롯 시스템 (저장/불러오기/내보내기/초기화)
 - DismissibleBanner 공통 컴포넌트 (해제 가능한 배너/안내문)
 - 설정 텍스트 내보내기/불러오기 기능 (Base64 인코딩된 텍스트로 설정 공유)
@@ -147,6 +160,26 @@ This is a Next.js 14 application using App Router for building calculator utilit
 ### 폰트 및 UI 개선사항
 - **메이플스토리 폰트**: JavaScript FontFace API를 통한 동적 로딩으로 GitHub Pages 호환성 개선
 - **폰트 로딩 최적화**: 폰트 파일 경로 문제 해결 및 안정적인 폰트 적용
+
+### 블로그 댓글/피드백 시스템 관련 패키지
+- `@supabase/supabase-js` - Supabase 클라이언트 (좋아요, 비공개 의견)
+- `react-hot-toast` - 토스트 알림 시스템
+
+### 블로그 댓글/피드백 시스템 구조
+```
+src/
+├── lib/
+│   ├── supabase.ts              # Supabase 클라이언트 및 타입 정의
+│   └── github.ts                # GitHub Issues API 연동 헬퍼
+├── hooks/
+│   ├── useLikes.ts              # 좋아요 기능 로직
+│   └── useGitHubComments.ts     # GitHub 댓글 로직
+├── components/blog/
+│   ├── LikeButton.tsx           # 좋아요 버튼 컴포넌트
+│   ├── GitHubComments.tsx       # GitHub 댓글 표시 및 관리
+│   ├── PrivateFeedback.tsx      # 비공개 의견/공개 댓글 작성 폼
+│   └── CommentSection.tsx       # 통합 댓글 섹션 (탭 UI)
+```
 
 ## 새 필드 추가/삭제 체크리스트 (AutoSlotManager 기준)
 
