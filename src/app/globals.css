@@ -271,5 +271,5 @@ body {
 .adsense-container:has(.adsbygoogle:empty),
 .multiplex-container:not(:has(.adsbygoogle)),
 .multiplex-container:has(.adsbygoogle:empty) {
-  display: none;
+  display: none !important;
 } 
