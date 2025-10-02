@@ -14,6 +14,18 @@ declare global {
 }
 
 /**
+ * 계산 이벤트 디바운싱 간격 (ms)
+ * 이 시간 내에 재발생하는 계산 이벤트는 무시됨
+ */
+const CALCULATION_EVENT_DEBOUNCE_MS = 300
+
+/**
+ * 마지막 계산 이벤트 발생 시간을 저장하는 Map
+ * key: calculatorType, value: timestamp
+ */
+const lastCalculationTime = new Map<string, number>()
+
+/**
  * 기본 이벤트 트래킹 함수
  */
 export const trackEvent = (
@@ -26,10 +38,21 @@ export const trackEvent = (
 }
 
 /**
- * 계산기 사용 횟수 트래킹
+ * 계산기 사용 횟수 트래킹 (디바운싱 적용)
  * @param calculatorType - 계산기 타입 ('hunting', 'breakeven', 'lounge', 'hangeul_medal', 'boss_greed')
  */
 export const trackCalculation = (calculatorType: string) => {
+  const now = Date.now()
+  const lastTime = lastCalculationTime.get(calculatorType) || 0
+
+  // 마지막 이벤트 발생 후 DEBOUNCE 시간이 지나지 않았으면 무시
+  if (now - lastTime < CALCULATION_EVENT_DEBOUNCE_MS) {
+    return
+  }
+
+  // 이벤트 발생 시간 기록
+  lastCalculationTime.set(calculatorType, now)
+
   trackEvent('calculate', {
     calculator_type: calculatorType,
   })
