@@ -12,8 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 사용자의 요청사항에 대해 문제점을 우선 생각하고 심각한 문제가 예상되는 경우 되물을 것
 - DO: "지적하신 대로 불필요한 연산이 있는지 확인하겠습니다."
 - Do NOT: "맞습니다. 불필요한 연산을 확인하겠습니다!"
-### 작업
-- 사용자의 명시적인 요청이 있는 경우에만 git commit 및 git push를 진행함
+### Git 작업 규칙
+- **중요**: 사용자가 명시적으로 "커밋해", "푸시해", "배포해" 등으로 요청하기 전까지는 절대 git commit이나 git push를 하지 말 것
+- 작업 완료 후 자동으로 커밋하지 말고, 사용자의 명시적 지시를 기다릴 것
 - 사용자가 배포하라고 하는 경우, 우선 npm run build를 통해 빌드하여 에러가 없는지를 확인한 뒤 지금까지의 작업 내역을 확인해 claude.md, readme.md, about 페이지를 포함해 각종 문서에 업데이트가 필요한 내용이 있으면 업데이트한 뒤 git commit을 생성하고 푸시함
 
 

@@ -521,20 +521,24 @@ export default function HangeulTitleCalculator() {
         </div>
 
         {/* 목표 훈장 미리보기 시작 */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 relative">
-          <button
-            onClick={handleRandomize}
-            className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors shadow-sm hover:shadow-md"
-          >
-            <Shuffle className="w-3.5 h-3.5" />
-            <span className="font-medium">무작위로 재설정</span>
-          </button>
-          <p className="text-sm text-gray-600 mb-2 text-center">목표 훈장:</p>
-          <p className="text-2xl font-bold text-center text-purple-900">
-            {targetCombination.X === '(공백)' ? '' : targetCombination.X}{' '}
-            {targetCombination.Y}{' '}
-            {targetCombination.Z === '캐릭터명' ? '[인물이름]' : targetCombination.Z}
-          </p>
+        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 mb-2 text-center sm:text-left">목표 훈장:</p>
+              <p className="text-2xl font-bold text-center sm:text-left text-purple-900">
+                {targetCombination.X === '(공백)' ? '' : targetCombination.X}{' '}
+                {targetCombination.Y}{' '}
+                {targetCombination.Z === '캐릭터명' ? '[인물이름]' : targetCombination.Z}
+              </p>
+            </div>
+            <button
+              onClick={handleRandomize}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors shadow-sm hover:shadow-md whitespace-nowrap"
+            >
+              <Shuffle className="w-3.5 h-3.5" />
+              <span className="font-medium">무작위로 재설정</span>
+            </button>
+          </div>
         </div>
         {/* 목표 훈장 미리보기 끝 */}
       </div>
