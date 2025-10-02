@@ -304,11 +304,11 @@ export default function ProbabilityDistributionChart({
     isColorful: boolean
   ) => (
     <div className="relative">
-      <svg width={chartWidth} height={chartHeight} className="border rounded">
+      <svg width={chartWidth} height={chartHeight} className="border border-gray-300 dark:border-gray-600 rounded">
       {/* 배경 격자 */}
       <defs>
         <pattern id={`grid-${isColorful ? 'colorful' : 'normal'}`} width="40" height="30" patternUnits="userSpaceOnUse">
-          <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
+          <path d="M 40 0 L 0 0 0 30" fill="none" className="stroke-gray-100 dark:stroke-gray-800" strokeWidth="1"/>
         </pattern>
       </defs>
       <rect width={innerWidth} height={innerHeight} x={padding.left} y={padding.top} fill={`url(#grid-${isColorful ? 'colorful' : 'normal'})`} />
@@ -321,14 +321,14 @@ export default function ProbabilityDistributionChart({
             y1={padding.top + yScale(percent)}
             x2={padding.left + innerWidth}
             y2={padding.top + yScale(percent)}
-            stroke="#e5e7eb"
+            className="stroke-gray-200 dark:stroke-gray-700"
             strokeWidth="1"
           />
           <text
             x={padding.left - 10}
             y={padding.top + yScale(percent) + 4}
             textAnchor="end"
-            className="text-xs fill-gray-600"
+            className="text-xs fill-gray-700"
           >
             {percent}%
           </text>
@@ -353,14 +353,14 @@ export default function ProbabilityDistributionChart({
               y1={padding.top}
               x2={padding.left + xScale(x)}
               y2={padding.top + innerHeight}
-              stroke="#e5e7eb"
+              className="stroke-gray-200 dark:stroke-gray-700"
               strokeWidth="1"
             />
             <text
               x={padding.left + xScale(x)}
               y={padding.top + innerHeight + 20}
               textAnchor="middle"
-              className="text-xs fill-gray-600"
+              className="text-xs fill-gray-700"
             >
               {isColorful ? x : `${(x / 1000).toFixed(1)}k`}
             </text>
@@ -376,7 +376,7 @@ export default function ProbabilityDistributionChart({
           y1={padding.top + yScale(percentile)}
           x2={padding.left + innerWidth}
           y2={padding.top + yScale(percentile)}
-          stroke="#dc2626"
+          className="stroke-red-600 dark:stroke-red-700"
           strokeWidth="1"
           strokeDasharray="3,3"
           opacity="0.7"
@@ -387,7 +387,7 @@ export default function ProbabilityDistributionChart({
       <path
         d={curvePath}
         fill="none"
-        stroke="#3b82f6"
+        className="stroke-blue-500 dark:stroke-blue-600"
         strokeWidth="3"
         transform={`translate(${padding.left}, ${padding.top})`}
       />
@@ -496,7 +496,7 @@ export default function ProbabilityDistributionChart({
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
       <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-lg font-semibold fill-gray-700 mb-4">
           확률 분포 분석
         </h3>
 
@@ -508,7 +508,7 @@ export default function ProbabilityDistributionChart({
             {/* 현재 설정 진행률 바 */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium text-gray-700">현재 설정 계산</span>
+                <span className="text-sm font-medium fill-gray-700">현재 설정 계산</span>
                 <span className="text-sm text-gray-500">
                   {Math.round((progressState.currentProgress / progressState.currentTotal) * 100)}%
                 </span>
@@ -526,7 +526,7 @@ export default function ProbabilityDistributionChart({
             {/* 비교 설정 진행률 바 */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium text-gray-700">비교 설정 계산</span>
+                <span className="text-sm font-medium fill-gray-700">비교 설정 계산</span>
                 <span className="text-sm text-gray-500">
                   {Math.round((progressState.comparisonProgress / progressState.comparisonTotal) * 100)}%
                 </span>
@@ -547,7 +547,7 @@ export default function ProbabilityDistributionChart({
           {/* 알록달록 색종이 분석 */}
           <div>
             <div className="mb-3">
-              <h4 className="text-base font-medium text-gray-900 mb-2">알록달록 색종이 변동 분석</h4>
+              <h4 className="text-base font-medium fill-gray-700 mb-2">알록달록 색종이 변동 분석</h4>
               <p className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
                 일반 색종이 {normalPapers.toLocaleString()}개 고정
               </p>
@@ -582,7 +582,7 @@ export default function ProbabilityDistributionChart({
           {/* 일반 색종이 분석 */}
           <div>
             <div className="mb-3">
-              <h4 className="text-base font-medium text-gray-900 mb-2">일반 색종이 변동 분석</h4>
+              <h4 className="text-base font-medium fill-gray-700 mb-2">일반 색종이 변동 분석</h4>
               <p className="text-sm text-blue-800 bg-blue-50 p-2 rounded">
                 알록달록 색종이 {colorfulPapers}개 고정
               </p>
@@ -620,7 +620,7 @@ export default function ProbabilityDistributionChart({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 범례 */}
         <div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">범례</h4>
+          <h4 className="text-sm font-medium fill-gray-700 mb-3">범례</h4>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <div className="w-4 h-0.5 bg-blue-500"></div>
@@ -639,7 +639,7 @@ export default function ProbabilityDistributionChart({
 
         {/* 백분위 분석 요약 */}
         <div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">백분위 요약 (90% 달성률 기준)</h4>
+          <h4 className="text-sm font-medium fill-gray-700 mb-3">백분위 요약 (90% 달성률 기준)</h4>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">알록달록 색종이:</span>

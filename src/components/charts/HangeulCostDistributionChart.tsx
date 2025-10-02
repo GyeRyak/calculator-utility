@@ -111,7 +111,7 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
                     y1={y}
                     x2={padding.left + chartWidth}
                     y2={y}
-                    stroke="#e5e7eb"
+                    className="stroke-gray-200 dark:stroke-gray-700"
                     strokeWidth={1}
                   />
                   <text
@@ -119,7 +119,7 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
                     y={y}
                     textAnchor="end"
                     alignmentBaseline="middle"
-                    className="text-xs fill-gray-500"
+                    className="text-xs fill-gray-700"
                   >
                     {formatKoreanProbability(prob)}
                   </text>
@@ -205,7 +205,7 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
               y1={padding.top + chartHeight}
               x2={padding.left + chartWidth}
               y2={padding.top + chartHeight}
-              stroke="#000"
+              className="stroke-gray-900 dark:stroke-gray-100"
               strokeWidth={1}
             />
 
@@ -241,14 +241,14 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
                       y1={padding.top + chartHeight}
                       x2={x}
                       y2={padding.top + chartHeight + 5}
-                      stroke="#666"
+                      className="stroke-gray-600 dark:stroke-gray-300"
                       strokeWidth={1}
                     />
                     <text
                       x={x}
                       y={padding.top + chartHeight + 18}
                       textAnchor="middle"
-                      className="text-xs fill-gray-600"
+                      className="text-xs fill-gray-700"
                     >
                       {data[i].cost.toLocaleString()}
                     </text>
@@ -314,7 +314,7 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
               y1={padding.top}
               x2={padding.left}
               y2={padding.top + chartHeight}
-              stroke="#000"
+              className="stroke-gray-900 dark:stroke-gray-100"
               strokeWidth={1}
             />
             <text
@@ -352,20 +352,20 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
       {/* 범례 */}
       <div className="mt-4 flex flex-wrap gap-4 justify-center text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-500 rounded"></div>
-          <span className="text-gray-700">일반 구간</span>
+          <div className="w-4 h-4 bg-blue-500 dark:bg-blue-600 rounded"></div>
+          <span className="text-gray-700 dark:text-gray-300">일반 구간</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-500 rounded"></div>
-          <span className="text-gray-700">5할 지점 ({result.percentile50Cost.toLocaleString()})</span>
+          <div className="w-4 h-4 bg-green-500 dark:bg-green-600 rounded"></div>
+          <span className="text-gray-700 dark:text-gray-300">5할 지점 ({result.percentile50Cost.toLocaleString()})</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-amber-500 rounded"></div>
-          <span className="text-gray-700">9할 지점 ({result.percentile90Cost.toLocaleString()})</span>
+          <div className="w-4 h-4 bg-amber-500 dark:bg-amber-600 rounded"></div>
+          <span className="text-gray-700 dark:text-gray-300">9할 지점 ({result.percentile90Cost.toLocaleString()})</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-500 rounded"></div>
-          <span className="text-gray-700">9할 9푼 지점 ({result.percentile99Cost.toLocaleString()})</span>
+          <div className="w-4 h-4 bg-red-500 dark:bg-red-600 rounded"></div>
+          <span className="text-gray-700 dark:text-gray-300">9할 9푼 지점 ({result.percentile99Cost.toLocaleString()})</span>
         </div>
       </div>
     </div>

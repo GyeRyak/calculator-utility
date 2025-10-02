@@ -84,6 +84,86 @@ JSX 주석이 div 태그 외부에 위치할 경우 Fragment(`<>`, `</>`)로 감
 
 이 규칙은 특히 복잡한 중첩 구조에서 괄호 완결성을 확인할 때 유용함.
 
+### 다크모드 색상 전략
+
+프로젝트는 Tailwind CSS의 `dark:` prefix를 활용한 다크모드를 지원하며, 다음과 같은 색상 조정 전략을 따름:
+
+#### 기본 원칙
+- **CSS 변수 시스템 사용 금지**: Tailwind 기본 dark mode 시스템을 사용하며, 커스텀 CSS 변수 색상 팔레트를 만들지 않음
+- **Tailwind 표준 준수**: `dark:` prefix를 사용한 표준 Tailwind 클래스 활용
+- **일관성**: 모든 색상 조정은 `src/app/globals.css`에서 중앙 관리
+
+#### 텍스트 색상 조정 (globals.css)
+다크모드에서 강조 색상이 너무 밝아 눈에 부담을 주는 것을 방지하기 위해 Lightness를 감소:
+
+```css
+/* 파란색: 20% 감소 */
+.dark .text-blue-300 { color: rgb(65, 152, 251); }
+.dark .text-blue-400 { color: rgb(27, 127, 248); }
+.dark .text-blue-500 { color: rgb(11, 96, 234); }
+.dark .text-blue-600 { color: rgb(18, 75, 196); }
+
+/* 초록색: 30% 감소 (더 차분한 톤) */
+.dark .text-green-300 { color: rgb(34, 226, 104); }
+.dark .text-green-600 { color: rgb(15, 112, 51); }
+
+/* 주황색: 30% 감소 */
+.dark .text-orange-500 { color: rgb(184, 79, 5); }
+.dark .text-orange-600 { color: rgb(165, 63, 9); }
+
+/* 보라색: 20% 감소 */
+.dark .text-purple-600 { color: rgb(118, 22, 208); }
+
+/* 분홍색: 20% 감소 */
+.dark .text-pink-600 { color: rgb(179, 30, 97); }
+```
+
+#### 배경 색상 조정 (globals.css)
+다크모드에서 배경색이 너무 쨍하지 않도록 Lightness 25% 감소:
+
+```css
+.dark .bg-blue-500 { background-color: rgb(15, 99, 189); }
+.dark .bg-blue-600 { background-color: rgb(14, 74, 176); }
+.dark .bg-green-500 { background-color: rgb(26, 148, 71); }
+.dark .bg-green-600 { background-color: rgb(17, 122, 56); }
+.dark .bg-red-500 { background-color: rgb(180, 42, 38); }
+.dark .bg-red-600 { background-color: rgb(165, 29, 25); }
+```
+
+#### SVG 그래프 색상 처리
+SVG 내부의 텍스트(`<text>`)는 브라우저 렌더링 특성상 일반 HTML 텍스트보다 밝게 보일 수 있음:
+
+```css
+/* SVG fill을 gray-800 색상으로 렌더링하여 보정 */
+.fill-gray-700 { fill: rgb(31, 41, 55); }
+.dark .fill-gray-700 { fill: rgb(31, 41, 55); }
+```
+
+- 그래프 라벨은 `fill-gray-700` 클래스 사용
+- 실제로는 Tailwind gray-800의 RGB 값으로 렌더링
+- 라이트/다크 모드 모두 동일한 색상 사용 (일관성 유지)
+
+#### 그래프 요소 다크모드 대응
+```tsx
+// 그리드 선
+className="stroke-gray-200 dark:stroke-gray-700"
+
+// 축 선
+className="stroke-gray-900 dark:stroke-gray-100"
+
+// SVG 테두리
+className="border border-gray-300 dark:border-gray-600"
+
+// 곡선 (주요 데이터 라인)
+className="stroke-blue-500 dark:stroke-blue-600"
+```
+
+#### 주의사항
+- 새로운 색상 추가 시 반드시 globals.css에 다크모드 대응 추가
+- SVG 요소는 `text-*` 대신 `fill-*` 클래스 사용
+- 배경색과 텍스트 색상의 대비를 항상 고려
+- 색상 변경 시 라이트/다크 모드 모두에서 테스트 필수
+
 ### GitHub Pages 배포 관련 주의사항
 
 - **Internal Links**: 절대 경로(`href="/about"`) 대신 **반드시 Next.js `Link` 컴포넌트**를 사용해야 함

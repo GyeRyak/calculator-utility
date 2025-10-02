@@ -66,6 +66,55 @@
   --ring: 224.3 76.3% 94.1%;
 }
 
+/* 다크모드 파란색 텍스트 조정 (Lightness 20% 감소) */
+.dark .text-blue-300 { color: rgb(65, 152, 251); }
+.dark .text-blue-400 { color: rgb(27, 127, 248); }
+.dark .text-blue-500 { color: rgb(11, 96, 234); }
+.dark .text-blue-600 { color: rgb(18, 75, 196); }
+
+/* 다크모드 초록색 텍스트 조정 (전체적으로 어둡게, Lightness 30% 감소) */
+.dark .text-green-300 { color: rgb(34, 226, 104); }
+.dark .text-green-400 { color: rgb(32, 177, 85); }
+.dark .text-green-500 { color: rgb(23, 135, 64); }
+.dark .text-green-600 { color: rgb(15, 112, 51); }
+.dark .text-green-700 { color: rgb(14, 88, 41); }
+.dark .text-green-800 { color: rgb(16, 71, 37); }
+
+/* 다크모드 주황색 텍스트 조정 (전체적으로 어둡게, Lightness 30% 감소) */
+.dark .text-orange-500 { color: rgb(184, 79, 5); }
+.dark .text-orange-600 { color: rgb(165, 63, 9); }
+.dark .text-orange-700 { color: rgb(134, 44, 9); }
+.dark .text-orange-800 { color: rgb(110, 37, 13); }
+.dark .text-orange-900 { color: rgb(89, 32, 13); }
+
+/* 다크모드 amber 텍스트 조정 */
+.dark .text-amber-600 { color: rgb(154, 84, 4); }
+.dark .text-amber-700 { color: rgb(126, 58, 7); }
+
+/* 다크모드 purple 텍스트 조정 (Lightness 20% 감소) */
+.dark .text-purple-500 { color: rgb(136, 21, 244); }
+.dark .text-purple-600 { color: rgb(118, 22, 208); }
+.dark .text-purple-700 { color: rgb(102, 27, 167); }
+.dark .text-purple-800 { color: rgb(84, 26, 132); }
+.dark .text-purple-900 { color: rgb(72, 23, 110); }
+
+/* 다크모드 pink 텍스트 조정 (Lightness 20% 감소) */
+.dark .text-pink-600 { color: rgb(179, 30, 97); }
+.dark .text-pink-700 { color: rgb(154, 19, 75); }
+
+/* 다크모드 배경색 조정 (덜 쨍하게, Lightness 25% 감소) */
+.dark .bg-blue-500 { background-color: rgb(15, 99, 189); }
+.dark .bg-blue-600 { background-color: rgb(14, 74, 176); }
+.dark .bg-green-500 { background-color: rgb(26, 148, 71); }
+.dark .bg-green-600 { background-color: rgb(17, 122, 56); }
+.dark .bg-red-500 { background-color: rgb(180, 42, 38); }
+.dark .bg-red-600 { background-color: rgb(165, 29, 25); }
+.dark .bg-amber-600 { background-color: rgb(163, 89, 5); }
+
+/* SVG fill 색상 명시적 지정 (Tailwind gray-800: rgb(31, 41, 55)로 더 어둡게) */
+.fill-gray-700 { fill: rgb(31, 41, 55); }
+.dark .fill-gray-700 { fill: rgb(31, 41, 55); }
+
 * {
   border-color: hsl(var(--border));
 }
