@@ -47,7 +47,7 @@ export default function HangeulTitlePage() {
 
           {/* 광고: 계산기 아래, 푸터 위 */}
           <div className="mt-12">
-            <AdSenseUnit adSlot="2796781897" />
+            <AdSenseUnit adSlot="5346197262" />
           </div>
         </div>
       </main>
