@@ -33,6 +33,7 @@ import {
   type WeeklyStrategy
 } from '../../utils/loungeCalculations'
 import { type LoungeCalculatorExportData } from '../../utils/exportUtils'
+import { trackCalculation } from '@/lib/analytics'
 
 // 기본값 정의
 const getCurrentDefaultValues = () => {
@@ -338,6 +339,7 @@ export default function LoungeCalculator() {
         enableLongRestLimit ? maxLongRestLevel : undefined
       )
 
+      trackCalculation('lounge') // GA 이벤트 트래킹
 
       return {
         result,

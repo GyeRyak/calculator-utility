@@ -20,6 +20,7 @@ import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
 import { confirmSlotReset } from '@/utils/slotUtils'
 import { type BreakevenCalculatorExportData } from '@/utils/exportUtils'
+import { trackCalculation } from '@/lib/analytics'
 
 interface BreakevenSettings {
   items: BreakevenItem[]
@@ -401,6 +402,7 @@ export function BreakevenCalculator() {
       logDropExpectation
     })
     setResults(result)
+    trackCalculation('breakeven') // GA 이벤트 트래킹
   }, [items, materialsPerDay, baseParams, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus, globalFeeRate, mesoLimitEnabled, mesoLimitHours, normalDropExpectation, logDropExpectation])
 
   // 실시간 계산

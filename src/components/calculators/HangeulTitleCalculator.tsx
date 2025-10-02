@@ -17,6 +17,7 @@ import DismissibleBanner from '@/components/ui/DismissibleBanner';
 import HangeulCostDistributionChart from '@/components/charts/HangeulCostDistributionChart';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 import { Search, Check, Shuffle } from 'lucide-react';
+import { trackCalculation, trackRandomReset } from '@/lib/analytics';
 
 // 기본값 상수
 const DEFAULT_VALUES = {
@@ -170,6 +171,8 @@ export default function HangeulTitleCalculator() {
         scrollToSelectedWord(slot);
       }
     });
+
+    trackRandomReset(); // GA 이벤트 트래킹
   };
 
   // 선택된 단어로 스크롤
@@ -281,6 +284,7 @@ export default function HangeulTitleCalculator() {
         });
 
         setResult(calculationResult);
+        trackCalculation('hangeul_medal'); // GA 이벤트 트래킹
       } catch (error) {
         console.error('계산 중 오류 발생:', error);
       } finally {

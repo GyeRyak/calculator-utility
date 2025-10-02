@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Save, Trash2, Edit2, Copy, Share2, Download } from 'lucide-react'
 import { canUseFunctionalCookies } from '@/utils/cookies'
+import { trackSlotAction } from '@/lib/analytics'
 
 interface AutoSlotManagerProps {
   calculatorId: string // 'basic_calculator' 또는 'breakeven_calculator'
@@ -167,6 +168,7 @@ export default function AutoSlotManager({
       setLastSavedData(currentData) // 저장된 데이터 업데이트
       setHasDataChanged(false) // 변경사항 없음으로 설정
       onNotification?.('success', `슬롯 ${currentSlot}에 설정이 저장되었습니다.`)
+      trackSlotAction('save', calculatorId) // GA 이벤트 트래킹
     }
     return success
   }
@@ -262,11 +264,12 @@ export default function AutoSlotManager({
       deleteSlotData(currentSlot)
       setTempSlotName(`슬롯 ${currentSlot}`)
       onReset()
-      
+
       // 초기화 후 justLoaded 플래그 설정 (로드와 동일하게 처리)
       setJustLoaded(true)
-      
+
       onNotification?.('success', '현재 슬롯이 초기화되었습니다.')
+      trackSlotAction('reset', calculatorId) // GA 이벤트 트래킹
     }
   }
 
@@ -294,7 +297,7 @@ export default function AutoSlotManager({
       if (sourceData) {
         // 슬롯 이름은 복사하지 않고 데이터만 복사
         const { slotName, ...dataWithoutName } = sourceData
-        
+
         // 데이터 로드
         setIsLoading(true)
         loadData(dataWithoutName, () => {
@@ -306,8 +309,9 @@ export default function AutoSlotManager({
           setLastSavedData(currentData)
           setHasDataChanged(false)
         })
-        
+
         onNotification?.('success', `슬롯 ${sourceSlot}의 데이터를 복사했습니다.`)
+        trackSlotAction('load', calculatorId) // GA 이벤트 트래킹
         setShowCopyModal(false)
       } else {
         onNotification?.('error', '슬롯 데이터를 불러올 수 없습니다.')
@@ -325,18 +329,19 @@ export default function AutoSlotManager({
       version: '1.0',
       exportedAt: new Date().toISOString()
     }
-    
+
     // Base64 인코딩
     const jsonString = JSON.stringify(exportData)
     const base64String = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g,
       function toSolidBytes(match, p1) {
         return String.fromCharCode(parseInt('0x' + p1))
       }))
-    
+
     // 구분자를 추가하여 식별 가능하게 함
     const exportString = `CALC_SETTINGS_V1:${base64String}`
     setExportText(exportString)
     setShowExportModal(true)
+    trackSlotAction('export', calculatorId) // GA 이벤트 트래킹
   }
 
   // 텍스트 설정 불러오기
@@ -376,8 +381,9 @@ export default function AutoSlotManager({
           setLastSavedData(currentData)
           setHasDataChanged(false)
         })
-        
+
         onNotification?.('success', '설정을 성공적으로 불러왔습니다.')
+        trackSlotAction('import', calculatorId) // GA 이벤트 트래킹
         setShowCopyModal(false)
         setImportText('')
       }

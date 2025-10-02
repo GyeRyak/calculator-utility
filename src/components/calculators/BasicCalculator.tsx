@@ -16,6 +16,7 @@ import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calcula
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
 import { getAverageMesoDropByLevel } from '../../utils/mesoDropCalculation'
 import { type BasicCalculatorExportData } from '../../utils/exportUtils'
+import { trackCalculation } from '@/lib/analytics'
 
 // 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
 interface DropItem extends UIDropItem {
@@ -994,6 +995,7 @@ export function BasicCalculator() {
 
     setResult(newResult)
     setCalculatedInputs(inputs)
+    trackCalculation('hunting') // GA 이벤트 트래킹
   }
 
   // 슬롯 로딩 완료 시 현재 상태를 저장
