@@ -799,35 +799,41 @@ function calculateTransitions(state: TitleState): Map<number, number> {
 export function calculateProbabilityDistribution(
   input: CalculationInput
 ): CalculationResult {
-  const { currentState, maxIterations = 2000 } = input;
+  const { currentState, maxIterations = 5000 } = input;
 
   // dp[재설정횟수] = Map<상태, 확률>
   const dp: Map<number, number>[] = [];
 
-  // 비용별 완성 확률 추적 (cost -> probability)
-  const costCompletionMap = new Map<number, number>();
+  // 각 턴, 각 상태별 누적 "비용×확률" 추적
+  const costProb: Map<number, number>[] = [];
 
   // 초기 상태
   dp[0] = new Map();
   dp[0].set(encodeState(currentState), 1.0);
+  costProb[0] = new Map();
+  costProb[0].set(encodeState(currentState), 0); // 시작 비용×확률은 0
 
   // 완성 상태의 확률 추적
   const completionProbs: number[] = [0]; // completionProbs[n] = n회 재설정으로 완성한 확률
+  const completionCosts: number[] = [0]; // completionCosts[n] = n회 만에 완성한 경우의 평균 누적 비용
 
   // 동적 프로그래밍
-  let cumulativeCostProb = 0; // 총 누적 비용 기댓값
-
   for (let turn = 1; turn <= maxIterations; turn++) {
     dp[turn] = new Map();
+    costProb[turn] = new Map();
+
+    // 이번 턴에 새로 완성된 경로의 비용×확률 추적
+    let newCompletionCostProb = 0;
+    let newCompletionProb = 0;
 
     for (const [encodedState, prob] of Array.from(dp[turn - 1].entries())) {
-      if (prob < 1e-12) continue; // 무시할 만큼 작은 확률
-
       const state = decodeState(encodedState);
+      const previousCostProb = costProb[turn - 1].get(encodedState) || 0;
 
       if (isComplete(state)) {
-        // 이미 완성된 상태는 그대로 유지
+        // 이미 완성된 상태는 그대로 유지 (비용도 더 이상 증가하지 않음)
         dp[turn].set(encodedState, (dp[turn].get(encodedState) || 0) + prob);
+        costProb[turn].set(encodedState, (costProb[turn].get(encodedState) || 0) + previousCostProb);
       } else {
         // 이번 턴의 비용
         const lockCount = getLockCount(state);
@@ -838,14 +844,20 @@ export function calculateProbabilityDistribution(
 
         for (const [nextEncoded, transProb] of Array.from(transitions.entries())) {
           const newProb = prob * transProb;
+          // 이 경로의 누적 비용×확률 = (이전 비용×확률 + 이번 턴 비용×이전 확률) × 전이 확률
+          const newCostProb = (previousCostProb + turnCost * prob) * transProb;
+
+          // 확률 업데이트
           dp[turn].set(nextEncoded, (dp[turn].get(nextEncoded) || 0) + newProb);
 
-          // 완성된 경우 비용 기록
+          // 비용×확률 누적
+          costProb[turn].set(nextEncoded, (costProb[turn].get(nextEncoded) || 0) + newCostProb);
+
+          // 이번 턴에 새로 완성된 경우 추적
           const nextState = decodeState(nextEncoded);
           if (isComplete(nextState)) {
-            // 이 경로로 완성된 경우의 총 비용 계산 (간단한 추정)
-            const estimatedTotalCost = estimateTotalCostForTurn(currentState, turn);
-            costCompletionMap.set(estimatedTotalCost, (costCompletionMap.get(estimatedTotalCost) || 0) + newProb);
+            newCompletionCostProb += newCostProb;
+            newCompletionProb += newProb;
           }
         }
       }
@@ -857,21 +869,27 @@ export function calculateProbabilityDistribution(
     const prevCompleteProb = turn > 0 ? (dp[turn - 1].get(completeEncoded) || 0) : 0;
     completionProbs[turn] = currentCompleteProb - prevCompleteProb;
 
+    // 이번 턴에 완성된 경우의 평균 비용 저장
+    if (newCompletionProb > 0) {
+      completionCosts[turn] = newCompletionCostProb / newCompletionProb;
+    } else {
+      completionCosts[turn] = 0;
+    }
+
     // 조기 종료: 99.99% 이상 완성
-    if (currentCompleteProb > 0.9999) {
+    if (currentCompleteProb >= 1 - 1e-12) {
       break;
     }
   }
 
-  // 기댓값 계산 (정확한 비용 추적)
+  // 기댓값 계산
   let expectedResets = 0;
   let expectedCost = 0;
 
   for (let turn = 1; turn < completionProbs.length; turn++) {
     if (completionProbs[turn] > 0) {
       expectedResets += turn * completionProbs[turn];
-      const turnCost = estimateTotalCostForTurn(currentState, turn);
-      expectedCost += turnCost * completionProbs[turn];
+      expectedCost += completionCosts[turn] * completionProbs[turn];
     }
   }
 
@@ -887,9 +905,9 @@ export function calculateProbabilityDistribution(
   const percentile99 = findPercentile(cumulative, 0.99);
 
   // 비용 기준 백분위 계산
-  const percentile50Cost = estimateTotalCostForTurn(currentState, percentile50);
-  const percentile90Cost = estimateTotalCostForTurn(currentState, percentile90);
-  const percentile99Cost = estimateTotalCostForTurn(currentState, percentile99);
+  const percentile50Cost = Math.round(completionCosts[percentile50] || 0);
+  const percentile90Cost = Math.round(completionCosts[percentile90] || 0);
+  const percentile99Cost = Math.round(completionCosts[percentile99] || 0);
 
   // 분포 데이터 생성
   const distribution = completionProbs.slice(1).map((prob, idx) => ({
@@ -900,7 +918,7 @@ export function calculateProbabilityDistribution(
 
   // 비용 분포 데이터 생성
   const costDistribution = completionProbs.slice(1).map((prob, idx) => ({
-    cost: estimateTotalCostForTurn(currentState, idx + 1),
+    cost: Math.round(completionCosts[idx + 1] || 0),
     probability: prob,
     cumulative: cumulative[idx + 1]
   }));
@@ -919,45 +937,6 @@ export function calculateProbabilityDistribution(
   };
 }
 
-// 특정 턴까지의 총 비용 추정
-function estimateTotalCostForTurn(startState: TitleState, turn: number): number {
-  const startMatched = countMatched(startState);
-
-  if (turn === 0) return 0;
-
-  // 단계별 전환 추정
-  let cost = 0;
-  let matched = startMatched;
-  let remainingTurns = turn;
-
-  // 0개 -> 1개
-  if (matched === 0 && remainingTurns > 0) {
-    const p = 1 / SLOT_WORD_COUNTS.X + 1 / SLOT_WORD_COUNTS.Y + 1 / SLOT_WORD_COUNTS.Z;
-    const turnsToFirst = Math.min(remainingTurns, Math.ceil(1 / p));
-    cost += turnsToFirst * RESET_COSTS[0];
-    remainingTurns -= turnsToFirst;
-    matched = 1;
-  }
-
-  // 1개 -> 2개
-  if (matched === 1 && remainingTurns > 0) {
-    const avgP = 1 / ((SLOT_WORD_COUNTS.Y + SLOT_WORD_COUNTS.Z) / 2);
-    const turnsToSecond = Math.min(remainingTurns, Math.ceil(1 / avgP / 2)); // 2개 슬롯 중 하나
-    cost += turnsToSecond * RESET_COSTS[1];
-    remainingTurns -= turnsToSecond;
-    matched = 2;
-  }
-
-  // 2개 -> 3개
-  if (matched === 2 && remainingTurns > 0) {
-    cost += remainingTurns * RESET_COSTS[2];
-  } else if (matched < 2 && remainingTurns > 0) {
-    // 예외 케이스: 아직 2개가 안됐는데 턴이 남음
-    cost += remainingTurns * RESET_COSTS[matched as 0 | 1 | 2];
-  }
-
-  return Math.round(cost);
-}
 
 // 백분위 찾기
 function findPercentile(cumulative: number[], percentile: number): number {
@@ -994,68 +973,6 @@ export function groupWordsByCategory(words: string[]): Array<{ category: MedalCa
   return result;
 }
 
-// 평균 비용 추정 (근사값)
-function estimateAverageCostPerReset(startState: TitleState, totalResets: number): number {
-  const startMatched = countMatched(startState);
-
-  // 간단한 휴리스틱: 평균적으로 상태가 어떻게 진행되는지 추정
-  if (totalResets <= 5) {
-    // 초반에는 첫 슬롯 맞추는 중
-    return RESET_COSTS[startMatched as 0 | 1 | 2];
-  }
-
-  // 중반 이후: 평균적으로 1개 정도 맞춰진 상태
-  const avgMatched = Math.min(2, startMatched + Math.floor(totalResets / 50));
-  return RESET_COSTS[avgMatched as 0 | 1 | 2];
-}
-
-// 정확한 기대 비용 계산
-function calculateExpectedCost(startState: TitleState, expectedResets: number): number {
-  const startMatched = countMatched(startState);
-
-  // 각 단계별 기댓값 계산
-  if (startMatched === 0) {
-    // (0,0,0) → (1,0,0) 또는 유사
-    const p1 = 1 / SLOT_WORD_COUNTS.X;
-    const p2 = 1 / SLOT_WORD_COUNTS.Y;
-    const p3 = 1 / SLOT_WORD_COUNTS.Z;
-    const pAny = p1 + p2 + p3 - p1 * p2 - p1 * p3 - p2 * p3 + p1 * p2 * p3;
-
-    const resetsToFirst = 1 / pAny;
-    const costToFirst = resetsToFirst * RESET_COSTS[0];
-
-    // 첫 슬롯 이후
-    const remainingResets = expectedResets - resetsToFirst;
-    return costToFirst + calculateExpectedCostFromOne(remainingResets);
-  } else if (startMatched === 1) {
-    return calculateExpectedCostFromOne(expectedResets);
-  } else if (startMatched === 2) {
-    // 2개 맞춰진 상태에서 시작
-    const remaining = [SLOT_WORD_COUNTS.X, SLOT_WORD_COUNTS.Y, SLOT_WORD_COUNTS.Z].find((count, idx) => {
-      return startState[idx] === 0;
-    }) || SLOT_WORD_COUNTS.Z;
-
-    return expectedResets * RESET_COSTS[2];
-  } else {
-    return 0; // 이미 완성
-  }
-}
-
-// 1개 맞춰진 상태부터의 기대 비용
-function calculateExpectedCostFromOne(remainingResets: number): number {
-  // 1개 맞춰진 상태 → 2개 맞춰진 상태
-  // 대략적인 추정: 두 슬롯 중 하나를 맞출 때까지
-  const avgTwoSlots = (SLOT_WORD_COUNTS.Y + SLOT_WORD_COUNTS.Z) / 2;
-  const p = 1 / avgTwoSlots + 1 / avgTwoSlots;
-  const resetsToSecond = 1 / p;
-  const costToSecond = Math.min(remainingResets, resetsToSecond) * RESET_COSTS[1];
-
-  // 2개 맞춰진 상태 → 완성
-  const resetsToThird = Math.max(0, remainingResets - resetsToSecond);
-  const costToThird = resetsToThird * RESET_COSTS[2];
-
-  return costToSecond + costToThird;
-}
 
 // 간단한 기댓값 계산 (빠른 추정용)
 export function quickEstimate(currentState: TitleState): {

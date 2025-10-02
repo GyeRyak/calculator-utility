@@ -14,6 +14,7 @@ import {
 import { searchKorean, highlightMatches } from '@/utils/koreanSearch';
 import AutoSlotManager from '@/components/ui/AutoSlotManager';
 import DismissibleBanner from '@/components/ui/DismissibleBanner';
+import HangeulCostDistributionChart from '@/components/charts/HangeulCostDistributionChart';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 import { Search, Check } from 'lucide-react';
 
@@ -269,12 +270,45 @@ export default function HangeulTitleCalculator() {
     }
   }, [currentState, targetCombination, calculate, justLoaded]);
 
-  // 페이지 로드 시 또는 targetCombination 변경 시 선택된 단어로 스크롤
+  // 각 슬롯의 이전 값 추적 (스크롤 조건 판단용)
+  const prevTargetCombination = useRef<TargetCombination>(targetCombination);
+  const isInitialMount = useRef(true);
+
+  // 최초 로드 시 모든 슬롯 스크롤
+  useEffect(() => {
+    if (isInitialMount.current) {
+      (['X', 'Y', 'Z'] as SlotType[]).forEach(slot => {
+        scrollToSelectedWord(slot);
+      });
+      isInitialMount.current = false;
+    }
+  }, []);
+
+  // targetCombination 변경 시 해당 슬롯만 스크롤
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      (['X', 'Y', 'Z'] as SlotType[]).forEach(slot => {
+        // 해당 슬롯의 값이 실제로 변경된 경우에만 스크롤
+        if (prevTargetCombination.current[slot] !== targetCombination[slot]) {
+          scrollToSelectedWord(slot);
+        }
+      });
+    }
+    prevTargetCombination.current = targetCombination;
+  }, [targetCombination]);
+
+  // 검색어 변경 시 최상단으로 스크롤
   useEffect(() => {
     (['X', 'Y', 'Z'] as SlotType[]).forEach(slot => {
-      scrollToSelectedWord(slot);
+      const container = scrollContainerRefs.current[slot];
+      if (container && searchQueries[slot]) {
+        container.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      }
     });
-  }, [targetCombination]);
+  }, [searchQueries]);
 
   const slotNames: Record<number, string> = {
     0: 'X',
@@ -289,18 +323,6 @@ export default function HangeulTitleCalculator() {
         <h1 className="text-4xl font-bold">한글날 훈장 행사 계산기</h1>
       </div>
 
-      {/* 개발 중 경고 배너 */}
-      <DismissibleBanner
-        bannerId="hangeul-title-dev-warning"
-        message="⚠️ 이 계산기는 현재 개발 중입니다. 계산 결과가 정확하지 않을 수 있으니 참고용으로만 사용해 주세요."
-        bgColor="bg-red-50"
-        borderColor="border-red-200"
-        textColor="text-red-800"
-        linkHref=""
-        linkText=""
-        showIcon={false}
-      />
-
       {/* 행사 정보 배너 */}
       <DismissibleBanner
         bannerId="hangeul-title-event-info"
@@ -308,8 +330,8 @@ export default function HangeulTitleCalculator() {
         bgColor="bg-blue-50"
         borderColor="border-blue-200"
         textColor="text-blue-800"
-        linkHref=""
-        linkText=""
+        linkHref="https://maplestory.nexon.com/News/Event/Ongoing/1206"
+        linkText="단풍이야기 누리집 한글의 기운 행사"
         showIcon={false}
       />
 
@@ -326,7 +348,7 @@ export default function HangeulTitleCalculator() {
 
       <DismissibleBanner
         bannerId="hangeul-title-optimal-strategy"
-        message="✨ 재설정 중 원하는 단어가 나오면 해당 칸을 잠그고 진행하는 것이 최적입니다."
+        message="✨ 재설정 중 원하는 단어가 나오면 해당 칸을 잠그고 진행하세요. 해당 방법이 최적입니다!"
         bgColor="bg-yellow-50"
         borderColor="border-yellow-200"
         textColor="text-yellow-900"
@@ -523,7 +545,7 @@ export default function HangeulTitleCalculator() {
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-pink-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700">9할9푼 확률로 완성</span>
+                  <span className="text-sm font-medium text-gray-700">9할 9푼 확률로 완성</span>
                   <span className="text-lg font-bold text-pink-600">
                     한글의 기운 {result.percentile99Cost}개 이내
                   </span>
@@ -551,6 +573,9 @@ export default function HangeulTitleCalculator() {
               </div>
             </div>
             {/* 재설정 비용 안내 끝 */}
+
+            {/* 비용 분포 차트 */}
+            <HangeulCostDistributionChart result={result} />
           </>
         ) : (
           <div className="flex items-center justify-center h-[552px]">
