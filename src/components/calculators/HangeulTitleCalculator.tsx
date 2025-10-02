@@ -432,7 +432,8 @@ export default function HangeulTitleCalculator() {
                   ref={(el) => {
                     scrollContainerRefs.current[slot] = el;
                   }}
-                  className="h-64 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm"
+                  className="h-64 overflow-y-auto border border-gray-300 rounded-lg bg-white shadow-sm touch-pan-y"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
                   tabIndex={-1}
                 >
                   {getFilteredWords(slot).map(({ word, highlighted, category }, index) => {
@@ -441,7 +442,7 @@ export default function HangeulTitleCalculator() {
                       return (
                         <div
                           key={word}
-                          className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-50 px-3 py-2 text-xs font-bold text-gray-700 border-b border-gray-300 z-10"
+                          className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-600 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 border-b border-gray-300 dark:border-gray-500 z-10 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95"
                         >
                           {highlighted}
                         </div>

@@ -60,10 +60,16 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
     return null;
   }
 
-  // 차트 설정
-  const width = 800;
-  const height = 400;
-  const padding = { top: 20, right: 20, bottom: 60, left: 80 };
+  // 차트 설정 (반응형)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+  const width = isMobile ? window.innerWidth - 32 : 800; // 모바일: 양쪽 여백 16px씩
+  const height = isMobile ? 300 : 400;
+  const padding = {
+    top: 20,
+    right: isMobile ? 10 : 20,
+    bottom: 60,
+    left: isMobile ? 50 : 80
+  };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -86,11 +92,11 @@ export default function HangeulCostDistributionChart({ result }: HangeulCostDist
       </h3>
 
       {/* 차트 */}
-      <div className="relative">
+      <div className="relative overflow-x-auto">
         <svg
           width={width}
           height={height}
-          className="mx-auto"
+          className="mx-auto max-w-full"
           onMouseLeave={() => setHoveredBar(null)}
         >
           {/* 배경 그리드 */}
