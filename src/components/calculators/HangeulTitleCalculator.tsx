@@ -16,7 +16,7 @@ import AutoSlotManager from '@/components/ui/AutoSlotManager';
 import DismissibleBanner from '@/components/ui/DismissibleBanner';
 import HangeulCostDistributionChart from '@/components/charts/HangeulCostDistributionChart';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
-import { Search, Check } from 'lucide-react';
+import { Search, Check, Shuffle } from 'lucide-react';
 
 // 기본값 상수
 const DEFAULT_VALUES = {
@@ -141,6 +141,34 @@ export default function HangeulTitleCalculator() {
       const newState = [...prev] as TitleState;
       newState[slotIndex] = prev[slotIndex] === 0 ? 1 : 0;
       return newState;
+    });
+  };
+
+  // 랜덤 조합 생성 (고정되지 않은 슬롯만)
+  const handleRandomize = () => {
+    const slots: SlotType[] = ['X', 'Y', 'Z'];
+    const newCombination = { ...targetCombination };
+
+    slots.forEach((slot, index) => {
+      // 고정되지 않은 슬롯만 랜덤 선택
+      if (currentState[index] === 0) {
+        const words = WORD_LISTS[slot];
+        const randomIndex = Math.floor(Math.random() * words.length);
+        newCombination[slot] = words[randomIndex];
+      }
+    });
+
+    setTargetCombination(newCombination);
+
+    // 검색어 초기화
+    setSearchQueries({ X: '', Y: '', Z: '' });
+    setSelectedIndices({ X: -1, Y: -1, Z: -1 });
+
+    // 변경된 슬롯만 스크롤
+    slots.forEach((slot, index) => {
+      if (currentState[index] === 0) {
+        scrollToSelectedWord(slot);
+      }
     });
   };
 
@@ -468,7 +496,7 @@ export default function HangeulTitleCalculator() {
                   </p>
                 </div>
 
-                {/* 이미 맞춰짐 체크박스 */}
+                {/* 고정 체크박스 */}
                 <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-gray-100 rounded transition-colors h-10">
                   <input
                     type="checkbox"
@@ -478,7 +506,7 @@ export default function HangeulTitleCalculator() {
                     className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    이미 맞춤
+                    고정
                   </span>
                 </label>
               </div>
@@ -488,7 +516,14 @@ export default function HangeulTitleCalculator() {
         </div>
 
         {/* 목표 훈장 미리보기 시작 */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200">
+        <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 relative">
+          <button
+            onClick={handleRandomize}
+            className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors shadow-sm hover:shadow-md"
+          >
+            <Shuffle className="w-3.5 h-3.5" />
+            <span className="font-medium">무작위로 재설정</span>
+          </button>
           <p className="text-sm text-gray-600 mb-2 text-center">목표 훈장:</p>
           <p className="text-2xl font-bold text-center text-purple-900">
             {targetCombination.X === '(공백)' ? '' : targetCombination.X}{' '}
