@@ -24,8 +24,8 @@ const DEFAULT_VALUES = {
   currentState: [0, 0, 0] as TitleState,
   targetCombination: {
     X: '나랏말싸미',
-    Y: '전설의',
-    Z: '한글'
+    Y: '최고의',
+    Z: '훈장'
   } as TargetCombination
 };
 
@@ -526,9 +526,19 @@ export default function HangeulTitleCalculator() {
             <div className="flex-1">
               <p className="text-sm text-gray-600 mb-2 text-center sm:text-left">목표 훈장:</p>
               <p className="text-2xl font-bold text-center sm:text-left text-purple-900">
-                {targetCombination.X === '(공백)' ? '' : targetCombination.X}{' '}
-                {targetCombination.Y}{' '}
-                {targetCombination.Z === '캐릭터명' ? '[인물이름]' : targetCombination.Z}
+                {(() => {
+                  // 특수 로직: Z칸이 "훈장"이고 Y칸이 "~의"로 끝나면 "의 훈장" 제거
+                  if (targetCombination.Z === '훈장' && targetCombination.Y.endsWith('의')) {
+                    const x = targetCombination.X === '(공백)' ? '' : targetCombination.X;
+                    const y = targetCombination.Y.slice(0, -1); // "의" 제거
+                    return `${x}${x ? ' ' : ''}${y}`.trim();
+                  }
+
+                  // 일반적인 경우
+                  const x = targetCombination.X === '(공백)' ? '' : targetCombination.X;
+                  const z = targetCombination.Z === '캐릭터명' ? '[인물이름]' : targetCombination.Z;
+                  return `${x}${x ? ' ' : ''}${targetCombination.Y} ${z}`;
+                })()}
               </p>
             </div>
             <button
