@@ -357,7 +357,7 @@ export default function HangeulTitleCalculator() {
 
       {/* 행사 정보 배너 */}
       <DismissibleBanner
-        bannerId="hangeul-title-event-info"
+        bannerId="hangeul-title-event-ended-info"
         message="🎖️ (종료된 이벤트, ~25/10/16) 한글날 훈장 이벤트: 세 칸에 단어를 조합하여 원하는 훈장을 만드세요! 특정 칸을 잠그고 재설정할 수 있으며, 잠글 때마다 한글의 기운 소모량이 두 배가 됩니다."
         bgColor="bg-red-50"
         borderColor="border-red-200"
