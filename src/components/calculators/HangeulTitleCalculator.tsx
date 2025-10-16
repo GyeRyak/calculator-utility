@@ -352,18 +352,18 @@ export default function HangeulTitleCalculator() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* 헤더 */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold">한글날 훈장 행사 계산기</h1>
+        <h1 className="text-4xl font-bold">한글날 훈장 이벤트 계산기</h1>
       </div>
 
       {/* 행사 정보 배너 */}
       <DismissibleBanner
         bannerId="hangeul-title-event-info"
-        message="🎖️ 한글날 훈장 행사: 세 칸에 단어를 조합하여 원하는 훈장을 만드세요! 특정 칸을 잠그고 재설정할 수 있으며, 잠글 때마다 한글의 기운 소모량이 곱절이 됩니다."
-        bgColor="bg-blue-50"
-        borderColor="border-blue-200"
-        textColor="text-blue-800"
+        message="🎖️ (종료된 이벤트, ~25/10/16) 한글날 훈장 이벤트: 세 칸에 단어를 조합하여 원하는 훈장을 만드세요! 특정 칸을 잠그고 재설정할 수 있으며, 잠글 때마다 한글의 기운 소모량이 두 배가 됩니다."
+        bgColor="bg-red-50"
+        borderColor="border-red-200"
+        textColor="text-red-800"
         linkHref="https://maplestory.nexon.com/News/Event/Ongoing/1206"
-        linkText="단풍이야기 누리집 한글의 기운 행사"
+        linkText="메이플스토리 홈페이지 한글의 기운 이벤트 페이지"
         showIcon={false}
       />
 

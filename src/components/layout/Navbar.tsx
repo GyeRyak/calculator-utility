@@ -81,12 +81,6 @@ export function Navbar() {
                   >
                     록 스타 돌의 정령! (색종이 이벤트)
                   </Link>
-                  <Link
-                    href="/calculators/hangeul-medal"
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                  >
-                    한글날 훈장 행사 계산기
-                  </Link>
                 </div>
               )}
             </div>
@@ -175,13 +169,6 @@ export function Navbar() {
                     onClick={() => setIsMenuOpen(false)}
                   >
                     록 스타 돌의 정령! (색종이 이벤트)
-                  </Link>
-                  <Link
-                    href="/calculators/hangeul-medal"
-                    className="block text-sm text-gray-600 hover:text-primary transition-colors py-1"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    한글날 훈장 행사 계산기
                   </Link>
                 </div>
               </div>

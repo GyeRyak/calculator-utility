@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Calculator, Settings, Plus, Wrench, Cog, Zap, TrendingUp, Crown, Coffee, Sparkles, Award } from 'lucide-react'
 
-const calculatorCategories = [
+const activeCalculators = [
   {
     id: 'hunting-expectation',
     title: '사냥 기댓값 계산기',
@@ -9,7 +9,6 @@ const calculatorCategories = [
     icon: Calculator,
     href: '/calculators/basic',
     color: 'bg-blue-500',
-    available: true
   },
   {
     id: 'breakeven',
@@ -18,7 +17,6 @@ const calculatorCategories = [
     icon: TrendingUp,
     href: '/calculators/breakeven',
     color: 'bg-green-500',
-    available: true
   },
   {
     id: 'boss-chase',
@@ -27,7 +25,6 @@ const calculatorCategories = [
     icon: Crown,
     href: '/calculators/boss-chase',
     color: 'bg-purple-500',
-    available: true
   },
   {
     id: 'lounge-optimizer',
@@ -36,7 +33,6 @@ const calculatorCategories = [
     icon: Coffee,
     href: '/calculators/lounge',
     color: 'bg-orange-500',
-    available: true
   },
   {
     id: 'origami-event',
@@ -45,8 +41,10 @@ const calculatorCategories = [
     icon: Sparkles,
     href: '/calculators/origami',
     color: 'bg-pink-500',
-    available: true
-  },
+  }
+]
+
+const endedEventCalculators = [
   {
     id: 'hangeul-medal',
     title: '한글날 훈장 행사 계산기',
@@ -54,54 +52,66 @@ const calculatorCategories = [
     icon: Award,
     href: '/calculators/hangeul-medal',
     color: 'bg-indigo-500',
-    available: true
   }
 ]
 
 export function CalculatorGrid() {
   return (
-    <div className="py-8">
-      <h2 className="text-3xl font-bold text-center mb-8">계산기 종류</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {calculatorCategories.map((category) => {
-          const IconComponent = category.icon
-          
-          if (category.available && category.href) {
-            // 활성화된 계산기
+    <div className="py-8 space-y-12">
+      {/* 활성 계산기 섹션 */}
+      <div>
+        <h2 className="text-3xl font-bold text-center mb-8">계산기 종류</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {activeCalculators.map((calculator) => {
+            const IconComponent = calculator.icon
             return (
-              <Link key={category.id} href={category.href}>
-                <div className="bg-white border rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer">
+              <Link key={calculator.id} href={calculator.href}>
+                <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="flex items-center mb-4">
-                    <div className={`${category.color} p-3 rounded-lg mr-4`}>
+                    <div className={`${calculator.color} p-3 rounded-lg mr-4`}>
                       <IconComponent className="h-6 w-6 text-white" />
                     </div>
-                    <h3 className="text-xl font-semibold">{category.title}</h3>
+                    <h3 className="text-xl font-semibold dark:text-gray-100">{calculator.title}</h3>
                   </div>
-                  <p className="text-gray-600">{category.description}</p>
+                  <p className="text-gray-600 dark:text-gray-300">{calculator.description}</p>
                 </div>
               </Link>
             )
-          } else {
-            // 비활성화된 계산기
-            return (
-              <div key={category.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6 opacity-60 cursor-not-allowed">
-                <div className="flex items-center mb-4">
-                  <div className={`${category.color} opacity-50 p-3 rounded-lg mr-4`}>
-                    <IconComponent className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-500">{category.title}</h3>
-                </div>
-                <p className="text-gray-400">{category.description}</p>
-                <div className="mt-3">
-                  <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
-                    🚧 개발 예정
-                  </span>
-                </div>
-              </div>
-            )
-          }
-        })}
+          })}
+        </div>
       </div>
+
+      {/* 종료된 이벤트 섹션 */}
+      {endedEventCalculators.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-bold text-center mb-6 text-gray-500 dark:text-gray-400">
+            종료된 이벤트 계산기
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {endedEventCalculators.map((calculator) => {
+              const IconComponent = calculator.icon
+              return (
+                <Link key={calculator.id} href={calculator.href}>
+                  <div className="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:shadow-lg transition-shadow cursor-pointer relative">
+                    <div className="flex items-center mb-4">
+                      <div className={`${calculator.color} opacity-70 p-3 rounded-lg mr-4`}>
+                        <IconComponent className="h-6 w-6 text-white" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300">{calculator.title}</h3>
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400">{calculator.description}</p>
+                    <div className="mt-3">
+                      <span className="inline-block bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs px-2 py-1 rounded-full">
+                        ⏸️ 종료된 이벤트
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 } 
