@@ -5,11 +5,11 @@ import { Settings, Cookie, Trash2, Download, Upload, AlertCircle } from 'lucide-
 import {
   getCookieConsent,
   setCookieConsent,
+  DEFAULT_COOKIE_CONSENT,
   clearAllNonEssentialCookies,
   canUseFunctionalCookies,
   getAllSavedSettings,
   saveCalculatorSettings,
-  clearCalculatorSettings,
   type CookieConsent
 } from '@/utils/cookies'
 
@@ -23,11 +23,16 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
   const [consent, setConsent] = useState<CookieConsent | null>(null)
   const [savedSettings, setSavedSettings] = useState<any>(null)
   const [showConfirmClear, setShowConfirmClear] = useState(false)
+  const [showFunctionalDisableConfirm, setShowFunctionalDisableConfirm] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
-      const currentConsent = getCookieConsent()
+      const currentConsent = getCookieConsent() ?? {
+        ...DEFAULT_COOKIE_CONSENT,
+        consentDate: new Date().toISOString()
+      }
       setConsent(currentConsent)
+      setShowFunctionalDisableConfirm(false)
       
       if (canUseFunctionalCookies()) {
         const settings = getAllSavedSettings()
@@ -36,24 +41,40 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
     }
   }, [isOpen])
 
-  const updateConsent = (key: keyof Omit<CookieConsent, 'consentDate'>, value: boolean) => {
-    if (key === 'necessary' || !consent) return // 필수 쿠키는 변경 불가
-    
+  const applyConsent = (key: keyof Omit<CookieConsent, 'consentDate'>, value: boolean) => {
+    if (!consent) return
+
     const newConsent = {
       ...consent,
       [key]: value,
+      ...(key === 'analytics' && !value ? { detailedAnalytics: false } : {}),
       consentDate: new Date().toISOString()
     }
     
     setConsent(newConsent)
     setCookieConsent(newConsent)
     onConsentChange?.(newConsent)
-    
-    // 기능성 쿠키가 비활성화되면 저장된 설정도 삭제
-    if (key === 'functional' && !value) {
-      clearCalculatorSettings()
+  }
+
+  const updateConsent = (key: keyof Omit<CookieConsent, 'consentDate'>, value: boolean) => {
+    if (key === 'necessary' || !consent) return // 필수 쿠키는 변경 불가
+
+    if (key === 'functional' && !value && getAllSavedSettings()) {
+      setShowFunctionalDisableConfirm(true)
+      return
+    }
+
+    applyConsent(key, value)
+  }
+
+  const disableFunctionalStorage = (deleteSavedData: boolean) => {
+    if (deleteSavedData) {
+      clearAllNonEssentialCookies()
       setSavedSettings(null)
     }
+
+    applyConsent('functional', false)
+    setShowFunctionalDisableConfirm(false)
   }
 
   const handleClearAllData = () => {
@@ -66,6 +87,8 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
       const newConsent = {
         ...consent,
         functional: false,
+        analytics: false,
+        detailedAnalytics: false,
         consentDate: new Date().toISOString()
       }
       setConsent(newConsent)
@@ -118,7 +141,7 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-900">쿠키 및 데이터 관리</h2>
+            <h2 className="text-lg font-semibold text-gray-900">데이터 및 개인정보 설정</h2>
           </div>
           <button
             onClick={onClose}
@@ -133,7 +156,7 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
           <div className="mb-6">
             <h3 className="text-md font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Cookie className="w-4 h-4" />
-              쿠키 설정
+              저장 및 분석 설정
             </h3>
             
             <div className="space-y-3">
@@ -146,7 +169,7 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
                   </div>
                 </div>
                 <p className="text-xs text-gray-600">
-                  웹사이트 기본 기능을 위한 필수 쿠키입니다.
+                  데이터 설정 동의 여부와 각 항목의 켜기·끄기 상태를 저장하기 위한 필수 쿠키입니다.
                 </p>
               </div>
               
@@ -165,7 +188,47 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
                   </label>
                 </div>
                 <p className="text-xs text-gray-600">
-                  계산기 설정을 저장하여 다음 방문 시 자동 복원합니다.
+                  계산기 설정을 브라우저 로컬 저장소에만 저장해 다음 방문 시 자동 복원합니다.
+                  저장 내용은 서버로 전송하지 않습니다.
+                </p>
+              </div>
+
+              {/* 기본 분석 */}
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900 text-sm">기본 이용 통계</h4>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={consent?.analytics || false}
+                      onChange={(e) => updateConsent('analytics', e.target.checked)}
+                      className="mr-2 rounded"
+                    />
+                    <span className="text-sm text-gray-600">허용</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Google Analytics로 방문·유입·대략적인 기기·지역·계산 실행·기능 사용 및 구간화된 계산 성능·멈춤 현상 통계를 수집하며 이름·연락처, 입력값과 결과는 포함하지 않습니다.
+                </p>
+              </div>
+
+              {/* 상세 분석 */}
+              <div className={`border border-gray-200 rounded-lg p-3 ${consent?.analytics ? '' : 'opacity-60'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium text-gray-900 text-sm">상세 제품 개선 데이터</h4>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={consent?.detailedAnalytics || false}
+                      disabled={!consent?.analytics}
+                      onChange={(e) => updateConsent('detailedAnalytics', e.target.checked)}
+                      className="mr-2 rounded disabled:cursor-not-allowed"
+                    />
+                    <span className="text-sm text-gray-600">추가 허용</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-600">
+                  일부 입력값을 넓은 구간으로만 전송합니다. 정확한 값, 계산 결과, 사용자 입력 문자열·가격·슬롯 내용은 전송하지 않습니다.
                 </p>
               </div>
             </div>
@@ -259,7 +322,7 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
             ) : (
               <div className="border border-red-200 bg-red-50 rounded-lg p-3">
                 <p className="text-sm text-red-800 mb-3">
-                  모든 저장된 설정과 기능성 쿠키가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                  모든 저장된 설정과 분석 쿠키가 삭제되고 선택 동의가 철회됩니다. 이 작업은 되돌릴 수 없습니다.
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -289,6 +352,47 @@ export function CookieSettings({ isOpen, onClose, onConsentChange }: CookieSetti
           </button>
         </div>
       </div>
+
+      {showFunctionalDisableConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="functional-storage-disable-title"
+            className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+          >
+            <h3 id="functional-storage-disable-title" className="text-base font-semibold text-gray-900">
+              저장된 데이터를 삭제할까요?
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              기능성 쿠키를 끄면 설정이 더 이상 자동 저장되지 않습니다. 현재 브라우저에 저장된 계산기 설정은 유지하거나 함께 삭제할 수 있습니다.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFunctionalDisableConfirm(false)}
+                className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => disableFunctionalStorage(false)}
+                className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                유지하고 끄기
+              </button>
+              <button
+                type="button"
+                onClick={() => disableFunctionalStorage(true)}
+                className="rounded bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
+              >
+                삭제하고 끄기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -23,7 +23,7 @@ import AutoSlotManager from '../ui/AutoSlotManager'
 import { useNotification } from '@/contexts/NotificationContext'
 import { confirmSlotReset } from '@/utils/slotUtils'
 import { type BreakevenCalculatorExportData } from '@/utils/exportUtils'
-import { trackCalculation } from '@/lib/analytics'
+import { measureCalculationPerformance, trackCalculation } from '@/lib/analytics'
 
 interface BreakevenSettings {
   items: BreakevenItem[]
@@ -389,7 +389,7 @@ export function BreakevenCalculator() {
       return
     }
 
-    const result = calculateBreakeven({
+    const result = measureCalculationPerformance('breakeven', () => calculateBreakeven({
       ...baseParams,
       items,
       materialsPerDay,
@@ -403,7 +403,7 @@ export function BreakevenCalculator() {
       mesoLimitHours,
       normalDropExpectation,
       logDropExpectation
-    })
+    }))
     setResults(result)
     trackCalculation('breakeven') // GA 이벤트 트래킹
   }, [items, materialsPerDay, baseParams, wealthAcquisitionPotion, currentDropFromPotential, currentMesoFromPotential, otherDropBonus, otherMesoBonus, globalFeeRate, mesoLimitEnabled, mesoLimitHours, normalDropExpectation, logDropExpectation])

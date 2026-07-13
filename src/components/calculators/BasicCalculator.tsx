@@ -20,7 +20,7 @@ import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/f
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
 import { type BasicCalculatorExportData } from '../../utils/exportUtils'
-import { trackCalculation } from '@/lib/analytics'
+import { measureCalculationPerformance, trackCalculation, trackHuntingAnalyticsSnapshot } from '@/lib/analytics'
 import {
   calculateBasicCalculator,
   type BasicCalculatorDropItem,
@@ -940,7 +940,7 @@ export function BasicCalculator() {
   // calculateDrops 함수 내부
   const calculateDrops = () => {
     const inputs = getCurrentInputs()
-    const newResult = calculateBasicCalculator({
+    const newResult = measureCalculationPerformance('hunting', () => calculateBasicCalculator({
       monsterLevel: inputs.monsterLevel,
       characterLevel: inputs.characterLevel,
       monsterCount: inputs.monsterCount,
@@ -957,11 +957,23 @@ export function BasicCalculator() {
       dropItems,
       mesoParams: getMesoCalculationParams(),
       itemDropParams: getItemDropCalculationParams(),
-    })
+    }))
 
     setResult(newResult)
     setCalculatedInputs(inputs)
     trackCalculation('hunting') // GA 이벤트 트래킹
+    trackHuntingAnalyticsSnapshot({
+      characterLevel: inputs.characterLevel,
+      monsterLevel: inputs.monsterLevel,
+      itemDropRate: calculateItemDropBonus(getItemDropCalculationParams()).totalBonus,
+      mesoRate: calculateMesoBonus(getMesoCalculationParams()).totalBonus,
+      normalItemCount: normalDropItems.length,
+      specialItemCount: logDropItems.length,
+      usesPotion: wealthAcquisitionPotion,
+      mesoInputMode,
+      dropInputMode: dropRateInputMode,
+      resultMode: inputs.resultTimeUnit === 'meso_limit' ? 'meso_limit' : 'custom',
+    })
   }
 
   const calculateDropsRef = useRef(calculateDrops)

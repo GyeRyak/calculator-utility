@@ -33,7 +33,7 @@ import {
   type WeeklyStrategy
 } from '../../utils/loungeCalculations'
 import { type LoungeCalculatorExportData } from '../../utils/exportUtils'
-import { trackCalculation } from '@/lib/analytics'
+import { measureCalculationPerformance, trackCalculation } from '@/lib/analytics'
 
 // 기본값 정의
 const getCurrentDefaultValues = () => {
@@ -315,29 +315,31 @@ export default function LoungeCalculator() {
         weeklyPoints
       }
 
-      // 입력 상태 해시 생성 (제한 설정 제외 - 제한은 사전계산 결과 재조립만 하므로)
-      const currentState = JSON.stringify({
-        currentWeek,
-        skillLevels,
-        remainingPoints,
-        remainingTimeThisWeek,
-        weeklyPoints
-      })
-
-      // 기본 입력이 변경되면 캐시 초기화하고 재계산
-      if (lastCalculatorStateRef.current !== currentState) {
-        optimizedCalculator.calculateFull({
-          ...input,
-          maxLongRestLevel: undefined // 제한 없이 전체 계산
+      const result = measureCalculationPerformance('lounge', () => {
+        // 입력 상태 해시 생성 (제한 설정 제외 - 제한은 사전계산 결과 재조립만 하므로)
+        const currentState = JSON.stringify({
+          currentWeek,
+          skillLevels,
+          remainingPoints,
+          remainingTimeThisWeek,
+          weeklyPoints
         })
-        lastCalculatorStateRef.current = currentState
-      }
 
-      // 제한 레벨에 따른 결과 반환 (빠른 재구성)
-      const result = optimizedCalculator.getResultForLimit(
-        input,
-        enableLongRestLimit ? maxLongRestLevel : undefined
-      )
+        // 기본 입력이 변경되면 캐시 초기화하고 재계산
+        if (lastCalculatorStateRef.current !== currentState) {
+          optimizedCalculator.calculateFull({
+            ...input,
+            maxLongRestLevel: undefined // 제한 없이 전체 계산
+          })
+          lastCalculatorStateRef.current = currentState
+        }
+
+        // 제한 레벨에 따른 결과 반환 (빠른 재구성)
+        return optimizedCalculator.getResultForLimit(
+          input,
+          enableLongRestLimit ? maxLongRestLevel : undefined
+        )
+      })
 
       trackCalculation('lounge') // GA 이벤트 트래킹
 

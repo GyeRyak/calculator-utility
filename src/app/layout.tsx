@@ -4,7 +4,6 @@ import './globals.css'
 import { Navbar } from '@/components/layout/Navbar'
 import CookieProvider from '@/components/providers/CookieProvider'
 import { NotificationProvider } from '@/contexts/NotificationContext'
-import GoogleAnalytics from '@/components/GoogleAnalytics'
 import { AdSenseScript } from '@/components/AdSenseScript'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -37,7 +36,6 @@ export default function RootLayout({
       <head>
         <meta name="naver-site-verification" content="66ca6021933d74b4baf5a6723e76cf47f8cbb6f4" />
         <meta name="google-adsense-account" content="ca-pub-6146739804286620" />
-        <GoogleAnalytics />
         <script
           dangerouslySetInnerHTML={{
             __html: `

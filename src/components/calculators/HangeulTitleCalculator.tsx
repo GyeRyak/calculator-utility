@@ -17,7 +17,7 @@ import DismissibleBanner from '@/components/ui/DismissibleBanner';
 import HangeulCostDistributionChart from '@/components/charts/HangeulCostDistributionChart';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 import { Search, Check, Shuffle } from 'lucide-react';
-import { trackCalculation, trackRandomReset } from '@/lib/analytics';
+import { measureCalculationPerformance, trackCalculation, trackRandomReset } from '@/lib/analytics';
 
 // 기본값 상수
 const DEFAULT_VALUES = {
@@ -277,11 +277,11 @@ export default function HangeulTitleCalculator() {
     // 비동기로 계산 (UI 블로킹 방지)
     setTimeout(() => {
       try {
-        const calculationResult = calculateProbabilityDistribution({
+        const calculationResult = measureCalculationPerformance('hangeul_medal', () => calculateProbabilityDistribution({
           currentState,
           targetCombination,
           maxIterations: 2000
-        });
+        }));
 
         setResult(calculationResult);
         trackCalculation('hangeul_medal'); // GA 이벤트 트래킹

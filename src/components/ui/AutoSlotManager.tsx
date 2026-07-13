@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Save, Trash2, Edit2, Copy, Share2, Download } from 'lucide-react'
-import { canUseFunctionalCookies } from '@/utils/cookies'
+import { Save, Trash2, Edit2, Copy, Share2, Download, AlertTriangle, Settings } from 'lucide-react'
+import { canUseFunctionalCookies, OPEN_DATA_PRIVACY_SETTINGS_EVENT } from '@/utils/cookies'
 import { trackSlotAction } from '@/lib/analytics'
 import {
   decodeSettingsExport,
@@ -62,6 +62,7 @@ export default function AutoSlotManager({
   
   // 미저장 변경사항 경고 모달
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
+  const [showFunctionalCookieWarning, setShowFunctionalCookieWarning] = useState(false)
   const [pendingSlotNumber, setPendingSlotNumber] = useState<number | null>(null)
   
   // 슬롯 복사 모달
@@ -109,7 +110,7 @@ export default function AutoSlotManager({
   // 슬롯에 데이터 저장
   const saveSlotData = (slotNumber: number, data: any, slotName?: string): boolean => {
     if (!canUseFunctionalCookies()) {
-      onNotification?.('error', '기능성 쿠키가 비활성화되어 있습니다. 설정을 저장하려면 쿠키 설정에서 기능성 쿠키를 활성화해주세요.')
+      setShowFunctionalCookieWarning(true)
       return false
     }
 
@@ -230,6 +231,11 @@ export default function AutoSlotManager({
   const handleCancelSwitch = () => {
     setShowUnsavedWarning(false)
     setPendingSlotNumber(null)
+  }
+
+  const openCookieSettings = () => {
+    setShowFunctionalCookieWarning(false)
+    window.dispatchEvent(new Event(OPEN_DATA_PRIVACY_SETTINGS_EVENT))
   }
 
   // 슬롯 이름 저장
@@ -589,6 +595,39 @@ export default function AutoSlotManager({
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
               >
                 저장 후 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 기능성 쿠키 비활성화 경고 */}
+      {showFunctionalCookieWarning && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 flex-shrink-0 text-amber-500" />
+              <h3 className="text-lg font-semibold text-gray-900">설정을 저장할 수 없습니다</h3>
+            </div>
+            <p className="mb-6 text-sm leading-relaxed text-gray-600">
+              슬롯에 계산기 설정을 저장하려면 기능성 쿠키를 허용해야 합니다.
+              데이터 및 개인정보 설정에서 기능성 저장을 켠 뒤 다시 저장해 주세요.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFunctionalCookieWarning(false)}
+                className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={openCookieSettings}
+                className="flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700"
+              >
+                <Settings className="h-4 w-4" />
+                데이터 설정 열기
               </button>
             </div>
           </div>

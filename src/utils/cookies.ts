@@ -92,11 +92,15 @@ export function getAllCookies(): { [key: string]: string } {
 // 쿠키 동의 관리
 export const COOKIE_CONSENT_KEY = 'cookie_consent'
 export const COOKIE_SETTINGS_KEY = 'cookie_settings'
+export const COOKIE_CONSENT_CHANGE_EVENT = 'cookie-consent-change'
+export const OPEN_DATA_PRIVACY_SETTINGS_EVENT = 'open-data-privacy-settings'
+const COOKIE_CONSENT_VERSION = 2
 
 export interface CookieConsent {
   necessary: boolean // 필수 쿠키 (항상 true)
   functional: boolean // 기능성 쿠키 (설정 저장 등)
-  analytics: boolean // 분석 쿠키 (사용하지 않음, 확장성을 위해 포함)
+  analytics: boolean // 기본 이용 통계
+  detailedAnalytics: boolean // 구간화된 계산 설정 통계
   marketing: boolean // 마케팅 쿠키 (사용하지 않음, 확장성을 위해 포함)
   consentDate: string // 동의 날짜
 }
@@ -106,6 +110,7 @@ export const DEFAULT_COOKIE_CONSENT: CookieConsent = {
   necessary: true,
   functional: false,
   analytics: false,
+  detailedAnalytics: false,
   marketing: false,
   consentDate: new Date().toISOString()
 }
@@ -116,7 +121,15 @@ export function getCookieConsent(): CookieConsent | null {
   if (!consentData) return null
   
   try {
-    return JSON.parse(consentData)
+    const parsed = JSON.parse(consentData) as Partial<CookieConsent> & { version?: number }
+    if (parsed.version !== COOKIE_CONSENT_VERSION) return null
+
+    return {
+      ...DEFAULT_COOKIE_CONSENT,
+      ...parsed,
+      necessary: true,
+      detailedAnalytics: parsed.analytics === true && parsed.detailedAnalytics === true,
+    }
   } catch {
     return null
   }
@@ -124,11 +137,25 @@ export function getCookieConsent(): CookieConsent | null {
 
 // 쿠키 동의 저장
 export function setCookieConsent(consent: CookieConsent): void {
-  setCookie(COOKIE_CONSENT_KEY, JSON.stringify(consent), {
+  const normalizedConsent: CookieConsent = {
+    ...consent,
+    necessary: true,
+    detailedAnalytics: consent.analytics && consent.detailedAnalytics,
+  }
+
+  setCookie(COOKIE_CONSENT_KEY, JSON.stringify({
+    ...normalizedConsent,
+    version: COOKIE_CONSENT_VERSION,
+  }), {
     expires: 365, // 1년
     path: '/',
     sameSite: 'lax'
   })
+
+  if (!normalizedConsent.analytics) clearAnalyticsCookies()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_CHANGE_EVENT, { detail: normalizedConsent }))
+  }
 }
 
 // 쿠키 사용 허용 여부 확인
@@ -141,6 +168,28 @@ export function isCookieAllowed(type: keyof Omit<CookieConsent, 'consentDate'>):
 // 기능성 쿠키 사용 가능 여부 확인
 export function canUseFunctionalCookies(): boolean {
   return isCookieAllowed('functional')
+}
+
+export function canUseAnalyticsCookies(): boolean {
+  return isCookieAllowed('analytics')
+}
+
+export function canSendDetailedAnalytics(): boolean {
+  return isCookieAllowed('detailedAnalytics')
+}
+
+export function clearAnalyticsCookies(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  const analyticsCookieNames = Object.keys(getAllCookies()).filter(
+    (name) => name === '_ga' || name.startsWith('_ga_')
+  )
+
+  analyticsCookieNames.forEach((name) => {
+    deleteCookie(name, '/')
+    deleteCookie(name, '/', window.location.hostname)
+    deleteCookie(name, '/', `.${window.location.hostname}`)
+  })
 }
 
 // 슬롯별 쿠키 키 생성

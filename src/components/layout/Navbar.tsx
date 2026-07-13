@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Menu, X, Calculator, Settings, ChevronDown } from 'lucide-react'
 import CookieSettings from '@/components/ui/CookieSettings'
+import { OPEN_DATA_PRIVACY_SETTINGS_EVENT } from '@/utils/cookies'
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -11,6 +12,12 @@ export function Navbar() {
   const [isCalculatorMenuOpen, setIsCalculatorMenuOpen] = useState(false)
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
+
+  useEffect(() => {
+    const openCookieSettings = () => setShowCookieSettings(true)
+    window.addEventListener(OPEN_DATA_PRIVACY_SETTINGS_EVENT, openCookieSettings)
+    return () => window.removeEventListener(OPEN_DATA_PRIVACY_SETTINGS_EVENT, openCookieSettings)
+  }, [])
 
   return (
     <nav className="bg-white shadow-sm border-b">
@@ -95,10 +102,10 @@ export function Navbar() {
             <button
               onClick={() => setShowCookieSettings(true)}
               className="text-foreground hover:text-primary transition-colors flex items-center gap-1"
-              title="쿠키 설정"
+              title="데이터 및 개인정보 설정"
             >
               <Settings className="w-4 h-4" />
-              <span className="text-sm">쿠키 설정</span>
+              <span className="text-sm">데이터 설정</span>
             </button>
           </div>
 
@@ -196,7 +203,7 @@ export function Navbar() {
                 className="text-foreground hover:text-primary transition-colors px-2 py-1 flex items-center gap-2 text-left"
               >
                 <Settings className="w-4 h-4" />
-                쿠키 설정
+                데이터 및 개인정보 설정
               </button>
             </div>
           </div>
@@ -210,4 +217,4 @@ export function Navbar() {
       </div>
     </nav>
   )
-} 
+}
