@@ -3,6 +3,9 @@
 // 전역 공통 기본값
 export * from './globalDefaults'
 
+// 드롭 아이템 기본 확률
+export * from './dropItemDefaults'
+
 // 기본 계산기(사냥 기댓값 계산기) 기본값
 export * from './basicCalculatorDefaults'
 

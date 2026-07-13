@@ -3,6 +3,7 @@
  */
 import { calculateLevelPenalty } from './levelPenalty'
 import { getAverageMesoDropByLevel } from './mesoDropCalculation'
+import { calculateGrandAuthenticSymbolBonus } from './grandAuthenticSymbol'
 
 // 보너스 계산 결과 인터페이스
 export interface BonusCalculationResult {
@@ -35,6 +36,7 @@ export interface MesoCalculationParams {
   artifactLevel: number
   artifactPercent: number
   tallahartSymbolLevel: number
+  geardrakSymbolLevel?: number
   wealthAcquisitionPotion: boolean
   otherBuff: number // 기타 버프 (합연산)
   otherNonBuff: number // 기타 증가량 (합연산)
@@ -56,6 +58,7 @@ export interface ItemDropCalculationParams {
   artifactLevel: number
   artifactPercent: number
   tallahartSymbolLevel: number
+  geardrakSymbolLevel?: number
   holySymbol: boolean
   decentHolySymbol: boolean
   decentHolySymbolLevel: number
@@ -150,7 +153,7 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
   // 어빌리티
   otherBonus += params.ability
   
-  // 글로벌 버프 (챌린저스 월드 다이아 또는 Legion 아티팩트)
+  // 글로벌 버프 (챌린저스 월드 사파이어 또는 Legion 아티팩트)
   if (params.globalBuffMode === 'challenger') {
     otherBonus += 20
   } else if (params.globalBuffMode === 'legion') {
@@ -161,10 +164,8 @@ export function calculateMesoBonus(params: MesoCalculationParams): BonusCalculat
     )
   }
   
-  // 탈라하트 심볼 (0레벨: 0%, 1레벨 이상: 4+레벨%)
-  if (params.tallahartSymbolLevel > 0) {
-    otherBonus += params.tallahartSymbolLevel + 4
-  }
+  otherBonus += calculateGrandAuthenticSymbolBonus(params.tallahartSymbolLevel)
+  otherBonus += calculateGrandAuthenticSymbolBonus(params.geardrakSymbolLevel ?? 0)
 
   // 기타 증가량
   otherBonus += params.otherNonBuff
@@ -241,7 +242,7 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
   // 어빌리티
   otherBonus += params.ability
   
-  // 글로벌 버프 (챌린저스 월드 다이아 또는 Legion 아티팩트)
+  // 글로벌 버프 (챌린저스 월드 사파이어 또는 Legion 아티팩트)
   if (params.globalBuffMode === 'challenger') {
     otherBonus += 20
   } else if (params.globalBuffMode === 'legion') {
@@ -262,10 +263,8 @@ export function calculateItemDropBonus(params: ItemDropCalculationParams): Bonus
     otherBonus += basePercent + additionalPercent
   }
   
-  // 탈라하트 심볼 (0레벨: 0%, 1레벨 이상: 4+레벨%)
-  if (params.tallahartSymbolLevel > 0) {
-    otherBonus += params.tallahartSymbolLevel + 4
-  }
+  otherBonus += calculateGrandAuthenticSymbolBonus(params.tallahartSymbolLevel)
+  otherBonus += calculateGrandAuthenticSymbolBonus(params.geardrakSymbolLevel ?? 0)
 
   // PC방 (10% 추가)
   if (params.pcRoomMode) {

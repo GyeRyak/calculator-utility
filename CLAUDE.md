@@ -15,6 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Git 작업 규칙
 - **중요**: 사용자가 명시적으로 "커밋해", "푸시해", "배포해" 등으로 요청하기 전까지는 절대 git commit이나 git push를 하지 말 것
 - 작업 완료 후 자동으로 커밋하지 말고, 사용자의 명시적 지시를 기다릴 것
+- 이 저장소의 커밋 작성자는 반드시 `GyeRyak <ksmin1114@naver.com>`을 사용할 것. 커밋 전에 repository-local `user.name`과 `user.email`을 확인하고, 다르면 이 저장소 범위에서만 설정할 것
 - 사용자가 배포하라고 하는 경우, 우선 npm run build를 통해 빌드하여 에러가 없는지를 확인한 뒤 지금까지의 작업 내역을 확인해 claude.md, readme.md, about 페이지를 포함해 각종 문서에 업데이트가 필요한 내용이 있으면 업데이트한 뒤 git commit을 생성하고 푸시함
 
 
@@ -41,12 +42,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Development server**: `npm run dev` - Runs Next.js development server on http://localhost:3000
 - **Build for production**: `npm run build` or `npm run export` - Creates optimized production build with static export
 - **Start production server**: `npm run start` - Runs production server
+- **Run regression tests**: `npm test` - Runs deterministic calculation and storage tests with Vitest
 - **Lint code**: `npm run lint` - Runs ESLint with Next.js configuration
 - **Deploy to GitHub Pages**: `npm run deploy` - Builds and deploys to GitHub Pages (requires gh-pages setup)
 
 ## Development Best Practices
 
-- `npm run dev`는 실행하지 말고, 커밋하고 푸시하기 이전에 빌드하여 테스트할 것.
+- `npm run dev`는 실행하지 말고, 커밋하고 푸시하기 이전에 `npm test`, `npm run lint`, `npm run build`를 실행할 것.
 
 ### JSX 구조 관리 규칙
 
@@ -191,11 +193,18 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - **Icons**: Lucide React for icon components
 - **Deployment**: Static export optimized for GitHub Pages with dynamic base path support via `BASE_PATH` environment variable
 - **Korean Language**: The app is primarily in Korean (calculator utilities for Korean gaming community)
+- **드롭률 공식**: 실효 증가율은 `표기 드롭률 × (드롭 상수/100) + 24%`. 메소 주머니와 일반 드롭 상수는 100%, 특수 드롭 상수는 아이템별 0~100%이며 솔 에르다 조각·코어 젬스톤·심볼 교환권 기본값은 50%, 사용자가 새로 추가하는 특수 아이템 기본값은 10%
+- **드롭률 UI 표기**: 합산 입력값과 연산 기초값은 `아이템 드롭률 (표기)`로 표시하며, 이 값 자체에는 아이템별 실효 계산에서 더하는 24% 보정이 포함되지 않음
+- **특수 아이템 기본 드롭률**: 솔 에르다 조각 0.0425% (`425,000/10⁹`), 코어 젬스톤 0.028% (`280,000/10⁹`), 심볼 교환권 0.0015% (`15,000/10⁹`, 표본이 적은 추정값). 근거와 자료는 `DROP_RATE_RESEARCH.md`를 참고할 것
+- **일반 아이템 기본 드롭률**: 구형 RNG 모듈러 편향 관측값을 보정해 순록의 우유·황혼의 이슬은 0.5%, 주문의 흔적은 1%를 사용함
+- **그랜드 어센틱심볼**: 탈라하트와 기어드락은 각각 1~11레벨에서 `레벨 + 4%`의 메소 획득량 및 아이템 드롭률을 독립적으로 제공함. 탈라하트는 캐릭터 290레벨, 기어드락은 295레벨 미만일 때 계산을 막지 않고 경고함. 누적 강화 비용은 `src/utils/grandAuthenticSymbol.ts`에서 심볼별로 관리하며, 11레벨 누적 비용은 탈라하트 16,072,800,000 메소, 기어드락 20,181,300,000 메소
+- **심볼 손익분기 TMI**: 현재 설정의 30분 사냥을 1소재로 간주해 각 심볼의 현재→다음 레벨과 현재→11레벨 강화 비용을 추가 수익으로 회수하는 소재 수를 올림 표시함
+- 기존 `logDropItems` 필드와 `'log'` 타입은 저장 데이터 호환을 위해 유지하는 이름일 뿐이며, 자연로그식을 적용하지 말고 특수 드롭 상수 공식을 사용할 것
 
 ### Current Features
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
 - 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
-- 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개 (개발 중)
+- 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개
 - **아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 5개
   - Dynamic Programming 기반 9주간 최적 스킬 투자 전략 계산
   - 장기 휴식 최대 레벨 제한 기능 (시간 제약이 있는 유저를 위한 옵션)
@@ -481,7 +490,7 @@ const handleReset = () => {
 ### 손익분기 계산기 기본값 자동 계산
 - **잠재 제외 드롭률/메획**: 사냥 기댓값 계산기의 기본 설정에서 잠재능력(0줄) + 재획비(false)로 계산
 - **동기화**: 사냥 기댓값 계산기의 기본값 변경 시 손익분기 계산기도 자동 동기화
-- **계산 포함 요소**: 유니온, 어빌리티, 아티팩트, 홀리심볼, 탈라하트 심볼 등
+- **계산 포함 요소**: 유니온, 어빌리티, 아티팩트, 홀리심볼, 탈라하트·기어드락 심볼 등
 - **계산 제외 요소**: 잠재능력, 재물 획득의 비약
 
 ### 예시 아이템 기본 제공

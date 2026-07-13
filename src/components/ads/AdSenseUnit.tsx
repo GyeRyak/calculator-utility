@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useAdSense } from '@/hooks/useAdSense'
 
 interface AdSenseUnitProps {
   adSlot?: string
@@ -10,12 +10,6 @@ interface AdSenseUnitProps {
   style?: React.CSSProperties
   className?: string
   showLabel?: boolean
-}
-
-declare global {
-  interface Window {
-    adsbygoogle: any[]
-  }
 }
 
 /**
@@ -35,55 +29,12 @@ export function AdSenseUnit({
   className = '',
   showLabel = true
 }: AdSenseUnitProps) {
-  const adRef = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  // Intersection Observer로 뷰포트 진입 감지
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !isVisible) {
-            setIsVisible(true)
-          }
-        })
-      },
-      {
-        rootMargin: '200px' // 200px 전에 미리 로드 시작
-      }
-    )
-
-    if (adRef.current) {
-      observer.observe(adRef.current)
-    }
-
-    return () => {
-      if (adRef.current) {
-        observer.unobserve(adRef.current)
-      }
-    }
-  }, [isVisible])
-
-  // 광고 초기화 (뷰포트 진입 시에만)
-  useEffect(() => {
-    if (isVisible && !isLoaded) {
-      try {
-        // AdSense 스크립트가 로드되었는지 확인
-        if (typeof window !== 'undefined' && window.adsbygoogle) {
-          ;(window.adsbygoogle = window.adsbygoogle || []).push({})
-          setIsLoaded(true)
-        }
-      } catch (error) {
-        console.error('AdSense 광고 로드 실패:', error)
-      }
-    }
-  }, [isVisible, isLoaded])
+  const { containerRef, isVisible } = useAdSense()
 
   return (
     <div className={className}>
       <div
-        ref={adRef}
+        ref={containerRef}
         className="adsense-container"
         style={{
           minHeight: '250px', // CLS 방지: 최소 높이 확보

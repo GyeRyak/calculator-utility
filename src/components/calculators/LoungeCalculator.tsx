@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo, useRef } from 'react'
 import { Calendar, Clock, Zap, Target, TrendingUp, Info, Share2, ChevronDown, ChevronUp } from 'lucide-react'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import DismissibleBanner from '../ui/DismissibleBanner'
@@ -108,7 +108,7 @@ export default function LoungeCalculator() {
 
   // 최적화된 계산기 인스턴스
   const [optimizedCalculator] = useState(() => new OptimizedLoungeCalculator())
-  const [lastCalculatorState, setLastCalculatorState] = useState<string>('')
+  const lastCalculatorStateRef = useRef('')
 
   // 알림 시스템
   const { showNotification } = useNotification()
@@ -325,12 +325,12 @@ export default function LoungeCalculator() {
       })
 
       // 기본 입력이 변경되면 캐시 초기화하고 재계산
-      if (lastCalculatorState !== currentState) {
+      if (lastCalculatorStateRef.current !== currentState) {
         optimizedCalculator.calculateFull({
           ...input,
           maxLongRestLevel: undefined // 제한 없이 전체 계산
         })
-        setLastCalculatorState(currentState)
+        lastCalculatorStateRef.current = currentState
       }
 
       // 제한 레벨에 따른 결과 반환 (빠른 재구성)
@@ -351,7 +351,7 @@ export default function LoungeCalculator() {
         error: error instanceof Error ? error.message : '계산 중 오류가 발생했습니다.'
       }
     }
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints, optimizedCalculator])
 
   // 자동 계산
   const autoCalculation = useMemo(() => {
@@ -389,7 +389,7 @@ export default function LoungeCalculator() {
     }
 
     return errors
-  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel, weeklyPoints])
+  }, [currentWeek, skillLevels, remainingPoints, remainingTimeThisWeek, enableLongRestLimit, maxLongRestLevel])
 
   // 현재 활성 부스트 효과 (파이썬 순서: 장기, 역동, 간식)
   const currentBoost = getActiveBoostEffect(skillLevels.long, skillLevels.dynamic, skillLevels.snack)

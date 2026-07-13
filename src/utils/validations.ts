@@ -53,11 +53,29 @@ export function validateTallahartSymbol(
       field: 'tallahartSymbol',
       message: '탈라하트를 개방할 수 없는 레벨임에도 탈라하트 심볼이 장착되어 있습니다.',
       shortMessage: '탈라하트 지역을 개방할 수 없는 레벨입니다',
-      severity: 'error'
+      severity: 'warning'
     })
   }
   
   return errors
+}
+
+/**
+ * 기어드락 심볼 레벨 제한 검사
+ * 캐릭터 레벨 295 이상에서만 사용 가능
+ */
+export function validateGeardrakSymbol(
+  characterLevel: number,
+  geardrakSymbolLevel: number
+): ValidationError[] {
+  if (geardrakSymbolLevel <= 0 || characterLevel >= 295) return []
+
+  return [{
+    field: 'geardrakSymbol',
+    message: '기어드락을 개방할 수 없는 레벨임에도 기어드락 심볼이 장착되어 있습니다.',
+    shortMessage: '기어드락 지역을 개방할 수 없는 레벨입니다',
+    severity: 'warning'
+  }]
 }
 
 /**
@@ -167,6 +185,7 @@ export function validateAllInputs(inputs: {
   mesoAbility: number
   characterLevel: number
   tallahartSymbolLevel: number
+  geardrakSymbolLevel: number
   monsterLevel: number
   mesoDropRate: number
   wealthAcquisitionPotion: boolean
@@ -176,6 +195,7 @@ export function validateAllInputs(inputs: {
   // 에러 검증
   results.push(...validateLegendaryAbility(inputs.dropRateAbility, inputs.mesoAbility))
   results.push(...validateTallahartSymbol(inputs.characterLevel, inputs.tallahartSymbolLevel))
+  results.push(...validateGeardrakSymbol(inputs.characterLevel, inputs.geardrakSymbolLevel))
   
   // 경고 검증
   results.push(...checkLevelPenaltyWarning(inputs.monsterLevel, inputs.characterLevel))

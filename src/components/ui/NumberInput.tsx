@@ -212,7 +212,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
     }
 
     return () => resizeObserver.disconnect()
-  }, [forceCompact, forceWide, size, inputValue, placeholder])
+  }, [forceCompact, forceWide, size, inputValue, placeholder, isFocused, shouldUseCompact])
 
   // 입력값 변경 시 즉시 레이아웃 재확인
   useEffect(() => {
@@ -278,7 +278,7 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
       
       return () => clearTimeout(timer)
     }
-  }, [inputValue])
+  }, [inputValue, forceCompact, forceWide, isFocused, placeholder, shouldUseCompact, size])
 
   // 입력값 변경 핸들러
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -600,4 +600,4 @@ const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(({
 
 NumberInput.displayName = 'NumberInput'
 
-export default NumberInput 
+export default NumberInput

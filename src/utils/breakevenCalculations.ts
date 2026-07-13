@@ -1,4 +1,10 @@
-import { calculateHuntingExpectation, type HuntingExpectationParams } from './huntingExpectationCalculations'
+import {
+  calculateDropMultiplier,
+  calculateHuntingExpectation,
+  DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
+  NORMAL_DROP_RATE_CONSTANT,
+  type HuntingExpectationParams,
+} from './huntingExpectationCalculations'
 import { calculateCoreMesoBonus, calculateCoreDropBonus, calculateMesoLimitTime } from './bonusCalculations'
 
 /**
@@ -41,7 +47,7 @@ export interface BreakevenCalculationParams extends HuntingExpectationParams {
   mesoLimitEnabled?: boolean  // 메소 제한 활성화 여부
   mesoLimitHours?: number     // 메소 제한 시간 (시간 단위)
   normalDropExpectation?: number  // 일반 드롭 아이템 100마리당 판매 기댓값 (메소 단위, 드롭률 0% 기준)
-  logDropExpectation?: number     // 로그 드롭 아이템 100마리당 판매 기댓값 (메소 단위, 드롭률 0% 기준)
+  logDropExpectation?: number     // 특수 드롭 아이템 100마리당 판매 기댓값 (메소 단위, 드롭률 0% 기준)
 }
 
 /**
@@ -119,12 +125,12 @@ export function validateLimits(
 /**
  * 기댓값으로부터 더미 드롭 아이템 생성
  * @param normalDropExpectation 일반 드롭 100마리당 기댓값 (메소 단위)
- * @param logDropExpectation 로그 드롭 100마리당 기댓값 (메소 단위)
+ * @param logDropExpectation 특수 드롭 100마리당 기댓값 (메소 단위, 기존 필드명 유지)
  * @returns 더미 드롭 아이템 배열
  */
 function createDummyDropItems(normalDropExpectation: number, logDropExpectation: number): {
   normalDropItems: Array<{ id: string, name: string, price: number, dropRate: number, directUse: boolean }>,
-  logDropItems: Array<{ id: string, name: string, price: number, dropRate: number, directUse: boolean }>
+  logDropItems: Array<{ id: string, name: string, price: number, dropRate: number, dropRateConstant: number, directUse: boolean }>
 } {
   const normalDropItems = []
   const logDropItems = []
@@ -134,19 +140,20 @@ function createDummyDropItems(normalDropExpectation: number, logDropExpectation:
     normalDropItems.push({
       id: '__dummy_normal_drop__',
       name: '일반 드롭 더미 아이템',
-      price: normalDropExpectation / 10000, // 100마리당 기댓값 / 10000(만 메소 단위)
+      price: normalDropExpectation / calculateDropMultiplier(0, NORMAL_DROP_RATE_CONSTANT) / 10000,
       dropRate: 1, // 1%
       directUse: true // 수수료 없음
     })
   }
   
-  // 로그 드롭 더미 아이템 (드롭률 1%, 가격은 기댓값/만메소)  
+  // 특수 드롭 더미 아이템 (드롭률 1%, 가격은 0% 시점 기댓값에 맞춰 역보정)
   if (logDropExpectation > 0) {
     logDropItems.push({
       id: '__dummy_log_drop__',
-      name: '로그 드롭 더미 아이템',
-      price: logDropExpectation / 10000, // 100마리당 기댓값 / 10000(만 메소 단위)
+      name: '특수 드롭 더미 아이템',
+      price: logDropExpectation / calculateDropMultiplier(0, DEFAULT_SPECIAL_DROP_RATE_CONSTANT) / 10000,
       dropRate: 1, // 1%
+      dropRateConstant: DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
       directUse: true // 수수료 없음
     })
   }
@@ -159,7 +166,7 @@ function createDummyDropItems(normalDropExpectation: number, logDropExpectation:
  * @param params 계산 매개변수
  * @param item 아이템 정보
  * @param normalDropExpectation 일반 드롭 기댓값
- * @param logDropExpectation 로그 드롭 기댓값
+ * @param logDropExpectation 특수 드롭 기댓값 (기존 필드명 유지)
  * @returns 손익분기 결과
  */
 export function calculateItemBreakeven(
@@ -245,7 +252,7 @@ export function calculateItemBreakeven(
     const huntTimeInMinutes = 30 // 1소재 = 30분으로 가정
     const monstersPerHuntTime = Math.round(params.totalMonsters / 60 * huntTimeInMinutes) // 30분당 몬스터 수
     const mesoLimitTimeInMinutes = calculateMesoLimitTime(
-      params.characterLevel || 275, 
+      params.characterLevel ?? 280, 
       params.monsterLevel, 
       monstersPerHuntTime, 
       huntTimeInMinutes
@@ -362,7 +369,7 @@ export function calculateBreakeven(params: BreakevenCalculationParams): {
       const huntTimeInMinutes = 30 // 1소재 = 30분으로 가정
       const monstersPerHuntTime = Math.round(adjustedHuntingParams.totalMonsters / 60 * huntTimeInMinutes) // 30분당 몬스터 수
       const mesoLimitTimeInMinutes = calculateMesoLimitTime(
-        adjustedHuntingParams.characterLevel || 275, 
+        adjustedHuntingParams.characterLevel ?? 280, 
         adjustedHuntingParams.monsterLevel, 
         monstersPerHuntTime, 
         huntTimeInMinutes

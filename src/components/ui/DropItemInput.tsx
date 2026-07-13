@@ -3,18 +3,22 @@ import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import NumberInput from './NumberInput'
 import { SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
 
+const DEFAULT_NEW_SPECIAL_DROP_RATE_CONSTANT = 10
+
 export interface DropItem {
   id: string
   name: string
   price: number // 만 메소 단위
   dropRate?: number // 일반 아이템 드롭률 (선택적)
   directUse?: boolean // 직접 사용 여부 (선택적)
+  dropRateConstant?: number // 드롭 상수 (% 단위, 0~100)
 }
 
 export interface DropItemInputProps {
   items: DropItem[]
   onItemsChange: (items: DropItem[]) => void
   showDropRate?: boolean // 일반 아이템 드롭률 표시 여부
+  showDropRateConstant?: boolean // 특수 아이템 드롭 상수 표시 여부
   title: string
   placeholder?: string
 }
@@ -23,6 +27,7 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
   items, 
   onItemsChange, 
   showDropRate = false,
+  showDropRateConstant = false,
   title,
   placeholder = "아이템 이름"
 }) => {
@@ -33,7 +38,8 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
       name: '',
       price: 0,
       dropRate: 0,
-      directUse: false
+      directUse: false,
+      dropRateConstant: showDropRateConstant ? DEFAULT_NEW_SPECIAL_DROP_RATE_CONSTANT : 100
     }
     onItemsChange([...items, newItem])
   }
@@ -146,6 +152,27 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
                         <span className="text-xs text-gray-600">%</span>
                       </div>
                     )}
+                    {showDropRateConstant && (
+                      <div className="flex items-center gap-1">
+                        <label
+                          className="text-xs text-gray-600 cursor-help"
+                          title="표기 드롭률 × (드롭 상수/100) + 24%로 실효 증가율을 계산합니다"
+                        >
+                          드롭 상수:
+                        </label>
+                        <NumberInput
+                          value={item.dropRateConstant ?? 50}
+                          onChange={(value) => updateItem(item.id, 'dropRateConstant', value)}
+                          min={0}
+                          max={100}
+                          step={1}
+                          className="w-20"
+                          placeholder="10"
+                          size="sm"
+                        />
+                        <span className="text-xs text-gray-600">%</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -162,6 +189,11 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
             ))}
           </div>
         )
+      )}
+      {isExpanded && showDropRateConstant && (
+        <p className="text-xs text-gray-500">
+          실효 증가율 = 표기 드롭률 × (드롭 상수/100) + 24%. 새 항목은 10%로 추가되며, 주요 특수 아이템 기본값은 50%입니다.
+        </p>
       )}
     </div>
   )

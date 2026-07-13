@@ -4,6 +4,32 @@ import { getAverageMesoDropByLevel } from './mesoDropCalculation'
 
 // 솔 에르다 조각 고정 ID (특별 처리용)
 export const SOL_ERDA_FRAGMENT_ID = '__sol_erda_fragment__'
+export const BASE_DROP_RATE_BONUS = 24
+export const NORMAL_DROP_RATE_CONSTANT = 100
+export const DEFAULT_SPECIAL_DROP_RATE_CONSTANT = 50
+
+export function normalizeDropRateConstant(
+  dropRateConstant: number,
+  fallback: number = DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+): number {
+  if (!Number.isFinite(dropRateConstant)) return fallback
+  return Math.min(100, Math.max(0, dropRateConstant))
+}
+
+export function calculateEffectiveDropRateBonus(
+  displayedDropRate: number,
+  dropRateConstant: number = NORMAL_DROP_RATE_CONSTANT
+): number {
+  const normalizedConstant = normalizeDropRateConstant(dropRateConstant)
+  return displayedDropRate * (normalizedConstant / 100) + BASE_DROP_RATE_BONUS
+}
+
+export function calculateDropMultiplier(
+  displayedDropRate: number,
+  dropRateConstant: number = NORMAL_DROP_RATE_CONSTANT
+): number {
+  return 1 + calculateEffectiveDropRateBonus(displayedDropRate, dropRateConstant) / 100
+}
 
 /**
  * 메소 드롭률 계산
@@ -11,7 +37,7 @@ export const SOL_ERDA_FRAGMENT_ID = '__sol_erda_fragment__'
  * @returns 메소 드롭률 (0-1 사이의 값)
  */
 export function calculateMesoDropRate(dropRate: number): number {
-  return Math.min(1, (3/5) * (1 + dropRate / 100))
+  return Math.min(1, (3/5) * calculateDropMultiplier(dropRate, NORMAL_DROP_RATE_CONSTANT))
 }
 
 
@@ -55,7 +81,7 @@ export function getMesoCalculationDetails(monsterLevel: number, mesoBonus: numbe
  * @param dropRate 아이템 드롭률 보너스 (%)
  * @param feeRate 수수료율 (%)
  * @param normalDropItems 일반 드롭률 아이템들
- * @param logDropItems 로그 드롭률 아이템들
+ * @param logDropItems 특수 드롭률 아이템들 (기존 저장 키 호환을 위해 이름 유지)
  * @returns 드롭 아이템 계산 결과
  */
 export function calculateDropItems(
@@ -71,7 +97,7 @@ export function calculateDropItems(
   // 일반 드롭 아이템들 계산
   for (const item of normalDropItems) {
     // 일반 드롭률: 드롭률 증가 효과를 그대로 받음
-    const dropMultiplier = calculateNormalDropMultiplier(dropRate)
+    const dropMultiplier = calculateDropMultiplier(dropRate, NORMAL_DROP_RATE_CONSTANT)
     const actualDropRate = (item.dropRate || 0) * dropMultiplier / 100
     const expectedCount = totalMonsters * actualDropRate
     const actualFeeRate = item.directUse ? 0 : feeRate
@@ -88,10 +114,12 @@ export function calculateDropItems(
     totalValue += expectedValue
   }
 
-  // 로그 드롭 아이템들 계산
+  // 아이템별 드롭 상수를 사용하는 특수 드롭 아이템 계산
   for (const item of logDropItems) {
-    // 로그 드롭률: 솔 에르다 조각과 동일한 방식
-    const dropMultiplier = calculateLogDropMultiplier(dropRate)
+    const dropMultiplier = calculateDropMultiplier(
+      dropRate,
+      item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+    )
     const actualDropRate = ((item.dropRate || 0) / 100) * dropMultiplier
     const expectedCount = totalMonsters * actualDropRate
     const actualFeeRate = item.directUse ? 0 : feeRate
@@ -121,6 +149,7 @@ export interface DropItem {
   dropRate?: number // 드롭률 (%)
   directUse?: boolean // 직접 사용 여부
   type?: 'normal' | 'log' // 드롭률 타입 (기존 호환성을 위해 선택적)
+  dropRateConstant?: number // 특수 아이템에 적용되는 아이템별 드롭 상수
 }
 
 /**
@@ -131,7 +160,7 @@ export interface DropItemResult {
   expectedCount: number
   expectedValue: number
   actualDropRate: number // 실제 드롭률 (드롭률 증가 효과 적용)
-  dropMultiplier: number // 드롭률 배수 (일반: 1 + dropRate/100, 로그: 1 + log(1 + dropRate/100))
+  dropMultiplier: number // 1 + (표기 드롭률 × 드롭 상수/100 + 24) / 100
 }
 
 /**
@@ -148,7 +177,7 @@ export interface HuntingExpectationParams {
   spottingSmallChangeBonus?: number // Spotting Small Change 추가 메소 (기본 0)
   characterLevel?: number // 캐릭터 레벨 (레벨 패널티 계산용)
   normalDropItems?: DropItem[] // 일반 드롭률 아이템 리스트
-  logDropItems?: DropItem[] // 로그 드롭률 아이템 리스트
+  logDropItems?: DropItem[] // 특수 드롭률 아이템 리스트 (기존 저장 키 호환)
 }
 
 export interface HuntingExpectationResult {
@@ -171,16 +200,16 @@ export interface HuntingExpectationResult {
  * @returns 드롭률 배수
  */
 export function calculateNormalDropMultiplier(dropRate: number): number {
-  return 1 + dropRate / 100
+  return calculateDropMultiplier(dropRate, NORMAL_DROP_RATE_CONSTANT)
 }
 
 /**
- * 로그 드롭 아이템의 드롭률 배수 계산
+ * 기존 로그 드롭 API 호환용 특수 드롭률 배수 계산
  * @param dropRate 아이템 드롭률 증가 (%)
- * @returns 드롭률 배수 (로그 스케일)
+ * @returns 기본 특수 드롭 상수(50%)가 적용된 드롭률 배수
  */
 export function calculateLogDropMultiplier(dropRate: number): number {
-  return 1 + Math.log(1 + dropRate / 100)
+  return calculateDropMultiplier(dropRate, DEFAULT_SPECIAL_DROP_RATE_CONSTANT)
 }
 
 export function calculateHuntingExpectation(params: HuntingExpectationParams): HuntingExpectationResult {

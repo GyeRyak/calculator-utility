@@ -1,7 +1,39 @@
 'use client';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { calculateAchievementProbability } from '@/utils/origamiCalculations';
+
+interface AnalysisPoint {
+  x: number;
+  probability: number;
+}
+
+const EMPTY_ANALYSIS_DATA: AnalysisPoint[] = [];
+const DEFAULT_PERCENTILES = [50, 80, 90, 95, 99];
+const chartWidth = 500;
+const chartHeight = 280;
+const padding = { top: 20, right: 60, bottom: 40, left: 60 };
+const innerWidth = chartWidth - padding.left - padding.right;
+const innerHeight = chartHeight - padding.top - padding.bottom;
+
+const colorfulXScale = (x: number) => ((x - 5) / (50 - 5)) * innerWidth;
+const normalXScale = (x: number) => ((x - 500) / (10000 - 500)) * innerWidth;
+const probabilityYScale = (probability: number) => innerHeight - (probability / 100) * innerHeight;
+
+function createCurvePath(data: AnalysisPoint[], xScale: (x: number) => number): string {
+  if (data.length === 0) return '';
+
+  let path = `M ${xScale(data[0].x)} ${probabilityYScale(data[0].probability)}`;
+  for (let i = 1; i < data.length; i++) {
+    const current = data[i];
+    const previous = data[i - 1];
+    const controlX1 = xScale(previous.x) + (xScale(current.x) - xScale(previous.x)) / 3;
+    const controlX2 = xScale(current.x) - (xScale(current.x) - xScale(previous.x)) / 3;
+
+    path += ` C ${controlX1} ${probabilityYScale(previous.probability)}, ${controlX2} ${probabilityYScale(current.probability)}, ${xScale(current.x)} ${probabilityYScale(current.probability)}`;
+  }
+  return path;
+}
 
 interface ProgressState {
   isCalculating: boolean;
@@ -28,7 +60,7 @@ export default function ProbabilityDistributionChart({
   colorfulPapers,
   currentSettingIterations,
   comparisonIterations,
-  targetPercentiles = [50, 80, 90, 95, 99],
+  targetPercentiles = DEFAULT_PERCENTILES,
   onColorfulPaperClick,
   onNormalPaperClick,
   onProgressUpdate,
@@ -39,7 +71,9 @@ export default function ProbabilityDistributionChart({
   const [hoveredPoint, setHoveredPoint] = useState<{x: number, y: number, isColorful: boolean} | null>(null);
 
   // 계산 상태
-  const [isCalculating, setIsCalculating] = useState(false);
+  const calculatingRef = useRef(false);
+  const onProgressUpdateRef = useRef(onProgressUpdate);
+  onProgressUpdateRef.current = onProgressUpdate;
   const [calculatedData, setCalculatedData] = useState<{
     colorfulAnalysisData: Array<{ x: number; probability: number }>;
     normalAnalysisData: Array<{ x: number; probability: number }>;
@@ -48,20 +82,20 @@ export default function ProbabilityDistributionChart({
 
   // 비동기 계산 함수
   const calculateAsync = useCallback(async () => {
-    if (isCalculating) return;
+    if (calculatingRef.current) return;
 
-    setIsCalculating(true);
-    onProgressUpdate?.(0, 100, true);
+    calculatingRef.current = true;
+    onProgressUpdateRef.current?.(0, 100, true);
 
     try {
       // 1. 현재 설정 계산 (정확도 높음)
-      onProgressUpdate?.(10, 100, true);
+      onProgressUpdateRef.current?.(10, 100, true);
       const currentResult = calculateAchievementProbability({
         normalPapers,
         colorfulPapers,
         iterations: currentSettingIterations
       });
-      onProgressUpdate?.(100, 100, true);
+      onProgressUpdateRef.current?.(100, 100, true);
 
       // 잠시 대기 후 비교 데이터 계산 시작
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -92,7 +126,7 @@ export default function ProbabilityDistributionChart({
 
         // 진행률 업데이트 (비교 계산 진행률)
         const colorfulProgress = ((i + 1) / colorfulPoints.length) * 50; // 50%까지
-        onProgressUpdate?.(0, 100, true, colorfulProgress, 100);
+        onProgressUpdateRef.current?.(0, 100, true, colorfulProgress, 100);
 
         // 매 5번째마다 잠시 대기 (UI 업데이트를 위해)
         if (i % 5 === 0) {
@@ -126,7 +160,7 @@ export default function ProbabilityDistributionChart({
 
         // 진행률 업데이트 (50% ~ 100%)
         const normalProgress = 50 + ((i + 1) / normalPoints.length) * 50;
-        onProgressUpdate?.(100, 100, true, normalProgress, 100);
+        onProgressUpdateRef.current?.(100, 100, true, normalProgress, 100);
 
         // 매 5번째마다 잠시 대기
         if (i % 5 === 0) {
@@ -141,21 +175,21 @@ export default function ProbabilityDistributionChart({
       });
 
       // 계산 완료 시 진행률을 100%로 설정
-      onProgressUpdate?.(100, 100, true, 100, 100);
+      onProgressUpdateRef.current?.(100, 100, true, 100, 100);
 
     } finally {
-      setIsCalculating(false);
+      calculatingRef.current = false;
     }
-  }, [normalPapers, colorfulPapers, currentSettingIterations, comparisonIterations, isCalculating]);
+  }, [normalPapers, colorfulPapers, currentSettingIterations, comparisonIterations]);
 
   // 설정 변경 시 재계산
   useEffect(() => {
     calculateAsync();
-  }, [normalPapers, colorfulPapers, currentSettingIterations, comparisonIterations]);
+  }, [calculateAsync]);
 
   // 계산된 데이터 사용 (기본값으로 빈 배열)
-  const colorfulAnalysisData = calculatedData?.colorfulAnalysisData || [];
-  const normalAnalysisData = calculatedData?.normalAnalysisData || [];
+  const colorfulAnalysisData = calculatedData?.colorfulAnalysisData || EMPTY_ANALYSIS_DATA;
+  const normalAnalysisData = calculatedData?.normalAnalysisData || EMPTY_ANALYSIS_DATA;
   const currentSettingResult = calculatedData?.currentSettingResult || 0;
 
   // 알록달록 색종이 백분위별 필요 개수 계산 (최적화: 동일 지점의 최고 % 하나만)
@@ -238,60 +272,14 @@ export default function ProbabilityDistributionChart({
     return requirements.sort((a, b) => a.required - b.required);
   }, [normalAnalysisData, targetPercentiles]);
 
-  // 차트 SVG 계산
-  const chartWidth = 500;
-  const chartHeight = 280;
-  const padding = { top: 20, right: 60, bottom: 40, left: 60 };
-  const innerWidth = chartWidth - padding.left - padding.right;
-  const innerHeight = chartHeight - padding.top - padding.bottom;
-
-  // 알록달록 색종이 스케일 및 경로
-  const colorfulXScale = (x: number) => ((x - 5) / (50 - 5)) * innerWidth;
-  const colorfulYScale = (probability: number) => innerHeight - (probability / 100) * innerHeight;
-
-  const colorfulCurvePath = useMemo(() => {
-    if (colorfulAnalysisData.length === 0) return '';
-
-    let path = `M ${colorfulXScale(colorfulAnalysisData[0].x)} ${colorfulYScale(colorfulAnalysisData[0].probability)}`;
-
-    for (let i = 1; i < colorfulAnalysisData.length; i++) {
-      const current = colorfulAnalysisData[i];
-      const prev = colorfulAnalysisData[i - 1];
-
-      const controlX1 = colorfulXScale(prev.x) + (colorfulXScale(current.x) - colorfulXScale(prev.x)) / 3;
-      const controlY1 = colorfulYScale(prev.probability);
-      const controlX2 = colorfulXScale(current.x) - (colorfulXScale(current.x) - colorfulXScale(prev.x)) / 3;
-      const controlY2 = colorfulYScale(current.probability);
-
-      path += ` C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${colorfulXScale(current.x)} ${colorfulYScale(current.probability)}`;
-    }
-
-    return path;
-  }, [colorfulAnalysisData]);
-
-  // 일반 색종이 스케일 및 경로
-  const normalXScale = (x: number) => ((x - 500) / (10000 - 500)) * innerWidth;
-  const normalYScale = (probability: number) => innerHeight - (probability / 100) * innerHeight;
-
-  const normalCurvePath = useMemo(() => {
-    if (normalAnalysisData.length === 0) return '';
-
-    let path = `M ${normalXScale(normalAnalysisData[0].x)} ${normalYScale(normalAnalysisData[0].probability)}`;
-
-    for (let i = 1; i < normalAnalysisData.length; i++) {
-      const current = normalAnalysisData[i];
-      const prev = normalAnalysisData[i - 1];
-
-      const controlX1 = normalXScale(prev.x) + (normalXScale(current.x) - normalXScale(prev.x)) / 3;
-      const controlY1 = normalYScale(prev.probability);
-      const controlX2 = normalXScale(current.x) - (normalXScale(current.x) - normalXScale(prev.x)) / 3;
-      const controlY2 = normalYScale(current.probability);
-
-      path += ` C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${normalXScale(current.x)} ${normalYScale(current.probability)}`;
-    }
-
-    return path;
-  }, [normalAnalysisData]);
+  const colorfulCurvePath = useMemo(
+    () => createCurvePath(colorfulAnalysisData, colorfulXScale),
+    [colorfulAnalysisData]
+  );
+  const normalCurvePath = useMemo(
+    () => createCurvePath(normalAnalysisData, normalXScale),
+    [normalAnalysisData]
+  );
 
   // 차트 생성 도우미 함수
   const renderChart = (
@@ -556,7 +544,7 @@ export default function ProbabilityDistributionChart({
               {renderChart(
                 colorfulAnalysisData,
                 colorfulXScale,
-                colorfulYScale,
+                probabilityYScale,
                 colorfulCurvePath,
                 colorfulPapers,
                 colorfulPercentileRequirements,
@@ -591,7 +579,7 @@ export default function ProbabilityDistributionChart({
               {renderChart(
                 normalAnalysisData,
                 normalXScale,
-                normalYScale,
+                probabilityYScale,
                 normalCurvePath,
                 normalPapers,
                 normalPercentileRequirements,

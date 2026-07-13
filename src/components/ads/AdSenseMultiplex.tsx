@@ -1,16 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useAdSense } from '@/hooks/useAdSense'
 
 interface AdSenseMultiplexProps {
   adSlot: string
   className?: string
-}
-
-declare global {
-  interface Window {
-    adsbygoogle: any[]
-  }
 }
 
 /**
@@ -22,54 +16,12 @@ declare global {
  * - 콘텐츠 목록 아래
  */
 export function AdSenseMultiplex({ adSlot, className = '' }: AdSenseMultiplexProps) {
-  const adRef = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  // Intersection Observer로 뷰포트 진입 감지
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !isVisible) {
-            setIsVisible(true)
-          }
-        })
-      },
-      {
-        rootMargin: '200px'
-      }
-    )
-
-    if (adRef.current) {
-      observer.observe(adRef.current)
-    }
-
-    return () => {
-      if (adRef.current) {
-        observer.unobserve(adRef.current)
-      }
-    }
-  }, [isVisible])
-
-  // 광고 초기화
-  useEffect(() => {
-    if (isVisible && !isLoaded) {
-      try {
-        if (typeof window !== 'undefined' && window.adsbygoogle) {
-          ;(window.adsbygoogle = window.adsbygoogle || []).push({})
-          setIsLoaded(true)
-        }
-      } catch (error) {
-        console.error('AdSense 광고 로드 실패:', error)
-      }
-    }
-  }, [isVisible, isLoaded])
+  const { containerRef, isVisible } = useAdSense()
 
   return (
     <div className={`my-8 ${className}`}>
       <div
-        ref={adRef}
+        ref={containerRef}
         className="multiplex-container"
         style={{
           minHeight: '250px',

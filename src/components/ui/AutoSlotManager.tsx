@@ -1,9 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Save, Trash2, Edit2, Copy, Share2, Download } from 'lucide-react'
 import { canUseFunctionalCookies } from '@/utils/cookies'
 import { trackSlotAction } from '@/lib/analytics'
+import {
+  decodeSettingsExport,
+  deleteCalculatorSlot,
+  encodeSettingsExport,
+  hasCalculatorSlotData,
+  loadCalculatorSlot,
+  saveCalculatorSlot,
+} from '@/utils/slotStorage'
 
 interface AutoSlotManagerProps {
   calculatorId: string // 'basic_calculator' 또는 'breakeven_calculator'
@@ -22,6 +30,11 @@ export default function AutoSlotManager({
   onReset,
   onNotification
 }: AutoSlotManagerProps) {
+  const getCurrentDataRef = useRef(getCurrentData)
+  const loadDataRef = useRef(loadData)
+  getCurrentDataRef.current = getCurrentData
+  loadDataRef.current = loadData
+
   // 슬롯 상태 관리
   const [currentSlot, setCurrentSlot] = useState(1)
   const [slotNames, setSlotNames] = useState<{ [key: number]: string }>(() => {
@@ -63,11 +76,6 @@ export default function AutoSlotManager({
   const [showExportModal, setShowExportModal] = useState(false)
   const [exportText, setExportText] = useState('')
 
-  // 슬롯 키 생성
-  const getSlotKey = (slotNumber: number): string => {
-    return `${calculatorId}_slot_${slotNumber}`
-  }
-
   // 데이터 변경 감지 함수
   const checkForChanges = (): boolean => {
     const currentData = getCurrentData()
@@ -90,28 +98,12 @@ export default function AutoSlotManager({
 
   // 슬롯 데이터 존재 여부 확인
   const checkSlotData = (slot: number): boolean => {
-    if (!canUseFunctionalCookies()) return false
-    try {
-      const slotKey = getSlotKey(slot)
-      return !!localStorage.getItem(slotKey)
-    } catch {
-      return false
-    }
+    return hasCalculatorSlotData(calculatorId, slot)
   }
 
   // 슬롯에서 데이터 로드
   const loadSlotData = (slotNumber: number): any => {
-    if (!canUseFunctionalCookies()) return null
-    try {
-      const slotKey = getSlotKey(slotNumber)
-      const savedData = localStorage.getItem(slotKey)
-      if (savedData) {
-        return JSON.parse(savedData)
-      }
-    } catch (error) {
-      console.error('Failed to load slot data:', error)
-    }
-    return null
+    return loadCalculatorSlot(calculatorId, slotNumber)
   }
 
   // 슬롯에 데이터 저장
@@ -121,13 +113,12 @@ export default function AutoSlotManager({
       return false
     }
 
-    try {
-      const slotKey = getSlotKey(slotNumber)
-      const slotData = {
-        ...data,
-        slotName: slotName || slotNames[slotNumber]
-      }
-      localStorage.setItem(slotKey, JSON.stringify(slotData))
+    const slotData = {
+      ...data,
+      slotName: slotName || slotNames[slotNumber]
+    }
+
+    if (saveCalculatorSlot(calculatorId, slotNumber, slotData)) {
       
       // 슬롯 이름 업데이트
       if (slotName && slotName !== slotNames[slotNumber]) {
@@ -138,26 +129,20 @@ export default function AutoSlotManager({
       setSlotHasData(prev => ({ ...prev, [slotNumber]: true }))
       
       return true
-    } catch (error) {
-      console.error('Failed to save slot data:', error)
-      onNotification?.('error', '설정 저장에 실패했습니다.')
-      return false
     }
+
+    onNotification?.('error', '설정 저장에 실패했습니다.')
+    return false
   }
 
   // 슬롯 데이터 삭제
   const deleteSlotData = (slotNumber: number): boolean => {
-    if (!canUseFunctionalCookies()) return false
-    try {
-      const slotKey = getSlotKey(slotNumber)
-      localStorage.removeItem(slotKey)
+    if (deleteCalculatorSlot(calculatorId, slotNumber)) {
       setSlotNames(prev => ({ ...prev, [slotNumber]: `슬롯 ${slotNumber}` }))
       setSlotHasData(prev => ({ ...prev, [slotNumber]: false }))
       return true
-    } catch (error) {
-      console.error('Failed to delete slot data:', error)
-      return false
     }
+    return false
   }
 
   // 현재 설정 저장
@@ -326,19 +311,11 @@ export default function AutoSlotManager({
       calculator: calculatorId,
       slotName: tempSlotName,
       data: currentData,
-      version: '1.0',
+      version: '1.0' as const,
       exportedAt: new Date().toISOString()
     }
 
-    // Base64 인코딩
-    const jsonString = JSON.stringify(exportData)
-    const base64String = btoa(encodeURIComponent(jsonString).replace(/%([0-9A-F]{2})/g,
-      function toSolidBytes(match, p1) {
-        return String.fromCharCode(parseInt('0x' + p1))
-      }))
-
-    // 구분자를 추가하여 식별 가능하게 함
-    const exportString = `CALC_SETTINGS_V1:${base64String}`
+    const exportString = encodeSettingsExport(exportData)
     setExportText(exportString)
     setShowExportModal(true)
     trackSlotAction('export', calculatorId) // GA 이벤트 트래킹
@@ -347,21 +324,7 @@ export default function AutoSlotManager({
   // 텍스트 설정 불러오기
   const handleImportFromText = () => {
     try {
-      // 공백 제거
-      const trimmedText = importText.trim()
-      
-      // 형식 검증
-      if (!trimmedText.startsWith('CALC_SETTINGS_V1:')) {
-        throw new Error('올바른 설정 형식이 아닙니다.')
-      }
-      
-      // Base64 디코딩
-      const base64String = trimmedText.replace('CALC_SETTINGS_V1:', '')
-      const jsonString = decodeURIComponent(atob(base64String).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
-      }).join(''))
-      
-      const importData = JSON.parse(jsonString)
+      const importData = decodeSettingsExport<any>(importText)
       
       // 계산기 타입 검증
       if (importData.calculator !== calculatorId) {
@@ -408,18 +371,18 @@ export default function AutoSlotManager({
       const newSlotHasData: { [key: number]: boolean } = {}
 
       for (let i = 1; i <= maxSlots; i++) {
-        const data = loadSlotData(i)
+        const data = loadCalculatorSlot<any>(calculatorId, i)
         if (data && data.slotName) {
           newSlotNames[i] = data.slotName
         } else {
           newSlotNames[i] = `슬롯 ${i}`
         }
-        newSlotHasData[i] = checkSlotData(i)
+        newSlotHasData[i] = hasCalculatorSlotData(calculatorId, i)
       }
 
       setSlotNames(newSlotNames)
       setSlotHasData(newSlotHasData)
-      setTempSlotName(newSlotNames[currentSlot] || `슬롯 ${currentSlot}`)
+      setTempSlotName(newSlotNames[1] || '슬롯 1')
     }
   }, [calculatorId, maxSlots])
 
@@ -433,11 +396,11 @@ export default function AutoSlotManager({
   // 초기 로드 시 1번 슬롯 데이터 로드
   useEffect(() => {
     // 컴포넌트가 마운트되면 1번 슬롯 데이터를 로드
-    const slotData = loadSlotData(1)
+    const slotData = loadCalculatorSlot<any>(calculatorId, 1)
     if (slotData) {
       // 저장된 데이터가 있으면 로드
       setIsLoading(true)
-      loadData(slotData, () => {
+      loadDataRef.current(slotData, () => {
         setJustLoaded(true)
         setIsLoading(false)
       })
@@ -445,18 +408,18 @@ export default function AutoSlotManager({
       // 저장된 데이터가 없으면 justLoaded 플래그 설정
       setJustLoaded(true)
     }
-  }, []) // 최초 로드 시에만 실행
+  }, [calculatorId])
 
   // 로드 직후에만 lastSavedData 업데이트
   useEffect(() => {
     if (justLoaded) {
       // 로드가 완료되었으면 현재 상태를 저장
-      const currentData = getCurrentData()
+      const currentData = getCurrentDataRef.current()
       setLastSavedData(currentData)
       setHasDataChanged(false) // 로드 직후에는 변경사항 없음
       setJustLoaded(false) // 플래그 리셋
     }
-  }, [justLoaded, getCurrentData])
+  }, [justLoaded])
 
 
   // 정기적으로 변경사항 확인 (500ms마다)
@@ -464,7 +427,15 @@ export default function AutoSlotManager({
     const interval = setInterval(() => {
       if (!isLoading) {
         // 로딩 중이 아닐 때만 변경사항 체크
-        const hasChanges = checkForChanges()
+        const currentData = getCurrentDataRef.current()
+        let hasChanges = false
+        if (lastSavedData) {
+          try {
+            hasChanges = JSON.stringify(currentData) !== JSON.stringify(lastSavedData)
+          } catch {
+            hasChanges = false
+          }
+        }
         setHasDataChanged(hasChanges)
       }
     }, 500)

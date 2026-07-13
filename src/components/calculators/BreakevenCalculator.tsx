@@ -3,16 +3,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, AlertCircle, RotateCcw, Calculator, Download } from 'lucide-react'
 import { calculateBreakeven, type BreakevenItem, type BreakevenResult } from '@/utils/breakevenCalculations'
-import { calculateDropItems, type DropItem, calculateNormalDropMultiplier, calculateLogDropMultiplier, SOL_ERDA_FRAGMENT_ID } from '@/utils/huntingExpectationCalculations'
+import {
+  calculateDropMultiplier,
+  DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
+  NORMAL_DROP_RATE_CONSTANT,
+  type HuntingExpectationParams,
+} from '@/utils/huntingExpectationCalculations'
 import { 
-  DEFAULT_ALL_DROP_ITEMS,
   GLOBAL_DEFAULTS,
   DEFAULT_BREAKEVEN_ITEM, 
   DEFAULT_BREAKEVEN_BASE_PARAMS, 
   DEFAULT_BREAKEVEN_VALUES 
 } from '@/utils/defaults'
 import { loadCalculatorSettings, canUseFunctionalCookies } from '@/utils/cookies'
-import { type HuntingExpectationParams } from '@/utils/huntingExpectationCalculations'
 import { calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '@/utils/bonusCalculations'
 import NumberInput from '../ui/NumberInput'
 import { RadioGroup, Toggle, ExportModal } from '../ui'
@@ -37,7 +40,7 @@ interface BreakevenSettings {
   mesoLimitEnabled?: boolean  // 메소 제한 활성화 여부
   mesoLimitHours?: number     // 메소 제한 시간
   normalDropExpectation?: number  // 일반 드롭 100마리당 기댓값
-  logDropExpectation?: number     // 로그 드롭 100마리당 기댓값
+  logDropExpectation?: number     // 특수 드롭 100마리당 기댓값
 }
 
 export function BreakevenCalculator() {
@@ -206,7 +209,7 @@ export function BreakevenCalculator() {
       wealthAcquisitionPotion,
       otherBuff: 0,
       otherNonBuff: otherMesoBonus,
-      characterLevel: baseParams.characterLevel || 275,
+      characterLevel: baseParams.characterLevel ?? GLOBAL_DEFAULTS.characterLevel,
       monsterLevel: baseParams.monsterLevel
     }
     const totalMesoBonus = calculateMesoBonus(mesoParams).totalBonus
@@ -222,7 +225,7 @@ export function BreakevenCalculator() {
       const monstersPerMinute = monstersPerHour / 60
       
       const calculatedMesoLimitTimeInMinutes = calculateMesoLimitTime(
-        baseParams.characterLevel || 275,
+        baseParams.characterLevel ?? GLOBAL_DEFAULTS.characterLevel,
         baseParams.monsterLevel,
         monstersPerMinute, // 분당 몬스터 수
         1 // 1분 기준
@@ -243,7 +246,7 @@ export function BreakevenCalculator() {
       // 기본 계산기 정보
       baseCalculation: {
         monsterLevel: baseParams.monsterLevel,
-        characterLevel: baseParams.characterLevel || 275,
+        characterLevel: baseParams.characterLevel ?? GLOBAL_DEFAULTS.characterLevel,
         huntTime: 60, // 손익분기 계산기는 시간당 기준으로 계산
         mesoBonus: totalMesoBonus, // 실제 계산된 총 메획
         mesoPotentialLines: currentMesoFromPotential / 20, // 메획 잠재 줄 수 (20%당 1줄)
@@ -458,8 +461,8 @@ export function BreakevenCalculator() {
         wealthAcquisitionPotion: settings.wealthAcquisitionPotion ?? false,
         otherBuff: 0,
         otherNonBuff: 0,
-        characterLevel: settings.characterLevel || 275,
-        monsterLevel: settings.monsterLevel || settings.mobLevel || 275
+        characterLevel: settings.characterLevel ?? GLOBAL_DEFAULTS.characterLevel,
+        monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? GLOBAL_DEFAULTS.monsterLevel
       }
       const mesoResult = calculateMesoBonus(mesoParams)
       const calculatedMesoBonus = mesoResult.totalBonus
@@ -543,12 +546,12 @@ export function BreakevenCalculator() {
       
       // 기본 매개변수 설정 (기댓값 계산기의 원본 몬스터/캐릭터 레벨만 사용)
       setBaseParams({
-        monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
+        monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? GLOBAL_DEFAULTS.monsterLevel,
         totalMonsters: totalMonstersPerHour,
         mesoBonus: 0,  // 이제 메소/드롭률은 분리해서 관리
         dropRate: 0,   
         feeRate: settings.feeRate ?? 3,
-        characterLevel: settings.characterLevel ?? 275
+        characterLevel: settings.characterLevel ?? GLOBAL_DEFAULTS.characterLevel
       })
       
       // 경매장 수수료 설정
@@ -577,7 +580,8 @@ export function BreakevenCalculator() {
           const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
           
           // 100마리당 기댓값 계산: 드롭률(드롭률 0% 기준) * 가격 * 100마리 * (1-수수료)
-          const baseExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+          const multiplier = calculateDropMultiplier(0, NORMAL_DROP_RATE_CONSTANT)
+          const baseExpectation = Math.floor(dropRate * multiplier * price * (1 - feeRate / 100))
           return sum + baseExpectation
         }, 0)
       }
@@ -590,7 +594,11 @@ export function BreakevenCalculator() {
           const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
           
           // 100마리당 기댓값 계산: 드롭률(드롭률 0% 기준) * 가격 * 100마리 * (1-수수료)
-          const baseExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+          const multiplier = calculateDropMultiplier(
+            0,
+            item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+          )
+          const baseExpectation = Math.floor(dropRate * multiplier * price * (1 - feeRate / 100))
           return sum + baseExpectation
         }, 0)
       }
@@ -604,7 +612,11 @@ export function BreakevenCalculator() {
         const feeRate = directUse ? 0 : (settings.feeRate || 3) // 탈세면 수수료 0%
         
         // 100마리당 기댓값 계산
-        const solErdaExpectation = Math.floor(dropRate * price * (1 - feeRate / 100)) // 소숫점 미만 절삭
+        const multiplier = calculateDropMultiplier(
+          0,
+          solErda.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+        )
+        const solErdaExpectation = Math.floor(dropRate * multiplier * price * (1 - feeRate / 100))
         logExpectation += solErdaExpectation
       }
       
@@ -613,7 +625,7 @@ export function BreakevenCalculator() {
       
       // 불러온 기본 매개변수 저장 (새로운 분리 방식)
       const newBaseParams = {
-        monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? 275,
+        monsterLevel: settings.monsterLevel ?? settings.mobLevel ?? GLOBAL_DEFAULTS.monsterLevel,
         totalMonsters: totalMonstersPerHour,
         mesoBonus: 0,  // 분리 관리
         dropRate: 0,   // 분리 관리
@@ -760,7 +772,7 @@ export function BreakevenCalculator() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">캐릭터 레벨</label>
             <NumberInput
-              value={baseParams.characterLevel ?? 275}
+              value={baseParams.characterLevel ?? GLOBAL_DEFAULTS.characterLevel}
               onChange={(value) => setBaseParams({ ...baseParams, characterLevel: value })}
               min={1}
               max={300}
@@ -806,7 +818,7 @@ export function BreakevenCalculator() {
               className="block text-sm font-medium text-gray-700 mb-1 cursor-help" 
               title="아이템 드롭률 0%를 기준으로 한 기댓값입니다. 직접 입력하기보다는 사냥 기댓값 계산기에서 계산한 값을 가져오는 것을 권장합니다."
             >
-              로그 드롭 100마리당 기댓값 (메소)
+              특수 드롭 100마리당 기댓값 (메소)
             </label>
             <NumberInput
               value={logDropExpectation}

@@ -79,30 +79,36 @@ export default function AboutPage() {
               </div>
               
               <div>
-                <p className="font-medium">• 아이템 드롭률 로그 적용식</p>
+                <p className="font-medium">• 아이템 드롭률 상수 적용식</p>
                 <p className="ml-4 text-xs">
-                  솔 에르다 조각의 아이템 드롭률을 자연로그식으로 추정한
-                  <a href="https://www.inven.co.kr/board/maple/2304/37701" 
-                     target="_blank" rel="noopener noreferrer" 
-                     className="text-blue-600 hover:text-blue-800 underline ml-1">
-                    인벤 연구 글
-                  </a>을 바탕으로 로그식 일괄 적용
+                  실효 드롭률 증가량을 <strong>표기 드롭률 × (드롭 상수/100) + 24%</strong>로 계산합니다.
+                  일반 드롭과 메소 주머니는 상수 100%, 특수 드롭은 아이템별 상수를 적용합니다.
                 </p>
               </div>
               
               <div>
-                <p className="font-medium">• 젬스톤 및 심볼 아이템 드롭률 (로그식 적용 가정)</p>
+                <p className="font-medium">• 주요 특수 아이템 드롭 상수</p>
                 <p className="ml-4 text-xs">
-                  <a href="https://www.inven.co.kr/board/maple/2304/19614" 
-                     target="_blank" rel="noopener noreferrer" 
+                  솔 에르다 조각, 코어 젬스톤, 심볼 교환권은 기본 50%를 사용합니다.
+                  이벤트 아이템 등은 알려진 상수에 맞게 계산기에서 직접 설정할 수 있습니다.
+                </p>
+              </div>
+
+              <div>
+                <p className="font-medium">• 주요 특수 아이템 기본 드롭률</p>
+                <p className="ml-4 text-xs">
+                  솔 에르다 조각은 0.0425%, 코어 젬스톤은 0.028%, 심볼 교환권은 0.0015%를 사용합니다.
+                  구형 RNG의 모듈러 편향을 각 통계 구간별로 제거한 후, 10억 분율의 정수 임계값에 가까운 수치를 선택했습니다. 심볼 교환권은 표본이 적어 추정값입니다.{' '}
+                  <a href="https://www.inven.co.kr/board/maple/5974/6456786"
+                     target="_blank" rel="noopener noreferrer"
                      className="text-blue-600 hover:text-blue-800 underline">
-                    아이템 드롭률 359% 통계 자료
-                  </a>를 바탕으로 역산
+                    구형 RNG 모듈러 편향 설명
+                  </a>
                 </p>
               </div>
               
               <div>
-                <p className="font-medium">• 순록의 우유, 황혼의 이슬, 주문의 흔적 (일반식 적용 가정)</p>
+                <p className="font-medium">• 순록의 우유, 황혼의 이슬, 주문의 흔적 (일반 드롭)</p>
                 <p className="ml-4 text-xs">
                   <a href="https://www.inven.co.kr/board/maple/2304/19614" 
                      target="_blank" rel="noopener noreferrer" 

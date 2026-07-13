@@ -1,50 +1,49 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Save, RotateCcw, AlertCircle, Trash2, ChevronDown, ChevronRight, X, Download } from 'lucide-react'
 import Link from 'next/link'
 import AutoSlotManager from '../ui/AutoSlotManager'
 import DismissibleBanner from '../ui/DismissibleBanner'
 import { useNotification } from '@/contexts/NotificationContext'
-import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
-import { DEFAULT_NORMAL_DROP_ITEMS, DEFAULT_LOG_DROP_ITEMS, DEFAULT_BASIC_CALCULATOR_VALUES } from '../../utils/defaults'
+import { calculateHuntingExpectation, getMesoCalculationDetails, type HuntingExpectationParams, type DropItem as HuntingDropItem, DEFAULT_SPECIAL_DROP_RATE_CONSTANT, normalizeDropRateConstant, SOL_ERDA_FRAGMENT_ID } from '../../utils/huntingExpectationCalculations'
+import {
+  DEFAULT_BASIC_CALCULATOR_VALUES,
+  DEFAULT_LOG_DROP_ITEMS,
+  DEFAULT_NORMAL_DROP_ITEMS,
+  SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+} from '../../utils/defaults'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
 import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem, ExportModal } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
-import { getAverageMesoDropByLevel } from '../../utils/mesoDropCalculation'
 import { type BasicCalculatorExportData } from '../../utils/exportUtils'
 import { trackCalculation } from '@/lib/analytics'
+import {
+  calculateBasicCalculator,
+  type BasicCalculatorDropItem,
+  type BasicCalculatorResult,
+} from '../../utils/basicCalculatorCalculation'
+import {
+  calculateGrandAuthenticSymbolBreakevenMaterials,
+  calculateGrandAuthenticSymbolBonus,
+  getGrandAuthenticSymbolRemainingCost,
+  GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL,
+  type GrandAuthenticSymbolKind,
+} from '../../utils/grandAuthenticSymbol'
 
 // 드롭 아이템 인터페이스 (UI 컴포넌트의 인터페이스 확장)
-interface DropItem extends UIDropItem {
-  type: 'normal' | 'log' // 일반 아이템 드롭률 또는 로그 아이템 드롭률
-  dropRate: number // 로그 아이템 드롭률 아이템에도 필수로 추가
-}
+type DropItem = BasicCalculatorDropItem
+type CalculationResult = BasicCalculatorResult
 
-
-
-interface CalculationResult {
-  baseMeso: number
-  baseMesoPerHour: number // 순수 메소 드롭 (시간당)
-  totalIncome: number
-  totalMeso: number
-  mesoDropRate: number
-  mesoPerDrop: number
-  wealthAcquisitionPotionCount: number
-  wealthAcquisitionPotionCost: number
-  totalMesoPerHour: number
-  totalMesoWithoutPotion: number
-  dropItems: Map<string, {
-    item: DropItem
-    expectedCount: number
-    expectedValue: number
-    actualDropRate: number // 실제 아이템 드롭률 (아이템 드롭률 증가 효과 적용)
-    dropMultiplier: number // 아이템 드롭률 배수
-  }>
-}
+const normalizeSpecialDropItems = (items: UIDropItem[]): UIDropItem[] => items.map((item) => ({
+  ...item,
+  dropRateConstant: normalizeDropRateConstant(
+    item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+  ),
+}))
 
 interface CalculationInputs {
   monsterLevel: number
@@ -112,6 +111,7 @@ const DEFAULT_VALUES = {
     name: item.name,
     price: item.price,
     dropRate: item.dropRate,
+    dropRateConstant: item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
     directUse: item.directUse
   })) as UIDropItem[]
 }
@@ -240,10 +240,11 @@ export function BasicCalculator() {
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   
   // 입력 상태
-  const [monsterLevel, setMonsterLevel] = useState<number>(275)
+  const [monsterLevel, setMonsterLevel] = useState<number>(DEFAULT_VALUES.monsterLevel)
   const [mesoBonus, setMesoBonus] = useState<number>(40)
   const [dropRate, setDropRate] = useState<number>(60)
   const [tallahartSymbolLevel, setTallahartSymbolLevel] = useState<number>(0)
+  const [geardrakSymbolLevel, setGeardrakSymbolLevel] = useState<number>(0)
   
   // 입력 방식 선택
   const [mesoInputMode, setMesoInputMode] = useState<'direct' | 'detail'>('detail')
@@ -299,7 +300,7 @@ export function BasicCalculator() {
   const [isCustomResultTime, setIsCustomResultTime] = useState<boolean>(true)
   const [resultTimeUnit, setResultTimeUnit] = useState<'seconds' | 'minutes' | 'hours' | 'mini_wealth' | 'full_wealth' | 'meso_limit'>('meso_limit')
   const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(0)
-  const [characterLevel, setCharacterLevel] = useState<number>(275) // 캐릭터 레벨 (메소 제한용)
+  const [characterLevel, setCharacterLevel] = useState<number>(DEFAULT_VALUES.characterLevel) // 캐릭터 레벨 (메소 제한용)
   const [feeRate, setFeeRate] = useState<number>(3) // %
   
   // 자동 연산 토글
@@ -311,12 +312,17 @@ export function BasicCalculator() {
   
   // 드롭 아이템 상태 (일반 아이템 드롭률과 로그 아이템 드롭률로 분리)
   const [normalDropItems, setNormalDropItems] = useState<UIDropItem[]>(DEFAULT_VALUES.normalDropItems)
-  const [logDropItems, setLogDropItems] = useState<UIDropItem[]>(DEFAULT_VALUES.logDropItems)
+  const [logDropItems, setLogDropItems] = useState<UIDropItem[]>(() => normalizeSpecialDropItems(DEFAULT_VALUES.logDropItems))
   
   // 전체 드롭 아이템 (계산용)
   const dropItems: DropItem[] = useMemo(() => [
     ...normalDropItems.map(item => ({ ...item, type: 'normal' as const, dropRate: item.dropRate || 0 })),
-    ...logDropItems.map(item => ({ ...item, type: 'log' as const, dropRate: item.dropRate || 0 }))
+    ...logDropItems.map(item => ({
+      ...item,
+      type: 'log' as const,
+      dropRate: item.dropRate || 0,
+      dropRateConstant: item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
+    }))
   ], [normalDropItems, logDropItems])
   
   // setState 매핑
@@ -365,6 +371,7 @@ export function BasicCalculator() {
     showWealthPotionCost: setShowWealthPotionCost,
     wealthAcquisitionPotionPrice: setWealthAcquisitionPotionPrice,
     tallahartSymbolLevel: setTallahartSymbolLevel,
+    geardrakSymbolLevel: setGeardrakSymbolLevel,
     autoCalculate: setAutoCalculate,
     characterLevel: setCharacterLevel,
     normalDropItems: setNormalDropItems,
@@ -388,8 +395,9 @@ export function BasicCalculator() {
       dropRateArtifactLevelInput, dropRateArtifactPercentInput, holySymbol,
       decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion,
       showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
-      spottingSmallChangeLevel, tallahartSymbolLevel, autoCalculate,
-      normalDropItems, logDropItems
+      spottingSmallChangeLevel, tallahartSymbolLevel, geardrakSymbolLevel, autoCalculate,
+      normalDropItems,
+      logDropItems: normalizeSpecialDropItems(logDropItems)
     }
   }
 
@@ -404,7 +412,7 @@ export function BasicCalculator() {
     
     // 특별 처리가 필요한 값들
     setAutoCalculate(data.autoCalculate ?? true)
-    setCharacterLevel(data.characterLevel ?? 275)
+    setCharacterLevel(data.characterLevel ?? DEFAULT_VALUES.characterLevel)
     
     // 드롭 아이템 처리
     if (data.normalDropItems) {
@@ -414,9 +422,9 @@ export function BasicCalculator() {
     }
     
     if (data.logDropItems) {
-      setLogDropItems(data.logDropItems)
+      setLogDropItems(normalizeSpecialDropItems(data.logDropItems))
     } else {
-      setLogDropItems(DEFAULT_VALUES.logDropItems)
+      setLogDropItems(normalizeSpecialDropItems(DEFAULT_VALUES.logDropItems))
     }
     
     // 로드 완료 콜백 호출
@@ -484,7 +492,7 @@ export function BasicCalculator() {
       return
     }
     
-    // TODO: SlotManagerV2에서 슬롯 이름 복원 처리
+    // 슬롯 이름 복원은 AutoSlotManager에서 처리
     
     // 설정값 복원
     Object.entries(settings).forEach(([key, value]) => {
@@ -509,11 +517,12 @@ export function BasicCalculator() {
           directUse: directUse || false 
         }))
       const logItems = settings.dropItems.filter((item: DropItem) => item.type === 'log')
-        .map(({ name, price, dropRate, directUse }: any, index: number) => ({ 
+        .map(({ name, price, dropRate, dropRateConstant, directUse }: any, index: number) => ({ 
           id: `log-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
           name, 
           price: price || 0, 
           dropRate: dropRate || 0, 
+          dropRateConstant: dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
           directUse: directUse || false 
         }))
       
@@ -528,7 +537,8 @@ export function BasicCalculator() {
           id: SOL_ERDA_FRAGMENT_ID,
           name: '솔 에르다 조각',
           price: 600,
-          dropRate: 0.0425,
+          dropRate: SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+          dropRateConstant: DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
           directUse: false
         })
       }
@@ -557,6 +567,7 @@ export function BasicCalculator() {
         id: `log-drop-item-${index + 1}`, // ID를 순서대로 자동 부여
         price: item.price || 0,
         dropRate: item.dropRate || 0,
+        dropRateConstant: item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
         directUse: item.directUse || false
       }))
       
@@ -572,7 +583,8 @@ export function BasicCalculator() {
             id: SOL_ERDA_FRAGMENT_ID,
             name: settings.solErdaFragment.name || '솔 에르다 조각',
             price: settings.solErdaFragment.price || 600,
-            dropRate: settings.solErdaFragment.dropRate || 0.0425,
+            dropRate: settings.solErdaFragment.dropRate ?? SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+            dropRateConstant: settings.solErdaFragment.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
             directUse: settings.solErdaFragment.directUse || false
           })
         } else {
@@ -581,7 +593,8 @@ export function BasicCalculator() {
             id: SOL_ERDA_FRAGMENT_ID,
             name: '솔 에르다 조각',
             price: 600,
-            dropRate: 0.0425,
+            dropRate: SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+            dropRateConstant: DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
             directUse: false
           })
         }
@@ -598,7 +611,8 @@ export function BasicCalculator() {
           id: SOL_ERDA_FRAGMENT_ID,
           name: settings.solErdaFragment.name || '솔 에르다 조각',
           price: settings.solErdaFragment.price || 600,
-          dropRate: settings.solErdaFragment.dropRate || 0.0425,
+          dropRate: settings.solErdaFragment.dropRate ?? SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+          dropRateConstant: settings.solErdaFragment.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
           directUse: settings.solErdaFragment.directUse || false
         })
       }
@@ -612,7 +626,8 @@ export function BasicCalculator() {
             id: SOL_ERDA_FRAGMENT_ID,
             name: '솔 에르다 조각',
             price: 600,
-            dropRate: 0.0425,
+            dropRate: SOL_ERDA_FRAGMENT_BASE_DROP_RATE,
+            dropRateConstant: DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
             directUse: false
           })
         }
@@ -684,12 +699,19 @@ export function BasicCalculator() {
     dropRateArtifactLevelInput, dropRateArtifactPercentInput, holySymbol,
     decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion,
     showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange,
-    spottingSmallChangeLevel, tallahartSymbolLevel, dropItems,
+    spottingSmallChangeLevel, tallahartSymbolLevel, geardrakSymbolLevel, dropItems,
     normalDropItems: normalDropItems
       .map(({ name, price, dropRate, directUse }) => ({ name, price, dropRate, directUse, type: 'normal' as const })),
     logDropItems: logDropItems
       .filter(item => item.id !== SOL_ERDA_FRAGMENT_ID)
-      .map(({ name, price, dropRate, directUse }) => ({ name, price, dropRate, directUse, type: 'log' as const })),
+      .map(({ name, price, dropRate, dropRateConstant, directUse }) => ({
+        name,
+        price,
+        dropRate,
+        dropRateConstant: dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
+        directUse,
+        type: 'log' as const,
+      })),
     // 솔 에르다 조각 별도 저장
     solErdaFragment: (() => {
       const solErdaItem = logDropItems.find(item => item.id === SOL_ERDA_FRAGMENT_ID)
@@ -697,6 +719,7 @@ export function BasicCalculator() {
         name: solErdaItem.name,
         price: solErdaItem.price,
         dropRate: solErdaItem.dropRate,
+        dropRateConstant: solErdaItem.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT,
         directUse: solErdaItem.directUse
       } : null
     })()
@@ -801,6 +824,7 @@ export function BasicCalculator() {
     artifactLevel: mesoArtifactLevelInput,
     artifactPercent: mesoArtifactPercentInput,
     tallahartSymbolLevel: tallahartSymbolLevel,
+    geardrakSymbolLevel: geardrakSymbolLevel,
     wealthAcquisitionPotion: wealthAcquisitionPotion,
     otherBuff: mesoOtherBuff,
     otherNonBuff: mesoOtherNonBuff,
@@ -822,6 +846,7 @@ export function BasicCalculator() {
     artifactLevel: dropRateArtifactLevelInput,
     artifactPercent: dropRateArtifactPercentInput,
     tallahartSymbolLevel: tallahartSymbolLevel,
+    geardrakSymbolLevel: geardrakSymbolLevel,
     holySymbol: holySymbol,
     decentHolySymbol: decentHolySymbol,
     decentHolySymbolLevel: decentHolySymbolLevel,
@@ -834,183 +859,39 @@ export function BasicCalculator() {
   // calculateDrops 함수 내부
   const calculateDrops = () => {
     const inputs = getCurrentInputs()
-    
-    // 현재 파라미터들 저장
-    const currentMesoParams = getMesoCalculationParams()
-    const currentItemDropParams = getItemDropCalculationParams()
-    const calculatedMesoBonus = calculateMesoBonus(currentMesoParams).totalBonus
-    const calculatedItemDropBonus = calculateItemDropBonus(currentItemDropParams).totalBonus
-    
-    // 단위 시간당 처치 수
-    const mobsPerMinute = inputs.monsterCount / inputs.huntTime
-    const mobsPerHour = mobsPerMinute * 60
-    
-    // 메소 제한 옵션 처리
-    let actualResultTime = inputs.resultTime
-    
-    if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
-      // 메소 제한량 계산
-      const mesoLimit = calculateMesoLimit(characterLevel)
-      
-      // 몬스터 1마리당 기본 메소 드롭량 계산 (메획 보너스 적용 전)
-      const baseMesoPerMob = getAverageMesoDropByLevel(inputs.monsterLevel)
-      
-      // 메소 제한량에 도달하는데 필요한 몬스터 수
-      const mobsForMesoLimit = Math.ceil(mesoLimit / baseMesoPerMob)
-      
-      // 필요한 시간 계산 (분 단위)
-      actualResultTime = mobsForMesoLimit / mobsPerMinute
-    }
-    
-    // 결과 시간 동안의 총 처치 수
-    const totalMonsters = mobsPerMinute * actualResultTime
-    
-    // 잔돈이 눈에 띄네 보너스 계산
-    const spottingSmallChangeBonus = inputs.spottingSmallChange ? inputs.spottingSmallChangeLevel * 2 + 2 : 0
-
-    // 현재 헌팅 파라미터들 저장
-    const currentHuntingParams = {
+    const newResult = calculateBasicCalculator({
       monsterLevel: inputs.monsterLevel,
-      totalMonsters,
-      mesoBonus: calculatedMesoBonus,
-      dropRate: calculatedItemDropBonus,
-      feeRate: inputs.feeRate,
-      spottingSmallChangeBonus: spottingSmallChangeBonus,
       characterLevel: inputs.characterLevel,
-      normalDropItems: dropItems.filter(item => item.type === 'normal'),
-      logDropItems: dropItems.filter(item => item.type === 'log')
-    }
-
-    // 재물 획득의 비약 적용된 상태의 드롭 데이터 계산
-    const dropResultWithPotion = calculateHuntingExpectation(currentHuntingParams)
-    
-    // 시간당 계산 (재물 획득의 비약 적용된 상태)
-    const perHourHuntingParams = { ...currentHuntingParams, totalMonsters: mobsPerHour }
-    const dropResultPerHourWithPotion = calculateHuntingExpectation(perHourHuntingParams)
-    
-    // 재물 획득의 비약 없을 때의 파라미터 계산
-    let futureMesoParams = { ...currentMesoParams }
-    let futureItemDropParams = { ...currentItemDropParams }
-    
-    if (wealthAcquisitionPotion) {
-      // 재물 획득의 비약 효과 제거
-      futureMesoParams.wealthAcquisitionPotion = false
-      futureItemDropParams.wealthAcquisitionPotion = false
-    }
-    
-    const mesoAcquisitionRateWithoutPotion = calculateMesoBonus(futureMesoParams).totalBonus
-    const itemDropRateWithoutPotion = calculateItemDropBonus(futureItemDropParams).totalBonus
-    
-    const withoutPotionHuntingParams = {
-      ...currentHuntingParams,
-      mesoBonus: mesoAcquisitionRateWithoutPotion,
-      dropRate: itemDropRateWithoutPotion
-    }
-    const dropResultWithoutPotion = calculateHuntingExpectation(withoutPotionHuntingParams)
-    
-    // 드롭 아이템 결과를 Map으로 변환 (ID를 키로 사용)
-    const dropItemResults = new Map(
-      dropResultWithPotion.dropItems.map(dropResult => [
-        dropResult.item.id,
-        {
-          item: {
-            ...dropResult.item,
-            type: (dropResult.item.type || 'normal') as 'normal' | 'log'
-          } as DropItem,
-          expectedCount: dropResult.expectedCount,
-          expectedValue: dropResult.expectedValue,
-          actualDropRate: dropResult.actualDropRate,
-          dropMultiplier: dropResult.dropMultiplier
-        }
-      ])
-    )
-    
-    const dropItemResultsPerHour = new Map(
-      dropResultPerHourWithPotion.dropItems.map(dropResult => [
-        dropResult.item.id,
-        {
-          item: {
-            ...dropResult.item,
-            type: (dropResult.item.type || 'normal') as 'normal' | 'log'
-          } as DropItem,
-          expectedCount: dropResult.expectedCount,
-          expectedValue: dropResult.expectedValue,
-          actualDropRate: dropResult.actualDropRate,
-          dropMultiplier: dropResult.dropMultiplier
-        }
-      ])
-    )
-    
-    // 드롭 아이템 총 가치
-    const totalDropItemValue = Array.from(dropItemResults.values())
-      .reduce((sum, item) => sum + item.expectedValue, 0)
-    
-    const totalDropItemValuePerHour = Array.from(dropItemResultsPerHour.values())
-      .reduce((sum, item) => sum + item.expectedValue, 0)
-    
-    // 재물 획득의 비약 관련 계산
-    let wealthAcquisitionPotionCount = 0
-    let wealthAcquisitionPotionCost = 0
-    let wealthAcquisitionPotionCountPerHour = 0
-    let wealthAcquisitionPotionCostPerHour = 0
-
-    if (wealthAcquisitionPotion && showWealthPotionCost) {
-      // 30분마다 1개씩 사용 (31분이면 2개)
-      wealthAcquisitionPotionCount = Math.ceil(actualResultTime / 30)
-      wealthAcquisitionPotionCost = wealthAcquisitionPotionCount * wealthAcquisitionPotionPrice * 10000
-      
-      // 1시간 기준 계산 (2개 사용)
-      wealthAcquisitionPotionCountPerHour = 2
-      wealthAcquisitionPotionCostPerHour = wealthAcquisitionPotionCountPerHour * wealthAcquisitionPotionPrice * 10000
-    }
-
-    // 재획비 없을 때의 드롭 아이템 결과도 통합된 계산에서 가져옴
-    const totalDropItemValueWithoutPotion = dropResultWithoutPotion.totalDropItemValue
-
-    // 총 메소 계산 (각 구성 요소를 명확히 분리)
-    const baseMeso = dropResultWithPotion.totalMeso // 기본 메소만
-    const totalIncomeBeforeCost = baseMeso + totalDropItemValue // 전체 수익
-    const totalMesoWithPotion = totalIncomeBeforeCost - wealthAcquisitionPotionCost // 재획비 차감 후
-    
-    // 재획비 없을 때 계산도 동일하게 분리
-    const totalMesoWithoutPotion = dropResultWithoutPotion.totalIncome // 재획비 없을 때
-    
-    // 시간당 계산도 분리해서 처리  
-    const baseMesoPerHour = dropResultPerHourWithPotion.totalMeso
-    const totalMesoPerHour = baseMesoPerHour + totalDropItemValuePerHour - wealthAcquisitionPotionCostPerHour
-
-    const newResult = {
-      baseMeso, // 기본 메소만 (솔 에르다, 드롭 아이템 제외)
-      totalIncome: totalIncomeBeforeCost, // 기본 메소 + 솔 에르다 + 드롭 아이템 (재획비 비용 제외)
-      totalMeso: totalMesoWithPotion, // 최종 총 메소 (재획비 비용 차감)
-      mesoDropRate: dropResultWithPotion.mesoDropRate,
-      mesoPerDrop: dropResultWithPotion.mesoPerDrop,
-      wealthAcquisitionPotionCount,
-      wealthAcquisitionPotionCost,
-      baseMesoPerHour, // 순수 메소 드롭 (시간당)
-      totalMesoPerHour, // 총 수익 (메소 + 드롭 아이템 - 재획비)
-      totalMesoWithoutPotion,
-      dropItems: dropItemResults
-    }
+      monsterCount: inputs.monsterCount,
+      huntTime: inputs.huntTime,
+      resultTime: inputs.resultTime,
+      resultTimeUnit: inputs.resultTimeUnit,
+      isCustomResultTime: inputs.isCustomResultTime,
+      feeRate: inputs.feeRate,
+      spottingSmallChange: inputs.spottingSmallChange,
+      spottingSmallChangeLevel: inputs.spottingSmallChangeLevel,
+      wealthAcquisitionPotion,
+      showWealthPotionCost,
+      wealthAcquisitionPotionPrice,
+      dropItems,
+      mesoParams: getMesoCalculationParams(),
+      itemDropParams: getItemDropCalculationParams(),
+    })
 
     setResult(newResult)
     setCalculatedInputs(inputs)
     trackCalculation('hunting') // GA 이벤트 트래킹
   }
 
-  // 슬롯 로딩 완료 시 현재 상태를 저장
-  useEffect(() => {
-    if (!isLoadingSlot && mounted) {
-      const currentInputs = getCurrentInputs()
-    }
-  }, [isLoadingSlot, mounted])
+  const calculateDropsRef = useRef(calculateDrops)
+  calculateDropsRef.current = calculateDrops
 
   // 자동 연산이 켜져있을 때 입력값 변경 감지
   useEffect(() => {
     if (autoCalculate) {
-      calculateDrops()
+      calculateDropsRef.current()
     }
-  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, pcRoomMode])
+  }, [monsterLevel, mesoBonus, dropRate, huntTime, monsterCount, resultTime, feeRate, autoCalculate, customHuntTimeValue, huntTimeUnit, customResultTimeValue, resultTimeUnit, isCustomHuntTime, isCustomResultTime, mesoInputMode, dropRateInputMode, mesoLegionBuff, phantomLegionMeso, mesoPotentialMode, mesoPotentialLines, mesoPotentialDirect, mesoAbility, globalBuffMode, mesoArtifactLevel, dropRateLegionBuff, dropRatePotentialMode, dropRatePotentialLines, dropRatePotentialDirect, dropRateAbility, dropRateArtifactLevel, holySymbol, decentHolySymbol, decentHolySymbolLevel, wealthAcquisitionPotion, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, showWealthPotionCost, wealthAcquisitionPotionPrice, spottingSmallChange, spottingSmallChangeLevel, characterLevel, normalDropItems, logDropItems, tallahartSymbolLevel, geardrakSymbolLevel, pcRoomMode])
 
   // 입력값 유효성 검사
   useEffect(() => {
@@ -1019,12 +900,13 @@ export function BasicCalculator() {
       mesoAbility,
       characterLevel,
       tallahartSymbolLevel,
+      geardrakSymbolLevel,
       monsterLevel,
       mesoDropRate: result?.mesoDropRate || 100, // 결과가 없으면 100%로 가정
       wealthAcquisitionPotion
     })
     setValidationErrors(errors)
-  }, [dropRateAbility, mesoAbility, characterLevel, tallahartSymbolLevel, monsterLevel, result?.mesoDropRate, wealthAcquisitionPotion])
+  }, [dropRateAbility, mesoAbility, characterLevel, tallahartSymbolLevel, geardrakSymbolLevel, monsterLevel, result?.mesoDropRate, wealthAcquisitionPotion])
 
 
   // 유니온 버프 효과를 고려한 계산 헬퍼 함수
@@ -1062,7 +944,7 @@ export function BasicCalculator() {
   }, [result, globalBuffMode, dropRateLegionBuff, mesoLegionBuff])
 
   // TMI 정보 계산
-  const calculateTMIInfo = useMemo(() => {
+  const calculateTMIInfo = (() => {
     if (!result) return null
 
     const inputs = getCurrentInputs()
@@ -1279,56 +1161,71 @@ export function BasicCalculator() {
 
     const abilityBenefits = calculateAbilityFinishBenefit()
 
-    // 탈라하트 심볼 계산
-    const calculateTallahartSymbolBenefit = () => {
-      // 탈라하트 심볼 1레벨 시 계산 (미개방 -> 1레벨)
-      let tallahartLevel1MesoParams = { ...currentMesoParams }
-      let tallahartLevel1DropParams = { ...currentItemDropParams }
-      tallahartLevel1MesoParams.tallahartSymbolLevel = 1
-      tallahartLevel1DropParams.tallahartSymbolLevel = 1
-      
-      const tallahartLevel1HuntingParams = {
-        ...currentHuntingParams,
-        mesoBonus: calculateMesoBonus(tallahartLevel1MesoParams).totalBonus,
-        dropRate: calculateItemDropBonus(tallahartLevel1DropParams).totalBonus
+    const calculateGrandSymbolBenefit = (
+      field: 'tallahartSymbolLevel' | 'geardrakSymbolLevel',
+      kind: GrandAuthenticSymbolKind,
+      currentLevel: number
+    ) => {
+      const calculateAtLevel = (
+        level: number,
+        huntingParams = currentHuntingParams
+      ) => {
+        const mesoParams = { ...currentMesoParams, [field]: level }
+        const dropParams = { ...currentItemDropParams, [field]: level }
+        return calculateHuntingExpectation({
+          ...huntingParams,
+          mesoBonus: calculateMesoBonus(mesoParams).totalBonus,
+          dropRate: calculateItemDropBonus(dropParams).totalBonus,
+        })
       }
-      const tallahartLevel1Calc = calculateHuntingExpectation(tallahartLevel1HuntingParams)
 
-      // 탈라하트 심볼 10레벨 시 계산 (만렙)
-      let tallahartLevel10MesoParams = { ...currentMesoParams }
-      let tallahartLevel10DropParams = { ...currentItemDropParams }
-      tallahartLevel10MesoParams.tallahartSymbolLevel = 10
-      tallahartLevel10DropParams.tallahartSymbolLevel = 10
-      
-      const tallahartLevel10HuntingParams = {
+      const nextLevel = Math.min(currentLevel + 1, GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL)
+      const materialHuntingParams = {
         ...currentHuntingParams,
-        mesoBonus: calculateMesoBonus(tallahartLevel10MesoParams).totalBonus,
-        dropRate: calculateItemDropBonus(tallahartLevel10DropParams).totalBonus
+        totalMonsters: monsterCount / huntTime * 30,
       }
-      const tallahartLevel10Calc = calculateHuntingExpectation(tallahartLevel10HuntingParams)
-
-      // 탈라하트 심볼 0레벨 시 계산 (미개방)
-      let tallahartLevel0MesoParams = { ...currentMesoParams }
-      let tallahartLevel0DropParams = { ...currentItemDropParams }
-      tallahartLevel0MesoParams.tallahartSymbolLevel = 0
-      tallahartLevel0DropParams.tallahartSymbolLevel = 0
-      
-      const tallahartLevel0HuntingParams = {
-        ...currentHuntingParams,
-        mesoBonus: calculateMesoBonus(tallahartLevel0MesoParams).totalBonus,
-        dropRate: calculateItemDropBonus(tallahartLevel0DropParams).totalBonus
-      }
-      const tallahartLevel0Calc = calculateHuntingExpectation(tallahartLevel0HuntingParams)
+      const currentMaterialCalc = calculateAtLevel(currentLevel, materialHuntingParams)
+      const nextMaterialCalc = calculateAtLevel(nextLevel, materialHuntingParams)
+      const maxMaterialCalc = calculateAtLevel(
+        GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL,
+        materialHuntingParams
+      )
+      const nextLevelCost = getGrandAuthenticSymbolRemainingCost(
+        kind,
+        currentLevel,
+        nextLevel
+      )
+      const maxLevelCost = getGrandAuthenticSymbolRemainingCost(kind, currentLevel)
+      const nextLevelIncreasePerMaterial = nextMaterialCalc.totalIncome - currentMaterialCalc.totalIncome
+      const maxLevelIncreasePerMaterial = maxMaterialCalc.totalIncome - currentMaterialCalc.totalIncome
 
       return {
-        level1Increase: tallahartLevel1Calc.totalIncome - tallahartLevel0Calc.totalIncome, // 미개방 대비 1레벨 이득
-        level10Increase: tallahartLevel10Calc.totalIncome - result.totalIncome, // 현재 대비 10레벨 이득  
-        currentBenefit: result.totalIncome - tallahartLevel0Calc.totalIncome, // 현재 레벨 대비 0레벨(미개방) 이득
-        maxBenefit: tallahartLevel10Calc.totalIncome - tallahartLevel1Calc.totalIncome // 1레벨 대비 10레벨 이득
+        nextLevel,
+        nextLevelCost,
+        nextLevelIncreasePerMaterial,
+        nextLevelBreakEvenMaterials: calculateGrandAuthenticSymbolBreakevenMaterials(
+          nextLevelCost,
+          nextLevelIncreasePerMaterial
+        ),
+        maxLevelCost,
+        maxLevelIncreasePerMaterial,
+        maxLevelBreakEvenMaterials: calculateGrandAuthenticSymbolBreakevenMaterials(
+          maxLevelCost,
+          maxLevelIncreasePerMaterial
+        ),
       }
     }
 
-    const tallahartBenefits = calculateTallahartSymbolBenefit()
+    const tallahartBenefits = calculateGrandSymbolBenefit(
+      'tallahartSymbolLevel',
+      'tallahart',
+      tallahartSymbolLevel
+    )
+    const geardrakBenefits = calculateGrandSymbolBenefit(
+      'geardrakSymbolLevel',
+      'geardrak',
+      geardrakSymbolLevel
+    )
 
     return {
       dropRateIncrease: dragonDropRateTotal - result.totalIncome,
@@ -1337,13 +1234,14 @@ export function BasicCalculator() {
       mesoRateBenefitFromZero: calculateZeroPotentialBenefit('meso'),
       ...legionBenefits,
       ...abilityBenefits,
-      ...tallahartBenefits,
+      tallahartBenefits,
+      geardrakBenefits,
       // 현재 파라미터들 노출
       currentHuntingParams,
       currentMesoParams,
       currentItemDropParams
     }
-  }, [result, characterLevel, monsterLevel, monsterCount, huntTime, resultTime, isCustomResultTime, resultTimeUnit, spottingSmallChange, spottingSmallChangeLevel, wealthAcquisitionPotion, showWealthPotionCost, wealthAcquisitionPotionPrice, feeRate, normalDropItems, logDropItems, dropRatePotentialDirect, dropRatePotentialLines, dropRatePotentialMode, mesoPotentialDirect, mesoPotentialLines, mesoPotentialMode, dropRateArtifactMode, dropRateArtifactLevelInput, dropRateArtifactPercentInput, mesoArtifactMode, mesoArtifactLevelInput, mesoArtifactPercentInput, phantomLegionMeso, dropItems, getCurrentInputs, dropRateAbility, mesoAbility, tallahartSymbolLevel, pcRoomMode, getMesoCalculationParams, getItemDropCalculationParams])
+  })()
 
 
 
@@ -1659,7 +1557,8 @@ export function BasicCalculator() {
               items={logDropItems}
               onItemsChange={setLogDropItems}
               showDropRate={true}
-              title="정해진 비율 드롭템"
+              showDropRateConstant={true}
+              title="특수 드롭템"
               placeholder="아이템 이름"
             />
             
@@ -1685,7 +1584,7 @@ export function BasicCalculator() {
             </label>
             <RadioGroup
               options={[
-                { value: 'challenger', label: '챌린저스: 다이아 버프 (20%)' },
+                { value: 'challenger', label: '챌린저스: 사파이어 버프 (20%)' },
                 { value: 'legion', label: '일반 월드: 유니온 (0~12%)' },
                 { value: 'none', label: '해당 없음' }
               ]}
@@ -1749,7 +1648,7 @@ export function BasicCalculator() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
-                아이템 드롭률
+                아이템 드롭률 (표기)
               </label>
               <div className="flex items-center space-x-2">
                 <ToggleButton
@@ -2018,22 +1917,51 @@ export function BasicCalculator() {
                         }
                       }}
                       min={0}
-                      max={11}
-                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-red-500 bg-red-50' : ''}`}
+                      max={GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-yellow-500 bg-yellow-50' : ''}`}
                     />
                     {validationErrors.some(e => e.field === 'tallahartSymbol') && (
-                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                      <div className="absolute z-10 invisible group-hover:visible bg-yellow-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                         {validationErrors.find(e => e.field === 'tallahartSymbol')?.shortMessage || validationErrors.find(e => e.field === 'tallahartSymbol')?.message}
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-yellow-600"></div>
                       </div>
                     )}
                   </div>
                   <span className="text-sm text-gray-500">레벨</span>
                   <span className="text-xs text-gray-400 w-12">
-                    ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
+                    ({calculateGrandAuthenticSymbolBonus(tallahartSymbolLevel)}%)
                   </span>
                 </div>
               </div> {/* 탈라하트 심볼 섹션 끝 */}
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">기어드락 심볼</label>
+                <div className="flex items-center space-x-2">
+                  <div className="relative group">
+                    <NumberInput
+                      value={geardrakSymbolLevel}
+                      onChange={(value) => {
+                        setGeardrakSymbolLevel(value)
+                        if (dropRateInputMode === 'direct') setDropRateInputMode('detail')
+                        if (mesoInputMode === 'direct') setMesoInputMode('detail')
+                      }}
+                      min={0}
+                      max={GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'geardrakSymbol') ? 'border-yellow-500 bg-yellow-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'geardrakSymbol') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-yellow-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'geardrakSymbol')?.shortMessage || validationErrors.find(e => e.field === 'geardrakSymbol')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-yellow-600"></div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-500">레벨</span>
+                  <span className="text-xs text-gray-400 w-12">
+                    ({calculateGrandAuthenticSymbolBonus(geardrakSymbolLevel)}%)
+                  </span>
+                </div>
+              </div>
               
               {/* PC방 옵션 */}
               <div className="flex items-center justify-between">
@@ -2357,22 +2285,51 @@ export function BasicCalculator() {
                         }
                       }}
                       min={0}
-                      max={11}
-                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-red-500 bg-red-50' : ''}`}
+                      max={GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'tallahartSymbol') ? 'border-yellow-500 bg-yellow-50' : ''}`}
                     />
                     {validationErrors.some(e => e.field === 'tallahartSymbol') && (
-                      <div className="absolute z-10 invisible group-hover:visible bg-red-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                      <div className="absolute z-10 invisible group-hover:visible bg-yellow-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                         {validationErrors.find(e => e.field === 'tallahartSymbol')?.shortMessage || validationErrors.find(e => e.field === 'tallahartSymbol')?.message}
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-red-600"></div>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-yellow-600"></div>
                       </div>
                     )}
                   </div>
                   <span className="text-sm text-gray-500">레벨</span>
                   <span className="text-xs text-gray-400 w-12">
-                    ({tallahartSymbolLevel > 0 ? tallahartSymbolLevel + 4 : 0}%)
+                    ({calculateGrandAuthenticSymbolBonus(tallahartSymbolLevel)}%)
                   </span>
                 </div>
               </div> {/* 탈라하트 심볼 섹션 끝 */}
+
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">기어드락 심볼</label>
+                <div className="flex items-center space-x-2">
+                  <div className="relative group">
+                    <NumberInput
+                      value={geardrakSymbolLevel}
+                      onChange={(value) => {
+                        setGeardrakSymbolLevel(value)
+                        if (mesoInputMode === 'direct') setMesoInputMode('detail')
+                        if (dropRateInputMode === 'direct') setDropRateInputMode('detail')
+                      }}
+                      min={0}
+                      max={GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}
+                      className={`w-16 ${validationErrors.some(e => e.field === 'geardrakSymbol') ? 'border-yellow-500 bg-yellow-50' : ''}`}
+                    />
+                    {validationErrors.some(e => e.field === 'geardrakSymbol') && (
+                      <div className="absolute z-10 invisible group-hover:visible bg-yellow-600 text-white text-xs rounded px-2 py-1 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        {validationErrors.find(e => e.field === 'geardrakSymbol')?.shortMessage || validationErrors.find(e => e.field === 'geardrakSymbol')?.message}
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-yellow-600"></div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-500">레벨</span>
+                  <span className="text-xs text-gray-400 w-12">
+                    ({calculateGrandAuthenticSymbolBonus(geardrakSymbolLevel)}%)
+                  </span>
+                </div>
+              </div>
               
             </div> {/* 메획 상세 옵션 영역 끝 */}
           </div>{/* 메획 섹션 끝 */}
@@ -2483,7 +2440,7 @@ export function BasicCalculator() {
               <div className="font-medium text-blue-600">{monsterLevel}</div>
             </div>
             <div className="text-center">
-              <div className="text-gray-600">아이템 드롭률</div>
+              <div className="text-gray-600">아이템 드롭률 (표기)</div>
               <div className="font-medium text-green-600">{calculateItemDropBonus(getItemDropCalculationParams()).totalBonus}%</div>
             </div>
             <div className="text-center">
@@ -2562,7 +2519,9 @@ export function BasicCalculator() {
                            <div className="text-center">
                              <div className="mb-1">솔 에르다 조각 아이템 드롭률</div>
                              <div>원본 확률: {(originalRate * 100).toFixed(4)}%</div>
-                             <div>배수: {multiplier.toFixed(3)}x (아이템 드롭률 +{currentDropRate}%)</div>
+                             <div>드롭 상수: {solErdaResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT}%</div>
+                             <div>실효 증가율: {formatDecimal((multiplier - 1) * 100, 2)}% (표기 드롭률 {currentDropRate}% 기준)</div>
+                             <div>배수: {multiplier.toFixed(3)}x</div>
                              <div>최종 확률: {(finalRate * 100).toFixed(4)}%</div>
                            </div>
                          )
@@ -2657,7 +2616,9 @@ export function BasicCalculator() {
                           <span className="text-gray-700">
                             {dropResult.item.name}
                             <span className="text-xs text-gray-500 ml-1">
-                              ({dropResult.item.type === 'normal' ? '일반' : '로그'})
+                              ({dropResult.item.type === 'normal'
+                                ? '일반 · 상수 100%'
+                                : `특수 · 상수 ${dropResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT}%`})
                             </span>
                           </span>
                           <span className="font-medium text-purple-600">
@@ -3079,59 +3040,110 @@ export function BasicCalculator() {
                       </div>
                     </div>
 
-                    {/* 탈라하트 심볼 줄 */}
+                    {/* 탈라하트 심볼 손익분기 */}
                     <div className="grid grid-cols-2 gap-2">
-                      {/* 탈라하트 심볼 개방 시 카드 */}
-                      <div className={`p-2 rounded border ${tallahartSymbolLevel > 0 ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
-                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel > 0 ? 'text-gray-500' : 'text-purple-700'}`}>
-                          🌟 탈라하트 심볼 개방
+                      <div className={`p-2 rounded border ${tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'bg-gray-100 border-gray-300' : 'bg-purple-50 border-purple-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'text-gray-500' : 'text-purple-700'}`}>
+                          🌟 탈라하트 +1레벨
                         </h5>
-                        {tallahartSymbolLevel > 0 ? (
+                        {tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? (
                           <>
-                            <p className="text-xs text-gray-500 mb-1">
-                              이미 {tallahartSymbolLevel}레벨 달성
-                            </p>
-                            <p className="text-sm font-bold text-gray-500">
-                              미개방 대비 +{formatMesoWithKorean(tmiInfo.currentBenefit)} 이득
-                            </p>
+                            <p className="text-xs text-gray-500 mb-1">이미 MAX레벨 달성</p>
+                            <p className="text-sm font-bold text-gray-500">추가 강화 없음</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-xs text-gray-600 mb-1">
-                              1레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.level1Increase)}
-                            </p>
-                            <p className="text-sm font-bold">
-                              <span className={tmiInfo.level1Increase >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                개방 시 {tmiInfo.level1Increase >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.level1Increase)} 증가
-                              </span>
-                            </p>
+                            <p className="text-xs text-gray-600 mb-1">목표: {tmiInfo.tallahartBenefits.nextLevel}레벨</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.tallahartBenefits.nextLevelIncreasePerMaterial)}</p>
+                            {tallahartSymbolLevel === 0 ? (
+                              <p className="text-sm font-bold text-purple-700">개방 비용 없음</p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-gray-600 mb-1">강화 비용: {formatMesoWithKorean(tmiInfo.tallahartBenefits.nextLevelCost)}</p>
+                                <p className="text-sm font-bold text-purple-700">
+                                  손익분기: {Number.isFinite(tmiInfo.tallahartBenefits.nextLevelBreakEvenMaterials)
+                                    ? `${formatNumber(Math.ceil(tmiInfo.tallahartBenefits.nextLevelBreakEvenMaterials))}소재`
+                                    : '회수 불가'}
+                                </p>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
 
-                      {/* 탈라하트 심볼 만렙 카드 */}
-                      <div className={`p-2 rounded border ${tallahartSymbolLevel >= 10 ? 'bg-gray-100 border-gray-300' : 'bg-amber-50 border-amber-200'}`}>
-                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel >= 10 ? 'text-gray-500' : 'text-amber-700'}`}>
-                          ⭐ 탈라하트 심볼 만렙
+                      <div className={`p-2 rounded border ${tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'bg-gray-100 border-gray-300' : 'bg-amber-50 border-amber-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'text-gray-500' : 'text-amber-700'}`}>
+                          ⭐ 탈라하트 MAX레벨
                         </h5>
-                        {tallahartSymbolLevel >= 10 ? (
+                        {tallahartSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? (
                           <>
-                            <p className="text-xs text-gray-500 mb-1">
-                              이미 10레벨 달성
-                            </p>
-                            <p className="text-sm font-bold text-gray-500">
-                              1레벨 대비 +{formatMesoWithKorean(tmiInfo.maxBenefit)} 이득
-                            </p>
+                            <p className="text-xs text-gray-500 mb-1">이미 MAX레벨 달성</p>
+                            <p className="text-sm font-bold text-gray-500">남은 강화 비용 없음</p>
                           </>
                         ) : (
                           <>
-                            <p className="text-xs text-gray-600 mb-1">
-                              10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.level10Increase)}
+                            <p className="text-xs text-gray-600 mb-1">목표: {GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}레벨</p>
+                            <p className="text-xs text-gray-600 mb-1">남은 비용: {formatMesoWithKorean(tmiInfo.tallahartBenefits.maxLevelCost)}</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.tallahartBenefits.maxLevelIncreasePerMaterial)}</p>
+                            <p className="text-sm font-bold text-amber-700">
+                              손익분기: {Number.isFinite(tmiInfo.tallahartBenefits.maxLevelBreakEvenMaterials)
+                                ? `${formatNumber(Math.ceil(tmiInfo.tallahartBenefits.maxLevelBreakEvenMaterials))}소재`
+                                : '회수 불가'}
                             </p>
-                            <p className="text-sm font-bold">
-                              <span className={tmiInfo.level10Increase >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                만렙 달성 시 {tmiInfo.level10Increase >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.level10Increase)} 증가
-                              </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 기어드락 심볼 손익분기 */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className={`p-2 rounded border ${geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'bg-gray-100 border-gray-300' : 'bg-cyan-50 border-cyan-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'text-gray-500' : 'text-cyan-700'}`}>
+                          💎 기어드락 +1레벨
+                        </h5>
+                        {geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">이미 MAX레벨 달성</p>
+                            <p className="text-sm font-bold text-gray-500">추가 강화 없음</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">목표: {tmiInfo.geardrakBenefits.nextLevel}레벨</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.geardrakBenefits.nextLevelIncreasePerMaterial)}</p>
+                            {geardrakSymbolLevel === 0 ? (
+                              <p className="text-sm font-bold text-cyan-700">개방 비용 없음</p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-gray-600 mb-1">강화 비용: {formatMesoWithKorean(tmiInfo.geardrakBenefits.nextLevelCost)}</p>
+                                <p className="text-sm font-bold text-cyan-700">
+                                  손익분기: {Number.isFinite(tmiInfo.geardrakBenefits.nextLevelBreakEvenMaterials)
+                                    ? `${formatNumber(Math.ceil(tmiInfo.geardrakBenefits.nextLevelBreakEvenMaterials))}소재`
+                                    : '회수 불가'}
+                                </p>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <div className={`p-2 rounded border ${geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'bg-gray-100 border-gray-300' : 'bg-sky-50 border-sky-200'}`}>
+                        <h5 className={`text-xs font-medium mb-1 ${geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? 'text-gray-500' : 'text-sky-700'}`}>
+                          ⭐ 기어드락 MAX레벨
+                        </h5>
+                        {geardrakSymbolLevel >= GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL ? (
+                          <>
+                            <p className="text-xs text-gray-500 mb-1">이미 MAX레벨 달성</p>
+                            <p className="text-sm font-bold text-gray-500">남은 강화 비용 없음</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-600 mb-1">목표: {GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}레벨</p>
+                            <p className="text-xs text-gray-600 mb-1">남은 비용: {formatMesoWithKorean(tmiInfo.geardrakBenefits.maxLevelCost)}</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.geardrakBenefits.maxLevelIncreasePerMaterial)}</p>
+                            <p className="text-sm font-bold text-sky-700">
+                              손익분기: {Number.isFinite(tmiInfo.geardrakBenefits.maxLevelBreakEvenMaterials)
+                                ? `${formatNumber(Math.ceil(tmiInfo.geardrakBenefits.maxLevelBreakEvenMaterials))}소재`
+                                : '회수 불가'}
                             </p>
                           </>
                         )}
@@ -3214,4 +3226,4 @@ export function BasicCalculator() {
   )
 }
 
-export default BasicCalculator 
+export default BasicCalculator
