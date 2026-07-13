@@ -205,14 +205,15 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
 - 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
 - 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개
-- **아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 5개
+- **종료된 이벤트: 아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 5개
   - Dynamic Programming 기반 9주간 최적 스킬 투자 전략 계산
   - 장기 휴식 최대 레벨 제한 기능 (시간 제약이 있는 유저를 위한 옵션)
   - 제한 설정 시 손실 비교 및 잠수 시간 정보 제공
   - 성능 최적화: 문자열 키에서 비트 연산 키로 변경, 캐싱 최적화
   - 2레벨 이상 업그레이드 및 선업글 장기 휴식 시각적 강조
   - ActionItem 기반 구조화된 텍스트 생성 시스템
-- **한글날 훈장 행사 계산기** (`/calculators/hangeul-medal`) - 기본 슬롯 2개
+- **종료된 이벤트: 록 스타 돌의 정령 확률 계산기** (`/calculators/origami`)
+- **종료된 이벤트: 한글날 훈장 행사 계산기** (`/calculators/hangeul-medal`) - 기본 슬롯 2개
   - 상태 전이 확률 기반 동적 프로그래밍 알고리즘 적용
   - 한국어 퍼지 검색 및 초성 검색 지원 (kled-js 라이브러리 활용)
   - 겹자음 분해 검색 지원 (예: "ㅂㅅ" → "ㅄ" 매칭)

@@ -25,7 +25,10 @@ const activeCalculators = [
     icon: Crown,
     href: '/calculators/boss-chase',
     color: 'bg-purple-500',
-  },
+  }
+]
+
+const endedEventCalculators = [
   {
     id: 'lounge-optimizer',
     title: '휴게실 경험치 최적화 계산기',
@@ -41,10 +44,7 @@ const activeCalculators = [
     icon: Sparkles,
     href: '/calculators/origami',
     color: 'bg-pink-500',
-  }
-]
-
-const endedEventCalculators = [
+  },
   {
     id: 'hangeul-medal',
     title: '한글날 훈장 행사 계산기',
@@ -114,4 +114,4 @@ export function CalculatorGrid() {
       )}
     </div>
   )
-} 
+}

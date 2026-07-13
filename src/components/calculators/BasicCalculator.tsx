@@ -1262,7 +1262,7 @@ export function BasicCalculator() {
       {/* 데이터 출처 안내 */}
       <DismissibleBanner 
         bannerId="basic_calculator_data_source"
-        message="이 계산기의 기본 아이템 드롭률 및 계산 공식은 외부 연구 자료를 참고했습니다."
+        message="이 계산기의 기본 아이템 드롭률 등 드롭률 기반 데이터는 외부 연구 자료를 참고했습니다."
       />
       
       {/* 메인 그리드 컨테이너 시작 */}
