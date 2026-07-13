@@ -15,7 +15,7 @@ import {
 } from '../../utils/defaults'
 import { saveCalculatorSettings, loadCalculatorSettings, canUseFunctionalCookies, hasSlotData, clearCalculatorSettings } from '../../utils/cookies'
 import NumberInput from '../ui/NumberInput'
-import { ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem, ExportModal } from '../ui'
+import { MesoAmount, handleMesoCopy, handleMesoDocumentCopy, Toggle, ToggleButton, RadioGroup, RadioGroupWithInput, DropItemInput, DropItem as UIDropItem, ExportModal } from '../ui'
 import { formatNumber, formatMesoWithKorean, formatDecimal } from '../../utils/formatUtils'
 import { calculateMesoLimit, calculateMesoBonus, calculateItemDropBonus, calculateMesoLimitTime, type MesoCalculationParams, type ItemDropCalculationParams } from '../../utils/bonusCalculations'
 import { validateAllInputs, type ValidationError } from '../../utils/validations'
@@ -38,12 +38,81 @@ import {
 type DropItem = BasicCalculatorDropItem
 type CalculationResult = BasicCalculatorResult
 
+function InlineMesoAmount({ value }: { value: number }) {
+  return (
+    <MesoAmount
+      value={value}
+      align="left"
+      className="align-bottom"
+      koreanClassName="text-inherit"
+    />
+  )
+}
+
 const normalizeSpecialDropItems = (items: UIDropItem[]): UIDropItem[] => items.map((item) => ({
   ...item,
   dropRateConstant: normalizeDropRateConstant(
     item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
   ),
 }))
+
+interface DropRateDetailsProps {
+  originalDropRate: number
+  displayedAdditionalDropRate: number
+  dropRateConstant: number
+  finalAppliedAdditionalDropRate: number
+  finalDropRate: number
+  directUse?: boolean
+}
+
+function DropRateDetails({
+  originalDropRate,
+  displayedAdditionalDropRate,
+  dropRateConstant,
+  finalAppliedAdditionalDropRate,
+  finalDropRate,
+  directUse = false,
+}: DropRateDetailsProps) {
+  const appliedAdditionalDropRate = displayedAdditionalDropRate * dropRateConstant / 100
+
+  return (
+    <>
+      <div className="space-y-1">
+        <div className="flex justify-between gap-3">
+          <span className="text-gray-300">원래 드롭률</span>
+          <span>{originalDropRate}%</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-gray-300">내 추가 드롭률</span>
+          <span>+{formatDecimal(displayedAdditionalDropRate, 2)}%</span>
+        </div>
+        {dropRateConstant !== 100 && (
+          <>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-300">정해진 비율</span>
+              <span>{dropRateConstant}%</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-300">실제 적용 추가 드롭률</span>
+              <span>+{formatDecimal(appliedAdditionalDropRate, 2)}%</span>
+            </div>
+          </>
+        )}
+        <div className="flex justify-between gap-3">
+          <span className="text-gray-300">최종 적용 추가 드롭률</span>
+          <span>+{formatDecimal(finalAppliedAdditionalDropRate, 2)}%</span>
+        </div>
+        <div className="flex justify-between gap-3 border-t border-gray-700 pt-1 font-medium">
+          <span className="text-gray-200">최종 드롭률</span>
+          <span>{formatDecimal(finalDropRate, 4)}%</span>
+        </div>
+      </div>
+      {directUse && (
+        <p className="mt-2 border-t border-gray-700 pt-1 text-green-300">판매 수수료 없음</p>
+      )}
+    </>
+  )
+}
 
 interface CalculationInputs {
   monsterLevel: number
@@ -225,6 +294,7 @@ const LabeledNumberInput: React.FC<LabeledNumberInputProps> = ({
 
 export function BasicCalculator() {
   const { showNotification } = useNotification()
+  const calculatorRootRef = useRef<HTMLDivElement>(null)
   
   // 설정 저장/복원 상태
   const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -302,6 +372,17 @@ export function BasicCalculator() {
   const [customResultTimeValue, setCustomResultTimeValue] = useState<number>(0)
   const [characterLevel, setCharacterLevel] = useState<number>(DEFAULT_VALUES.characterLevel) // 캐릭터 레벨 (메소 제한용)
   const [feeRate, setFeeRate] = useState<number>(3) // %
+
+  useEffect(() => {
+    const handleDocumentCopy = (event: globalThis.ClipboardEvent) => {
+      if (calculatorRootRef.current) {
+        handleMesoDocumentCopy(event, calculatorRootRef.current)
+      }
+    }
+
+    document.addEventListener('copy', handleDocumentCopy, true)
+    return () => document.removeEventListener('copy', handleDocumentCopy, true)
+  }, [])
   
   // 자동 연산 토글
   const [autoCalculate, setAutoCalculate] = useState<boolean>(true)
@@ -1249,7 +1330,7 @@ export function BasicCalculator() {
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto">{/* 메인 계산기 컨테이너 시작 */}
+      <div ref={calculatorRootRef} className="bg-white rounded-lg shadow-lg p-6 max-w-7xl mx-auto" onCopy={handleMesoCopy}>{/* 메인 계산기 컨테이너 시작 */}
       {/* 슬롯 선택 UI */}
       <AutoSlotManager
         calculatorId="basic_calculator"
@@ -1548,20 +1629,55 @@ export function BasicCalculator() {
           
           {/* 드롭 아이템 관리 영역 시작 */}
           <div className="space-y-4 border-t pt-4 mt-4">
-            {/* 경매장 수수료 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                경매장 수수료
-              </label>
-              <RadioGroup
-                options={[
-                  { value: '3', label: '3%' },
-                  { value: '5', label: '5%' }
-                ]}
-                value={feeRate.toString()}
-                onChange={(value) => setFeeRate(Number(value))}
-                name="feeRate"
-              />
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+              <h4 className="text-sm font-semibold text-gray-800">정산 설정</h4>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-2">
+                  경매장 수수료
+                </label>
+                <RadioGroup
+                  options={[
+                    { value: '3', label: '3%' },
+                    { value: '5', label: '5%' }
+                  ]}
+                  value={feeRate.toString()}
+                  onChange={(value) => setFeeRate(Number(value))}
+                  name="feeRate"
+                />
+              </div>
+
+              <div className="border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">재획비 비용 차감</p>
+                    <p className="text-xs text-gray-500">
+                      {wealthAcquisitionPotion ? '사용한 소재 가격을 최종 수익에서 차감합니다.' : '재획비 효과를 켜면 설정할 수 있습니다.'}
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={showWealthPotionCost}
+                    onChange={setShowWealthPotionCost}
+                    disabled={!wealthAcquisitionPotion}
+                    size="sm"
+                  />
+                </div>
+                {wealthAcquisitionPotion && showWealthPotionCost && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 border border-gray-200">
+                    <label className="text-xs font-medium text-gray-600">소재 1개 가격</label>
+                    <div className="flex items-center gap-1">
+                      <NumberInput
+                        value={wealthAcquisitionPotionPrice}
+                        onChange={setWealthAcquisitionPotionPrice}
+                        min={0}
+                        step={10}
+                        className="w-24"
+                        size="sm"
+                      />
+                      <span className="text-xs text-gray-600">만 메소</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             
             <DropItemInput
@@ -1606,60 +1722,35 @@ export function BasicCalculator() {
           </div>
 
           {/* 재물 획득의 비약 */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">
-                재물 획득의 비약
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={wealthAcquisitionPotion}
-                  onChange={(e) => setWealthAcquisitionPotion(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm text-gray-700">사용</span>
-              </div>
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-gray-700">재물 획득의 비약 효과</p>
+              <p className="text-xs text-gray-500">드롭률과 메소 획득량 증가 효과를 적용합니다.</p>
             </div>
-            
-            {wealthAcquisitionPotion && (
-              <div className="mt-3 space-y-3">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={showWealthPotionCost}
-                    onChange={(e) => setShowWealthPotionCost(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label className="text-sm text-gray-700">재획비 비용 계산하기</label>
-                </div>
-                
-                {showWealthPotionCost && (
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      소형 재물 획득의 비약 가격
-                    </label>
-                    <div className="flex items-center space-x-1">
-                      <NumberInput
-                        value={wealthAcquisitionPotionPrice}
-                        onChange={setWealthAcquisitionPotionPrice}
-                        min={0}
-                        step={10}
-                        className="w-32"
-                      />
-                      <span className="text-sm text-gray-600">만 메소</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <Toggle
+              checked={wealthAcquisitionPotion}
+              onChange={setWealthAcquisitionPotion}
+              size="sm"
+            />
           </div>
 
           {/* 아드 섹션 시작 */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-sm font-medium text-gray-700">
-                아이템 드롭률 (표기)
+                아이템 드롭률{' '}
+                <span className="relative inline-flex group">
+                  <button
+                    type="button"
+                    className="cursor-help underline decoration-dotted underline-offset-2 focus:outline-none focus:text-blue-600"
+                    aria-label="표기 드롭률 안내"
+                  >
+                    (표기)
+                  </button>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-72 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-relaxed text-white shadow-lg group-hover:block group-focus-within:block">
+                    캐릭터 스텟창의 아이템 정보에 표시되는 값이며, 최종적으로 합연산으로 보정되는 드롭률 24%가 적용되지 않은 수치입니다.
+                  </span>
+                </span>
               </label>
               <div className="flex items-center space-x-2">
                 <ToggleButton
@@ -2521,20 +2612,16 @@ export function BasicCalculator() {
                          const currentDropRate = calculateItemDropBonus(getItemDropCalculationParams()).totalBonus
                          const solErdaResult = result?.dropItems.get(SOL_ERDA_FRAGMENT_ID)
                          if (!solErdaResult) return null
-                         
-                         const originalRate = (solErdaResult.item.dropRate || 0) / 100 // 원본 확률
-                         const multiplier = solErdaResult.dropMultiplier // 배수
-                         const finalRate = solErdaResult.actualDropRate / 100 // 최종 확률
-                         
+
                          return (
-                           <div className="text-center">
-                             <div className="mb-1">솔 에르다 조각 아이템 드롭률</div>
-                             <div>원본 확률: {(originalRate * 100).toFixed(4)}%</div>
-                             <div>드롭 상수: {solErdaResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT}%</div>
-                             <div>실효 증가율: {formatDecimal((multiplier - 1) * 100, 2)}% (표기 드롭률 {currentDropRate}% 기준)</div>
-                             <div>배수: {multiplier.toFixed(3)}x</div>
-                             <div>최종 확률: {(finalRate * 100).toFixed(4)}%</div>
-                           </div>
+                           <DropRateDetails
+                             originalDropRate={solErdaResult.item.dropRate || 0}
+                             displayedAdditionalDropRate={currentDropRate}
+                             dropRateConstant={solErdaResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT}
+                             finalAppliedAdditionalDropRate={(solErdaResult.dropMultiplier - 1) * 100}
+                             finalDropRate={solErdaResult.actualDropRate}
+                             directUse={solErdaResult.item.directUse}
+                           />
                          )
                        })()}
                      </div>
@@ -2542,141 +2629,192 @@ export function BasicCalculator() {
                 </div>
               </div>
 
-            {/* 획득량 정보 */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-gray-900 mb-2">
-                {(() => {
-                  // 메소 제한인 경우 실제 계산된 시간 사용
-                  let displayTime = resultTime;
-                  if (isCustomResultTime && resultTimeUnit === 'meso_limit') {
-                    displayTime = calculateMesoLimitTime(characterLevel, monsterLevel, monsterCount, huntTime)
-                  }
-                  
-                  return displayTime >= 60 && displayTime % 60 === 0 
-                    ? `${displayTime/60}시간` 
-                    : displayTime >= 60 
-                      ? `${Math.floor(displayTime/60)}시간 ${Math.round(displayTime % 60)}분`
-                      : `${Math.round(displayTime)}분`;
-                })()
-                } 정산
-              </h4>
-              <p className="text-sm text-gray-600">
-                사냥한 몬스터: <span className="font-medium text-blue-600">{formatNumber((() => {
-                  const inputs = getCurrentInputs()
-                  const mobsPerMinute = inputs.monsterCount / inputs.huntTime
-                  
-                  // 메소 제한인 경우 실제 계산된 몬스터 수 사용
-                  if (inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit') {
-    const mesoLimitTime = calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime)
-    return Math.floor(inputs.monsterCount / inputs.huntTime * mesoLimitTime)
-  }
-                  
-                  return Math.floor(mobsPerMinute * inputs.resultTime)
-                })())} 마리</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                기본 메소: <span className="font-medium text-blue-600">{formatMesoWithKorean(result.baseMeso)} 메소</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                솔 에르다 조각: <span className="font-medium text-green-600">{formatDecimal(result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.expectedCount || 0, 2)}개</span>
-              </p>
-              <p className="text-sm text-gray-600">
-                다조 환산: <span className="font-medium text-green-600">{formatMesoWithKorean(result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.expectedValue || 0)} 메소</span>
-              </p>
-              {(() => {
-                // 솔 에르다 조각을 제외한 기타 아이템들의 총합 계산
-                const otherItemsTotal = result.dropItems 
-                  ? Array.from(result.dropItems.values())
-                      .filter(item => item.item.id !== SOL_ERDA_FRAGMENT_ID)
-                      .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0)
-                  : 0
-                
-                return otherItemsTotal > 0 ? (
-                  <p className="text-sm text-gray-600">
-                    기타 아이템: <span className="font-medium text-purple-600">{formatMesoWithKorean(otherItemsTotal)} 메소</span>
-                  </p>
-                ) : null
-              })()}
-              {wealthAcquisitionPotion && showWealthPotionCost && (
+            {(() => {
+              const inputs = getCurrentInputs()
+              const displayTime = inputs.isCustomResultTime && inputs.resultTimeUnit === 'meso_limit'
+                ? calculateMesoLimitTime(characterLevel, inputs.monsterLevel, inputs.monsterCount, inputs.huntTime)
+                : inputs.resultTime
+              const displayTimeText = displayTime >= 60 && displayTime % 60 === 0
+                ? `${displayTime / 60}시간`
+                : displayTime >= 60
+                  ? `${Math.floor(displayTime / 60)}시간 ${Math.round(displayTime % 60)}분`
+                  : `${Math.round(displayTime)}분`
+              const huntedMonsters = Math.floor(inputs.monsterCount / inputs.huntTime * displayTime)
+              const sortedDropItems = Array.from(result.dropItems.values())
+                .sort((a, b) => b.expectedValue - a.expectedValue)
+              const dropItemTotal = sortedDropItems
+                .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0)
+              const solErdaCount = result.dropItems.get(SOL_ERDA_FRAGMENT_ID)?.expectedCount || 0
+              const deductPotionCost = wealthAcquisitionPotion && showWealthPotionCost
+              const displayedItemDropRate = calculateItemDropBonus(getItemDropCalculationParams()).totalBonus
+
+              return (
                 <>
-                  <p className="text-sm text-gray-600">
-                    소형 재물 획득의 비약: <span className="font-medium text-red-600">-{result.wealthAcquisitionPotionCount}개 ({formatMesoWithKorean(result.wealthAcquisitionPotionCost, true)} 메소)</span>
-                  </p>
-                </>
-              )}
-            </div>
-            
-            {/* 드롭 아이템 결과 */}
-            {result.dropItems && result.dropItems.size > 0 && (
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <button
-                  onClick={() => setIsDropItemResultExpanded(!isDropItemResultExpanded)}
-                  className="flex items-center gap-1 font-medium text-gray-900 hover:text-gray-700 transition-colors mb-2"
-                >
-                  {isDropItemResultExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                  드롭 아이템 정산
-                </button>
-                {isDropItemResultExpanded && (
-                  <div className="space-y-2">
-                    {/* 모든 드롭 아이템들 - 총 판매 가격순 내림차순 정렬 */}
-                    {Array.from(result.dropItems.values())
-                      .sort((a, b) => b.expectedValue - a.expectedValue)
-                      .map((dropResult, index) => (
-                      <div key={dropResult.item.id} className="text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-700">
-                            {dropResult.item.name}
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({dropResult.item.type === 'normal'
-                                ? '일반 · 상수 100%'
-                                : `특수 · 상수 ${dropResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT}%`})
-                            </span>
-                          </span>
-                          <span className="font-medium text-purple-600">
-                            {formatMesoWithKorean(Math.floor(dropResult.expectedValue))} 메소
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          기본 {dropResult.item.dropRate}% → 실제 {formatDecimal(dropResult.actualDropRate, 4)}%
-                          ({formatDecimal(dropResult.expectedCount, 2)}개)
-                          {dropResult.item.directUse && <span className="text-green-600 ml-1">[수수료 0%]</span>}
+                  {/* 정산 요약 */}
+                  <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium text-emerald-700">{displayTimeText} 최종 수익</p>
+                        <MesoAmount
+                          value={result.totalMeso}
+                          align="left"
+                          className="mt-1"
+                          exactClassName="text-emerald-500"
+                          koreanClassName="text-xl text-emerald-700"
+                        />
+                        <div className="mt-2 flex items-center gap-1 text-xs text-emerald-600">
+                          <span>시간당</span>
+                          <MesoAmount
+                            value={result.totalMesoPerHour}
+                            align="left"
+                            exactClassName="text-emerald-400"
+                            koreanClassName="text-xs text-emerald-600"
+                          />
                         </div>
                       </div>
-                    ))}
-                    <div className="border-t pt-2 mt-2">
-                      <div className="flex items-center justify-between font-medium">
-                        <span className="text-gray-700">드롭 아이템 총합</span>
-                        <span className="text-purple-600">
-                          {formatMesoWithKorean(Array.from(result.dropItems.values())
-                            .reduce((sum, item) => sum + Math.floor(item.expectedValue), 0))} 메소
-                        </span>
+                      <div className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 shadow-sm">
+                        {formatNumber(huntedMonsters)}마리
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* 총 수익 */}
-            <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
-              <h4 className="font-semibold text-green-800 mb-2">총 메소 정산</h4>
-              <p className="text-xl font-bold text-green-600">
-                {formatMesoWithKorean(result.totalMeso)} 메소
-              </p>
-              <p className="text-sm text-green-600 mt-1">
-                시간당 {formatMesoWithKorean(result.totalMesoPerHour)} 메소 
-              </p>
-              {wealthAcquisitionPotion && showWealthPotionCost && (
-                <div className="mt-2 text-sm text-gray-600">
-                  <p>재획비 적용 전: {formatMesoWithKorean(result.totalMesoWithoutPotion, true)} 메소</p>
-                  <p>재획비 적용 후: {formatMesoWithKorean(result.totalIncome, true)} 메소 - {formatMesoWithKorean(result.wealthAcquisitionPotionCost, true)} 메소</p>
-                  <p className={result.totalMeso > result.totalMesoWithoutPotion ? 'text-blue-600 font-medium' : 'text-red-600 font-medium'}>
-                    재획비 사용으로 총 {formatMesoWithKorean(Math.abs(result.totalMeso - result.totalMesoWithoutPotion), true)} 메소
-                    {result.totalMeso > result.totalMesoWithoutPotion ? ' 이득' : ' 손해'}
-                  </p>
-                </div>
-              )}
-            </div>
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div className="flex flex-col justify-center rounded-lg bg-white/80 px-3 py-2">
+                        <p className="text-xs text-gray-500">기본 메소</p>
+                        <MesoAmount
+                          value={result.baseMeso}
+                          align="left"
+                          className="mt-1"
+                          koreanClassName="text-sm text-gray-800"
+                        />
+                      </div>
+                      <div className="flex flex-col justify-center rounded-lg bg-white/80 px-3 py-2">
+                        <p className="text-xs text-gray-500">드롭 아이템</p>
+                        <MesoAmount
+                          value={dropItemTotal}
+                          align="left"
+                          allowMultiline
+                          className="mt-1"
+                          exactClassName="text-purple-400"
+                          koreanClassName="text-sm text-purple-700"
+                        />
+                      </div>
+                      <div className="flex flex-col justify-center rounded-lg bg-white/80 px-3 py-2">
+                        <p className="text-xs text-gray-500">재획비 비용</p>
+                        {deductPotionCost ? (
+                          <MesoAmount
+                            value={-result.wealthAcquisitionPotionCost}
+                            align="left"
+                            className="mt-1"
+                            exactClassName="text-red-400"
+                            koreanClassName="text-sm text-red-600"
+                          />
+                        ) : (
+                          <p className="mt-2 text-sm font-semibold text-gray-500">차감 안 함</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-emerald-100 pt-3 text-xs text-gray-600">
+                      <span>솔 에르다 조각 <strong className="text-emerald-700">{formatDecimal(solErdaCount, 2)}개</strong></span>
+                      {deductPotionCost && (
+                        <span>사용 소재 <strong className="text-red-600">{result.wealthAcquisitionPotionCount}개</strong></span>
+                      )}
+                    </div>
+
+                    {deductPotionCost && (
+                      <div className="mt-3 rounded-lg bg-white/70 px-3 py-2 text-xs text-gray-600">
+                        <span className="mr-3 inline-flex flex-wrap items-center gap-1">재획비 미사용 <InlineMesoAmount value={result.totalMesoWithoutPotion} /></span>
+                        <span className={`inline-flex flex-wrap items-center gap-1 ${result.totalMeso > result.totalMesoWithoutPotion ? 'font-semibold text-blue-600' : 'font-semibold text-red-600'}`}>
+                          사용 시 <InlineMesoAmount value={Math.abs(result.totalMeso - result.totalMesoWithoutPotion)} />
+                          {result.totalMeso > result.totalMesoWithoutPotion ? ' 이득' : ' 손해'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 드롭 아이템 상세 정산 */}
+                  {sortedDropItems.length > 0 && (
+                    <div className="rounded-xl border border-gray-200 bg-white">
+                      <button
+                        onClick={() => setIsDropItemResultExpanded(!isDropItemResultExpanded)}
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          {isDropItemResultExpanded ? <ChevronDown className="h-4 w-4 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 flex-shrink-0" />}
+                          <span className="font-medium text-gray-900">드롭 아이템</span>
+                          <span className="text-xs text-gray-400">{sortedDropItems.length}종</span>
+                        </span>
+                        <MesoAmount
+                          value={dropItemTotal}
+                          compact
+                          className="flex-shrink-0"
+                          exactClassName="text-purple-400"
+                          koreanClassName="text-sm text-purple-700"
+                        />
+                      </button>
+
+                      {isDropItemResultExpanded && (
+                        <div className="border-t border-gray-200">
+                          <div className="hidden grid-cols-12 gap-3 bg-gray-50 px-4 py-2 text-xs font-medium text-gray-500 md:grid">
+                            <span className="col-span-6">아이템</span>
+                            <span className="col-span-2 text-right">기대 수량</span>
+                            <span className="col-span-4 text-right">기대 금액</span>
+                          </div>
+                          <div className="divide-y divide-gray-100">
+                            {sortedDropItems.map((dropResult) => {
+                              const dropRateConstant = dropResult.item.type === 'normal'
+                                ? 100
+                                : dropResult.item.dropRateConstant ?? DEFAULT_SPECIAL_DROP_RATE_CONSTANT
+                              const finalAppliedAdditionalDropRate = (dropResult.dropMultiplier - 1) * 100
+
+                              return (
+                              <div key={dropResult.item.id} className="px-4 py-3">
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-center md:gap-3">
+                                  <div className="min-w-0 md:col-span-6">
+                                    <p className="truncate text-sm font-medium text-gray-800">{dropResult.item.name}</p>
+                                    <div className="relative mt-0.5 inline-flex group">
+                                      <button
+                                        type="button"
+                                        className="text-left text-xs text-gray-500 underline decoration-dotted underline-offset-2 focus:outline-none focus:text-blue-600"
+                                      >
+                                        드롭률 {formatDecimal(dropResult.actualDropRate, 4)}%
+                                      </button>
+                                      <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg group-hover:block group-focus-within:block">
+                                        <DropRateDetails
+                                          originalDropRate={dropResult.item.dropRate || 0}
+                                          displayedAdditionalDropRate={displayedItemDropRate}
+                                          dropRateConstant={dropRateConstant}
+                                          finalAppliedAdditionalDropRate={finalAppliedAdditionalDropRate}
+                                          finalDropRate={dropResult.actualDropRate}
+                                          directUse={dropResult.item.directUse}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between md:col-span-2 md:block md:text-right">
+                                    <span className="text-xs text-gray-400 md:hidden">기대 수량</span>
+                                    <span className="whitespace-nowrap text-sm text-gray-700">{formatDecimal(dropResult.expectedCount, 2)}개</span>
+                                  </div>
+                                  <div className="flex items-center justify-between md:col-span-4 md:block md:text-right">
+                                    <span className="text-xs text-gray-400 md:hidden">기대 금액</span>
+                                    <MesoAmount
+                                      value={Math.floor(dropResult.expectedValue)}
+                                      exactClassName="text-purple-400"
+                                      koreanClassName="text-sm text-purple-700"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
 
             {/* TMI */}
             {(() => {
@@ -2723,17 +2861,17 @@ export function BasicCalculator() {
                               이미 최대치 달성
                             </p>
                             <p className="text-sm font-bold text-gray-500">
-                              0줄 대비 +{formatMesoWithKorean(tmiInfo.dropRateBenefitFromZero)} 이득
+                              0줄 대비 +<InlineMesoAmount value={tmiInfo.dropRateBenefitFromZero} /> 이득
                             </p>
                           </>
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              채용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.dropRateIncrease)}
+                              채용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.dropRateIncrease} />
                             </p>
                             <p className="text-sm font-bold">
                               <span className={tmiInfo.dropRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {tmiInfo.dropRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.dropRateIncrease)} 증가
+                                {tmiInfo.dropRateIncrease >= 0 ? '+' : ''}<InlineMesoAmount value={tmiInfo.dropRateIncrease} /> 증가
                               </span>
                             </p>
                           </>
@@ -2751,17 +2889,17 @@ export function BasicCalculator() {
                               이미 최대치 달성
                             </p>
                             <p className="text-sm font-bold text-gray-500">
-                              0줄 대비 +{formatMesoWithKorean(tmiInfo.mesoRateBenefitFromZero)} 이득
+                              0줄 대비 +<InlineMesoAmount value={tmiInfo.mesoRateBenefitFromZero} /> 이득
                             </p>
                           </>
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              채용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.mesoRateIncrease)}
+                              채용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.mesoRateIncrease} />
                             </p>
                             <p className="text-sm font-bold">
                               <span className={tmiInfo.mesoRateIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                {tmiInfo.mesoRateIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.mesoRateIncrease)} 증가
+                                {tmiInfo.mesoRateIncrease >= 0 ? '+' : ''}<InlineMesoAmount value={tmiInfo.mesoRateIncrease} /> 증가
                               </span>
                             </p>
                           </>
@@ -2810,17 +2948,17 @@ export function BasicCalculator() {
                                   현재 사용 중
                                 </p>
                                 <p className="text-sm font-bold text-gray-500">
-                                  미사용 대비 +{formatMesoWithKorean(Math.abs(legionDropBenefit))} 이득
+                                  미사용 대비 +<InlineMesoAmount value={Math.abs(legionDropBenefit)} /> 이득
                                 </p>
                               </>
                             ) : (
                               <>
                                 <p className="text-xs text-gray-600 mb-1">
-                                  사용 시 기댓값: {formatMesoWithKorean(legionDropEffect.totalIncome)}
+                                  사용 시 기댓값: <InlineMesoAmount value={legionDropEffect.totalIncome} />
                                 </p>
                                 <p className="text-sm font-bold">
                                   <span className={legionDropBenefit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                    사용하면 {legionDropBenefit >= 0 ? '+' : ''}{formatMesoWithKorean(legionDropBenefit)} 증가
+                                    사용하면 {legionDropBenefit >= 0 ? '+' : ''}<InlineMesoAmount value={legionDropBenefit} /> 증가
                                   </span>
                                 </p>
                               </>
@@ -2838,17 +2976,17 @@ export function BasicCalculator() {
                                   현재 사용 중
                                 </p>
                                 <p className="text-sm font-bold text-gray-500">
-                                  미사용 대비 +{formatMesoWithKorean(Math.abs(legionMesoBenefit))} 이득
+                                  미사용 대비 +<InlineMesoAmount value={Math.abs(legionMesoBenefit)} /> 이득
                                 </p>
                               </>
                             ) : (
                               <>
                                 <p className="text-xs text-gray-600 mb-1">
-                                  사용 시 기댓값: {formatMesoWithKorean(legionMesoEffect.totalIncome)}
+                                  사용 시 기댓값: <InlineMesoAmount value={legionMesoEffect.totalIncome} />
                                 </p>
                                 <p className="text-sm font-bold">
                                   <span className={legionMesoBenefit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                    사용하면 {legionMesoBenefit >= 0 ? '+' : ''}{formatMesoWithKorean(legionMesoBenefit)} 증가
+                                    사용하면 {legionMesoBenefit >= 0 ? '+' : ''}<InlineMesoAmount value={legionMesoBenefit} /> 증가
                                   </span>
                                 </p>
                               </>
@@ -2872,17 +3010,17 @@ export function BasicCalculator() {
                                 이미 10레벨 달성
                               </p>
                               <p className="text-sm font-bold text-gray-500">
-                                0레벨 대비 +{formatMesoWithKorean(tmiInfo.currentDropArtifactBenefit)} 이득
+                                0레벨 대비 +<InlineMesoAmount value={tmiInfo.currentDropArtifactBenefit} /> 이득
                               </p>
                             </>
                           ) : (
                             <>
                               <p className="text-xs text-gray-600 mb-1">
-                                10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxDropArtifactIncrease)}
+                                10레벨 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.maxDropArtifactIncrease} />
                               </p>
                               <p className="text-sm font-bold">
                                 <span className={tmiInfo.maxDropArtifactIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  10레벨 달성 시 {tmiInfo.maxDropArtifactIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxDropArtifactIncrease)} 증가
+                                  10레벨 달성 시 {tmiInfo.maxDropArtifactIncrease >= 0 ? '+' : ''}<InlineMesoAmount value={tmiInfo.maxDropArtifactIncrease} /> 증가
                                 </span>
                               </p>
                             </>
@@ -2900,17 +3038,17 @@ export function BasicCalculator() {
                                 이미 10레벨 달성
                               </p>
                               <p className="text-sm font-bold text-gray-500">
-                                0레벨 대비 +{formatMesoWithKorean(tmiInfo.currentMesoArtifactBenefit)} 이득
+                                0레벨 대비 +<InlineMesoAmount value={tmiInfo.currentMesoArtifactBenefit} /> 이득
                               </p>
                             </>
                           ) : (
                             <>
                               <p className="text-xs text-gray-600 mb-1">
-                                10레벨 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxMesoArtifactIncrease)}
+                                10레벨 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.maxMesoArtifactIncrease} />
                               </p>
                               <p className="text-sm font-bold">
                                 <span className={tmiInfo.maxMesoArtifactIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  10레벨 달성 시 {tmiInfo.maxMesoArtifactIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxMesoArtifactIncrease)} 증가
+                                  10레벨 달성 시 {tmiInfo.maxMesoArtifactIncrease >= 0 ? '+' : ''}<InlineMesoAmount value={tmiInfo.maxMesoArtifactIncrease} /> 증가
                                 </span>
                               </p>
                             </>
@@ -2933,17 +3071,17 @@ export function BasicCalculator() {
                                 이미 5% 달성
                               </p>
                               <p className="text-sm font-bold text-gray-500">
-                                0% 대비 +{formatMesoWithKorean(tmiInfo.currentPhantomLegionBenefit)} 이득
+                                0% 대비 +<InlineMesoAmount value={tmiInfo.currentPhantomLegionBenefit} /> 이득
                               </p>
                             </>
                           ) : (
                             <>
                               <p className="text-xs text-gray-600 mb-1">
-                                5% 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.maxPhantomLegionIncrease)}
+                                5% 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.maxPhantomLegionIncrease} />
                               </p>
                               <p className="text-sm font-bold">
                                 <span className={tmiInfo.maxPhantomLegionIncrease >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  최대치(5%) 달성 시 {tmiInfo.maxPhantomLegionIncrease >= 0 ? '+' : ''}{formatMesoWithKorean(tmiInfo.maxPhantomLegionIncrease)} 증가
+                                  최대치(5%) 달성 시 {tmiInfo.maxPhantomLegionIncrease >= 0 ? '+' : ''}<InlineMesoAmount value={tmiInfo.maxPhantomLegionIncrease} /> 증가
                                 </span>
                               </p>
                             </>
@@ -2978,25 +3116,25 @@ export function BasicCalculator() {
                               적용 중
                             </p>
                             <p className="text-sm font-bold text-gray-500">
-                              어빌리티로 {formatMesoWithKorean(tmiInfo.currentAbilityBenefit)} 이득
+                              어빌리티로 <InlineMesoAmount value={tmiInfo.currentAbilityBenefit} /> 이득
                             </p>
                           </>
                         ) : isDropAbilityLoss ? (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              적용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.dropFinishIncrease)}
+                              적용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.dropFinishIncrease} />
                             </p>
                             <p className="text-sm font-bold" style={{color: '#8b6b6b'}}>
-                              변경 시 {formatMesoWithKorean(Math.abs(tmiInfo.dropFinishIncrease))} 손해
+                              변경 시 <InlineMesoAmount value={Math.abs(tmiInfo.dropFinishIncrease)} /> 손해
                             </p>
                           </>
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              적용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.dropFinishIncrease)}
+                              적용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.dropFinishIncrease} />
                             </p>
                             <p className="text-sm font-bold text-green-600">
-                              달성 시 {formatMesoWithKorean(tmiInfo.dropFinishIncrease)} 이득
+                              달성 시 <InlineMesoAmount value={tmiInfo.dropFinishIncrease} /> 이득
                             </p>
                           </>
                         )}
@@ -3026,25 +3164,25 @@ export function BasicCalculator() {
                               적용 중
                             </p>
                             <p className="text-sm font-bold text-gray-500">
-                              어빌리티로 {formatMesoWithKorean(tmiInfo.currentAbilityBenefit)} 이득
+                              어빌리티로 <InlineMesoAmount value={tmiInfo.currentAbilityBenefit} /> 이득
                             </p>
                           </>
                         ) : isMesoAbilityLoss ? (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              적용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.mesoFinishIncrease)}
+                              적용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.mesoFinishIncrease} />
                             </p>
                             <p className="text-sm font-bold" style={{color: '#8b6b6b'}}>
-                              변경 시 {formatMesoWithKorean(Math.abs(tmiInfo.mesoFinishIncrease))} 손해
+                              변경 시 <InlineMesoAmount value={Math.abs(tmiInfo.mesoFinishIncrease)} /> 손해
                             </p>
                           </>
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">
-                              적용 시 기댓값: {formatMesoWithKorean(result.totalIncome + tmiInfo.mesoFinishIncrease)}
+                              적용 시 기댓값: <InlineMesoAmount value={result.totalIncome + tmiInfo.mesoFinishIncrease} />
                             </p>
                             <p className="text-sm font-bold text-green-600">
-                              달성 시 {formatMesoWithKorean(tmiInfo.mesoFinishIncrease)} 이득
+                              달성 시 <InlineMesoAmount value={tmiInfo.mesoFinishIncrease} /> 이득
                             </p>
                           </>
                         )}
@@ -3065,12 +3203,12 @@ export function BasicCalculator() {
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">목표: {tmiInfo.tallahartBenefits.nextLevel}레벨</p>
-                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.tallahartBenefits.nextLevelIncreasePerMaterial)}</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +<InlineMesoAmount value={tmiInfo.tallahartBenefits.nextLevelIncreasePerMaterial} /></p>
                             {tallahartSymbolLevel === 0 ? (
                               <p className="text-sm font-bold text-purple-700">개방 비용 없음</p>
                             ) : (
                               <>
-                                <p className="text-xs text-gray-600 mb-1">강화 비용: {formatMesoWithKorean(tmiInfo.tallahartBenefits.nextLevelCost)}</p>
+                                <p className="text-xs text-gray-600 mb-1">강화 비용: <InlineMesoAmount value={tmiInfo.tallahartBenefits.nextLevelCost} /></p>
                                 <p className="text-sm font-bold text-purple-700">
                                   손익분기: {Number.isFinite(tmiInfo.tallahartBenefits.nextLevelBreakEvenMaterials)
                                     ? `${formatNumber(Math.ceil(tmiInfo.tallahartBenefits.nextLevelBreakEvenMaterials))}소재`
@@ -3094,8 +3232,8 @@ export function BasicCalculator() {
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">목표: {GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}레벨</p>
-                            <p className="text-xs text-gray-600 mb-1">남은 비용: {formatMesoWithKorean(tmiInfo.tallahartBenefits.maxLevelCost)}</p>
-                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.tallahartBenefits.maxLevelIncreasePerMaterial)}</p>
+                            <p className="text-xs text-gray-600 mb-1">남은 비용: <InlineMesoAmount value={tmiInfo.tallahartBenefits.maxLevelCost} /></p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +<InlineMesoAmount value={tmiInfo.tallahartBenefits.maxLevelIncreasePerMaterial} /></p>
                             <p className="text-sm font-bold text-amber-700">
                               손익분기: {Number.isFinite(tmiInfo.tallahartBenefits.maxLevelBreakEvenMaterials)
                                 ? `${formatNumber(Math.ceil(tmiInfo.tallahartBenefits.maxLevelBreakEvenMaterials))}소재`
@@ -3120,12 +3258,12 @@ export function BasicCalculator() {
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">목표: {tmiInfo.geardrakBenefits.nextLevel}레벨</p>
-                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.geardrakBenefits.nextLevelIncreasePerMaterial)}</p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +<InlineMesoAmount value={tmiInfo.geardrakBenefits.nextLevelIncreasePerMaterial} /></p>
                             {geardrakSymbolLevel === 0 ? (
                               <p className="text-sm font-bold text-cyan-700">개방 비용 없음</p>
                             ) : (
                               <>
-                                <p className="text-xs text-gray-600 mb-1">강화 비용: {formatMesoWithKorean(tmiInfo.geardrakBenefits.nextLevelCost)}</p>
+                                <p className="text-xs text-gray-600 mb-1">강화 비용: <InlineMesoAmount value={tmiInfo.geardrakBenefits.nextLevelCost} /></p>
                                 <p className="text-sm font-bold text-cyan-700">
                                   손익분기: {Number.isFinite(tmiInfo.geardrakBenefits.nextLevelBreakEvenMaterials)
                                     ? `${formatNumber(Math.ceil(tmiInfo.geardrakBenefits.nextLevelBreakEvenMaterials))}소재`
@@ -3149,8 +3287,8 @@ export function BasicCalculator() {
                         ) : (
                           <>
                             <p className="text-xs text-gray-600 mb-1">목표: {GRAND_AUTHENTIC_SYMBOL_MAX_LEVEL}레벨</p>
-                            <p className="text-xs text-gray-600 mb-1">남은 비용: {formatMesoWithKorean(tmiInfo.geardrakBenefits.maxLevelCost)}</p>
-                            <p className="text-xs text-gray-600 mb-1">소재당 +{formatMesoWithKorean(tmiInfo.geardrakBenefits.maxLevelIncreasePerMaterial)}</p>
+                            <p className="text-xs text-gray-600 mb-1">남은 비용: <InlineMesoAmount value={tmiInfo.geardrakBenefits.maxLevelCost} /></p>
+                            <p className="text-xs text-gray-600 mb-1">소재당 +<InlineMesoAmount value={tmiInfo.geardrakBenefits.maxLevelIncreasePerMaterial} /></p>
                             <p className="text-sm font-bold text-sky-700">
                               손익분기: {Number.isFinite(tmiInfo.geardrakBenefits.maxLevelBreakEvenMaterials)
                                 ? `${formatNumber(Math.ceil(tmiInfo.geardrakBenefits.maxLevelBreakEvenMaterials))}소재`
@@ -3190,17 +3328,17 @@ export function BasicCalculator() {
                                   PC방 보너스 적용 중
                                 </p>
                                 <p className="text-sm font-bold text-gray-500">
-                                  집 대비 +{formatMesoWithKorean(currentPcBenefit)} 이득
+                                  집 대비 +<InlineMesoAmount value={currentPcBenefit} /> 이득
                                 </p>
                               </>
                             ) : (
                               <>
                                 <p className="text-xs text-gray-600 mb-1">
-                                  PC방 사냥 기댓값: {formatMesoWithKorean(withPcResult.totalIncome)}
+                                  PC방 사냥 기댓값: <InlineMesoAmount value={withPcResult.totalIncome} />
                                 </p>
                                 <p className="text-sm font-bold">
                                   <span className={currentPcBenefit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                    PC방 사냥 시 {currentPcBenefit >= 0 ? '+' : ''}{formatMesoWithKorean(currentPcBenefit)} 증가
+                                    PC방 사냥 시 {currentPcBenefit >= 0 ? '+' : ''}<InlineMesoAmount value={currentPcBenefit} /> 증가
                                   </span>
                                 </p>
                               </>

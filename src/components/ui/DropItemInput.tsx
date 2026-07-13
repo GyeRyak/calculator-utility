@@ -156,9 +156,9 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
                       <div className="flex items-center gap-1">
                         <label
                           className="text-xs text-gray-600 cursor-help"
-                          title="표기 드롭률 × (드롭 상수/100) + 24%로 실효 증가율을 계산합니다"
+                          title="솔 에르다 조각 등 상시 사냥 특수 아이템은 50%, 이벤트 및 퀘스트 아이템은 10%로 정해져 있습니다."
                         >
-                          드롭 상수:
+                          정해진 비율:
                         </label>
                         <NumberInput
                           value={item.dropRateConstant ?? 50}
@@ -192,7 +192,7 @@ const DropItemInput: React.FC<DropItemInputProps> = ({
       )}
       {isExpanded && showDropRateConstant && (
         <p className="text-xs text-gray-500">
-          실효 증가율 = 표기 드롭률 × (드롭 상수/100) + 24%. 새 항목은 10%로 추가되며, 주요 특수 아이템 기본값은 50%입니다.
+          아이템 드롭률 증가 옵션이 정해진 비율로 적용되는 아이템의 경우 추가 드롭률을 일정 비율만 적용하며, 최종적으로 스텟창에 합산되지 않는 추가 드롭률 24%가 합적용됩니다.
         </p>
       )}
     </div>
