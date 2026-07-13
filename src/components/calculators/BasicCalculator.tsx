@@ -1258,6 +1258,17 @@ export function BasicCalculator() {
         onReset={resetAll}
         onNotification={(type, message) => showNotification(type, message)}
       />
+
+      {/* 계산기 갱신 안내 */}
+      <DismissibleBanner
+        bannerId="basic_calculator_patch_260713"
+        message="2026년 7월 13일 갱신: 기본 드롭률 24% 적용 및 정해진 비율 계산 방식을 반영해 드롭률 공식을 수정하고, 기어드락 심볼 등을 추가했습니다."
+        bgColor="bg-green-50"
+        borderColor="border-green-200"
+        textColor="text-green-800"
+        buttonColor="text-green-600 hover:text-green-800 hover:bg-green-100"
+        linkText=""
+      />
       
       {/* 데이터 출처 안내 */}
       <DismissibleBanner 
