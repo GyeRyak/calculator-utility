@@ -184,11 +184,15 @@ This is a Next.js 14 application using App Router for building calculator utilit
 
 ### Project Structure
 - **App Router**: All pages are in `src/app/` using the Next.js App Router pattern
-- **Component Organization**: 
+- **Feature Organization**:
+  - `src/features/hunting/` - Hunting expectation and breakeven UI, defaults, and calculation logic
+  - `src/features/boss-chase/` - Boss chase UI, defaults, data, and calculation logic
+  - `src/features/events/` - Event-specific UI, charts, and calculation logic
+- **Shared Organization**:
   - `src/components/layout/` - Layout components like Navbar
-  - `src/components/calculators/` - Calculator-specific components
   - `src/components/ui/` - Reusable UI components
-- **Utilities**: `src/utils/` contains calculation logic separated from components
+  - `src/utils/` - Feature-independent formatting, storage, time, and export utilities
+  - `src/lib/` - Analytics, blog, and external integration modules
 - **Static Export**: Configured for static hosting on GitHub Pages with `output: 'export'`
 
 ### Key Technical Details
@@ -199,9 +203,9 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - **Korean Language**: The app is primarily in Korean (calculator utilities for Korean gaming community)
 - **드롭률 공식**: 실효 증가율은 `표기 드롭률 × (드롭 상수/100) + 24%`. 메소 주머니와 일반 드롭 상수는 100%, 특수 드롭 상수는 아이템별 0~100%이며 솔 에르다 조각·코어 젬스톤·심볼 교환권 기본값은 50%, 사용자가 새로 추가하는 특수 아이템 기본값은 10%
 - **드롭률 UI 표기**: 합산 입력값과 연산 기초값은 `아이템 드롭률 (표기)`로 표시하며, 이 값 자체에는 아이템별 실효 계산에서 더하는 24% 보정이 포함되지 않음
-- **특수 아이템 기본 드롭률**: 솔 에르다 조각 0.0425% (`425,000/10⁹`), 코어 젬스톤 0.028% (`280,000/10⁹`), 심볼 교환권 0.0015% (`15,000/10⁹`, 표본이 적은 추정값). 근거와 자료는 `DROP_RATE_RESEARCH.md`를 참고할 것
+- **특수 아이템 기본 드롭률**: 솔 에르다 조각 0.0425% (`425,000/10⁹`), 코어 젬스톤 0.028% (`280,000/10⁹`), 심볼 교환권 0.0015% (`15,000/10⁹`, 표본이 적은 추정값). 근거와 자료는 `docs/research/DROP_RATE.md`를 참고할 것
 - **일반 아이템 기본 드롭률**: 구형 RNG 모듈러 편향 관측값을 보정해 순록의 우유·황혼의 이슬은 0.5%, 주문의 흔적은 1%를 사용함
-- **그랜드 어센틱심볼**: 탈라하트와 기어드락은 각각 1~11레벨에서 `레벨 + 4%`의 메소 획득량 및 아이템 드롭률을 독립적으로 제공함. 탈라하트는 캐릭터 290레벨, 기어드락은 295레벨 미만일 때 계산을 막지 않고 경고함. 누적 강화 비용은 `src/utils/grandAuthenticSymbol.ts`에서 심볼별로 관리하며, 11레벨 누적 비용은 탈라하트 16,072,800,000 메소, 기어드락 20,181,300,000 메소
+- **그랜드 어센틱심볼**: 탈라하트와 기어드락은 각각 1~11레벨에서 `레벨 + 4%`의 메소 획득량 및 아이템 드롭률을 독립적으로 제공함. 탈라하트는 캐릭터 290레벨, 기어드락은 295레벨 미만일 때 계산을 막지 않고 경고함. 누적 강화 비용은 `src/features/hunting/lib/grandAuthenticSymbol.ts`에서 심볼별로 관리하며, 11레벨 누적 비용은 탈라하트 16,072,800,000 메소, 기어드락 20,181,300,000 메소
 - **심볼 손익분기 TMI**: 현재 설정의 30분 사냥을 1소재로 간주해 각 심볼의 현재→다음 레벨과 현재→11레벨 강화 비용을 추가 수익으로 회수하는 소재 수를 올림 표시함
 - **메소 다중 표시 실험**: `MesoAmount`는 정산 영역에서 정확한 숫자를 위에 작게, 한글 금액을 아래에 표시하고 복사 시 `651,987,532 (6억 5198만) 메소` 형식으로 정규화함
 - **2026-07-13 계산기 갱신 배너**: 사냥 기댓값 계산기 상단의 `basic_calculator_patch_260713` 배너에서 기본 드롭률 24%, 정해진 비율 계산 방식, 기어드락 심볼 추가를 안내함
@@ -209,9 +213,9 @@ This is a Next.js 14 application using App Router for building calculator utilit
 
 ### Current Features
 - 사냥 기댓값 계산기 (드롭률과 메소 획득량을 고려한 계산) - 기본 슬롯 5개
-- 아드/메획 손익분기 계산기 (`src/utils/breakevenCalculations.ts`) - 기본 슬롯 5개
+- 아드/메획 손익분기 계산기 (`src/features/hunting/lib/breakevenCalculations.ts`) - 기본 슬롯 5개
 - 보스 물욕템 계산기 (보스별 물욕템 드롭률과 가격을 고려한 기댓값 계산) - 기본 슬롯 5개
-- **종료된 이벤트: 아지트 듀오 휴게실 경험치 최적화 계산기** (`src/utils/loungeCalculations.ts`) - 기본 슬롯 5개
+- **종료된 이벤트: 아지트 듀오 휴게실 경험치 최적화 계산기** (`src/features/events/lounge/lib/loungeCalculations.ts`) - 기본 슬롯 5개
   - Dynamic Programming 기반 9주간 최적 스킬 투자 전략 계산
   - 장기 휴식 최대 레벨 제한 기능 (시간 제약이 있는 유저를 위한 옵션)
   - 제한 설정 시 손실 비교 및 잠수 시간 정보 제공
@@ -257,7 +261,7 @@ This is a Next.js 14 application using App Router for building calculator utilit
 
 ### Important Configuration
 - **next.config.js**: Configured for static export with dynamic base path for GitHub Pages deployment
-- **No Testing Framework**: The project doesn't include tests currently
+- **Testing**: Vitest regression tests are colocated under each feature or shared module `__tests__` directory
 - **ESLint**: Configured with Next.js and TypeScript rules
 
 ### SEO 및 Analytics 설정

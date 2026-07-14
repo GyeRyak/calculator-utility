@@ -1,4 +1,4 @@
-import { BreakevenCalculator } from '@/components/calculators/BreakevenCalculator'
+import { BreakevenCalculator } from '@/features/hunting/components/BreakevenCalculator'
 import { StructuredData } from '@/components/StructuredData'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'

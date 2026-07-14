@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import HangeulTitleCalculator from '@/components/calculators/HangeulTitleCalculator';
+import HangeulTitleCalculator from '@/features/events/hangeul-medal/components/HangeulTitleCalculator';
 import { StructuredData } from '@/components/StructuredData';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 

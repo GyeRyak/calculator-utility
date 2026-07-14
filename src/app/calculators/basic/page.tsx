@@ -1,4 +1,4 @@
-import { BasicCalculator } from '@/components/calculators/BasicCalculator'
+import { BasicCalculator } from '@/features/hunting/components/BasicCalculator'
 import { StructuredData } from '@/components/StructuredData'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'
@@ -38,4 +38,4 @@ export default function BasicCalculatorPage() {
       </div>
     </>
   )
-} 
+}

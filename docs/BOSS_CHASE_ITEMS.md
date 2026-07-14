@@ -532,13 +532,12 @@ interface PartyDistribution {
 ## 데이터 관리 가이드
 
 ### 새 보스 추가 시
-1. `/src/data/bossData.ts`에 보스 정의 추가
-2. `/src/data/dropTables.ts`에 드롭 테이블 추가
-3. 필요 시 `/src/data/chaseItems.ts`에 새 아이템 추가
-4. 기본 드롭률과 가격 설정
+1. `/src/features/boss-chase/data/bossData.ts`에 보스와 난이도별 드롭 테이블 정의 추가
+2. 필요 시 `/src/features/boss-chase/data/chaseItems.ts`에 새 아이템 추가
+3. 기본 드롭률과 가격 설정
 
 ### 아이템 추가 시
-1. `/src/data/chaseItems.ts`에 아이템 정의
+1. `/src/features/boss-chase/data/chaseItems.ts`에 아이템 정의
 2. 해당 보스의 드롭 테이블에 아이템 ID 추가
 3. `isDropAffected` 속성 정확히 설정
 4. 기본값(드롭률, 가격) 설정

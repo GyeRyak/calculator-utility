@@ -4,7 +4,7 @@
 
 ## 기능
 
-특수 아이템 드롭률의 역산 모델과 표본 근거는 [DROP_RATE_RESEARCH.md](./DROP_RATE_RESEARCH.md)에 정리했습니다.
+특수 아이템 드롭률의 역산 모델과 표본 근거는 [드롭률 연구 문서](./docs/research/DROP_RATE.md)에 정리했습니다.
 
 ### 현재 이용 가능
 - ✅ **사냥 기댓값 계산기** - 드롭률과 메소 획득량을 고려한 사냥 기댓값 계산
@@ -91,19 +91,24 @@ src/
 │       ├── boss-chase/    # 보스 물욕템 계산기
 │       ├── origami/       # 색종이 이벤트 계산기
 │       └── hangeul-medal/ # 한글날 훈장 계산기
-├── components/            # React 컴포넌트
+├── features/              # 기능 단위 UI와 도메인 로직
+│   ├── hunting/          # 사냥 기댓값·손익분기 계산기
+│   ├── boss-chase/       # 보스 계산기 컴포넌트·데이터·로직
+│   └── events/           # 종료 이벤트별 컴포넌트·계산 로직
+├── components/            # 여러 기능에서 공유하는 React 컴포넌트
 │   ├── layout/           # 레이아웃 컴포넌트
-│   ├── calculators/      # 계산기 컴포넌트
-│   └── ui/              # 재사용 UI 컴포넌트
-│       └── AutoSlotManager.tsx  # 통합 슬롯 관리 UI
-├── utils/                # 유틸리티 함수 및 계산 로직
-│   ├── *Calculations.ts # 각 계산기의 순수 계산 함수
-│   ├── slotStorage.ts   # 슬롯 저장 및 공유 문자열 직렬화
-│   ├── cookies.ts       # 쿠키 동의 관리
-│   └── defaults/        # 기본값 상수들
+│   ├── providers/        # 전역 Provider
+│   └── ui/               # 재사용 UI 컴포넌트
+├── utils/                 # 기능에 종속되지 않는 공용 유틸리티
+│   ├── slotStorage.ts    # 슬롯 저장 및 공유 문자열 직렬화
+│   ├── cookies.ts        # 데이터 사용 동의 관리
+│   └── formatUtils.ts    # 공용 숫자 포맷
+├── lib/                   # 분석·블로그·외부 연동 모듈
 ├── hooks/               # 커스텀 React Hook
 └── content/blog/        # Markdown 블로그 콘텐츠
 ```
+
+설정 가이드, 연구 자료, 유지보수 문서는 `docs/` 아래에서 관리합니다.
 
 ## 기여하기
 

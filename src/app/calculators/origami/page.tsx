@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import OrigamiCalculator from '@/components/calculators/OrigamiCalculator';
+import OrigamiCalculator from '@/features/events/origami/components/OrigamiCalculator';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 
 export const metadata: Metadata = {

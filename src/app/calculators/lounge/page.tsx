@@ -1,4 +1,4 @@
-import LoungeCalculator from '@/components/calculators/LoungeCalculator'
+import LoungeCalculator from '@/features/events/lounge/components/LoungeCalculator'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'
 

@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import BossChaseCalculator from '@/components/calculators/BossChaseCalculator'
+import BossChaseCalculator from '@/features/boss-chase/components/BossChaseCalculator'
 import { StructuredData } from '@/components/StructuredData'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 
