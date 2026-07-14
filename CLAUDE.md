@@ -16,6 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **중요**: 사용자가 명시적으로 "커밋해", "푸시해", "배포해" 등으로 요청하기 전까지는 절대 git commit이나 git push를 하지 말 것
 - 작업 완료 후 자동으로 커밋하지 말고, 사용자의 명시적 지시를 기다릴 것
 - 이 저장소의 커밋 작성자는 반드시 `GyeRyak <ksmin1114@naver.com>`을 사용할 것. 커밋 전에 repository-local `user.name`과 `user.email`을 확인하고, 다르면 이 저장소 범위에서만 설정할 것
+- AI 도구가 실질적으로 기여한 변경을 커밋하여 푸시하는 경우, 해당 도구의 공식 attribution 가이드를 먼저 확인하고 도구 사용 명시 또는 `Co-authored-by` 트레일러 중 하나 이상의 사사 표기를 반드시 남길 것
+- 공식 공동 작성자 형식이 제공되는 AI 도구는 해당 형식을 우선 사용하며, 사람 작성자 `GyeRyak <ksmin1114@naver.com>`은 그대로 유지할 것. 공식 identity나 email을 확인할 수 없으면 임의로 만들지 말고 커밋 또는 PR 본문에 도구 사용 사실을 명시할 것
+- 여러 AI 도구가 하나의 커밋에 실질적으로 기여한 경우 각 도구를 누락 없이 표기하고, 이미 존재하는 사사 표기는 제거하거나 중복 추가하지 말 것
+- Codex의 공식 기본 표기는 `Co-authored-by: Codex <noreply@openai.com>`이며, Codex가 기여한 커밋에는 이 트레일러를 커밋 메시지 끝에 정확히 한 번 추가할 것
 - 사용자가 배포하라고 하는 경우, 우선 npm run build를 통해 빌드하여 에러가 없는지를 확인한 뒤 지금까지의 작업 내역을 확인해 claude.md, readme.md, about 페이지를 포함해 각종 문서에 업데이트가 필요한 내용이 있으면 업데이트한 뒤 git commit을 생성하고 푸시함
 
 
