@@ -48,6 +48,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Start production server**: `npm run start` - Runs production server
 - **Run regression tests**: `npm test` - Runs deterministic calculation and storage tests with Vitest
 - **Lint code**: `npm run lint` - Runs ESLint with Next.js configuration
+- **Audit generated SEO**: `npm run seo:audit` - Checks title/description lengths and a single h1 in each generated HTML file after `npm run build`
 - **Deploy to GitHub Pages**: `npm run deploy` - Builds and deploys to GitHub Pages (requires gh-pages setup)
 
 ## Development Best Practices
@@ -269,6 +270,8 @@ This is a Next.js 14 application using App Router for building calculator utilit
 - **Google Search Console**: 검증 메타 태그 추가됨 (검색 엔진 최적화)
 - **Google Analytics**: head 영역으로 이동하여 추적 코드 최적화
 - **사이트맵**: 자동 생성 시스템으로 검색 엔진 크롤링 지원
+- **IndexNow**: GitHub Pages 배포 후 `scripts/submit-indexnow.mjs`가 운영 사이트맵 URL을 IndexNow global endpoint로 제출하며, 루트의 key 파일로 도메인 소유권을 검증함
+- **SEO 회귀 검사**: 프로덕션 빌드 후 상세 페이지의 제목 25~65자와 설명 70~180자를 검증하고, 탐색 페이지는 짧은 메타데이터를 허용함. 모든 페이지의 `<h1>` 1개는 `npm run seo:audit`로 검증함
 - **OpenGraph**: 소셜 미디어 공유 시 미리보기 이미지 및 설명 제공
 
 ### 폰트 및 UI 개선사항

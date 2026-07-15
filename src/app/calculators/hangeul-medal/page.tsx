@@ -3,16 +3,19 @@ import HangeulTitleCalculator from '@/features/events/hangeul-medal/components/H
 import { StructuredData } from '@/components/StructuredData';
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit';
 
+const title = '메이플스토리 한글날 훈장 조합·재설정 비용 계산기 | 메이플 계산기';
+const description = '메이플스토리 한글날 훈장 이벤트에서 원하는 세 단어 조합을 검색·지정하고, 슬롯 잠금 상태에 따른 한글의 기운 재설정 비용과 달성 확률 분포·백분위를 계산합니다.';
+
 export const metadata: Metadata = {
-  title: '한글날 훈장 이벤트 계산기 | 메이플 계산기',
-  description: '메이플스토리 한글날 훈장 시뮬레이터 및 계산기 - 훈장 조합을 무작위로 생성하거나 검색을 통해 지정할 수 있고, 재설정 비용의 확률 분포를 계산합니다.',
+  title,
+  description,
   keywords: '메이플스토리, 단풍이야기, 한글날, 훈장, 재설정, 한글의 기운, 확률 계산, 시뮬레이터, 시뮬레이션, 무작위 생성, 랜덤 생성, 훈장 조합, 훈장 뽑기',
   alternates: {
     canonical: 'https://www.maplecalc.com/calculators/hangeul-medal'
   },
   openGraph: {
-    title: '한글날 훈장 이벤트 시뮬레이터 및 계산기 | 메이플 계산기',
-    description: '한글날 훈장 조합을 무작위로 생성하거나 검색하여 지정하고, 재설정 비용의 확률 분포를 계산하는 시뮬레이터',
+    title,
+    description,
     type: 'website',
     url: 'https://www.maplecalc.com/calculators/hangeul-medal',
     images: [
@@ -26,8 +29,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: '한글날 훈장 이벤트 시뮬레이터 및 계산기 - 메이플 계산기',
-    description: '훈장 조합을 무작위로 생성하거나 검색하여 지정하고, 재설정 비용의 확률 분포를 계산합니다.',
+    title,
+    description,
     images: ['https://www.maplecalc.com/og-image.png'],
   },
 };
@@ -37,7 +40,7 @@ export default function HangeulTitlePage() {
     <>
       <StructuredData
         name="한글날 훈장 행사 계산기"
-        description="메이플스토리 한글날 훈장 시뮬레이터 및 계산기 - 훈장 조합을 무작위로 생성하거나 검색을 통해 지정할 수 있고, 재설정 비용의 확률 분포를 계산합니다."
+        description={description}
         url="https://www.maplecalc.com/calculators/hangeul-medal"
         applicationCategory="UtilitiesApplication"
       />

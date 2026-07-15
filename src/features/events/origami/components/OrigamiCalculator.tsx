@@ -135,7 +135,7 @@ export default function OrigamiCalculator() {
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* 헤더 */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold">록 스타 돌의 정령! 확률 계산기</h1>
+        <h2 className="text-4xl font-bold">록 스타 돌의 정령! 확률 계산기</h2>
         <p className="text-gray-600">
           보유 자산과 색종이 구매 계획에 따른 이벤트 달성 확률을 정확히 계산합니다
         </p>

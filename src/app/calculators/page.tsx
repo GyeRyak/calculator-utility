@@ -1,15 +1,18 @@
 import { CalculatorGrid } from '@/components/CalculatorGrid'
 import type { Metadata } from 'next'
 
+const title = '계산기 목록'
+const description = '메이플스토리 사냥, 보스, 드롭률 계산기 모음'
+
 export const metadata: Metadata = {
-  title: '계산기 목록',
-  description: '메이플스토리 사냥, 보스, 드롭률 계산기 모음',
+  title,
+  description,
   alternates: {
     canonical: 'https://www.maplecalc.com/calculators'
   },
   openGraph: {
-    title: '계산기 목록 - 메이플 계산기',
-    description: '메이플스토리 사냥, 보스, 드롭률 계산기 모음',
+    title,
+    description,
     type: 'website',
     url: 'https://www.maplecalc.com/calculators'
   },

@@ -1,14 +1,17 @@
 import type { Metadata } from 'next'
 
+const title = '소개'
+const description = '메이플 계산기 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보'
+
 export const metadata: Metadata = {
-  title: '소개',
-  description: '메이플 계산기 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+  title,
+  description,
   alternates: {
     canonical: 'https://www.maplecalc.com/about'
   },
   openGraph: {
-    title: '소개 - 메이플 계산기',
-    description: '메이플 계산기 웹사이트 소개, 기술 스택, 라이선스 및 크레딧 정보',
+    title,
+    description,
     type: 'website',
     url: 'https://www.maplecalc.com/about'
   },

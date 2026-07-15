@@ -29,10 +29,14 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
     title: `${post.title} | 메이플 계산기 블로그`,
     description: post.description,
     keywords: post.tags.join(', '),
+    alternates: {
+      canonical: `https://www.maplecalc.com/blog/${params.slug}`,
+    },
     openGraph: {
       title: post.title,
       description: post.description,
       type: 'article',
+      url: `https://www.maplecalc.com/blog/${params.slug}`,
       publishedTime: post.date,
       tags: post.tags,
     },

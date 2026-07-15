@@ -3,16 +3,19 @@ import { Hero } from '@/components/Hero'
 import { AdSenseBanner } from '@/components/ads/AdSenseBanner'
 import type { Metadata } from 'next'
 
+const title = '메이플 계산기'
+const description = '메이플스토리 사냥, 보스, 아이템 드롭률과 메소 획득량 계산기'
+
 export const metadata: Metadata = {
-  title: '메이플 계산기',
-  description: '메이플스토리 사냥, 보스, 아이템 드롭률과 메소 획득량 계산기',
+  title,
+  description,
   keywords: ['메이플스토리', '메이플', '계산기', '사냥 기댓값', '드롭률', '메소 획득량', '손익분기', '보스 물욕템'],
   alternates: {
     canonical: 'https://www.maplecalc.com'
   },
   openGraph: {
-    title: '메이플 계산기',
-    description: '메이플스토리 사냥, 보스, 아이템 드롭률과 메소 획득량 계산기',
+    title,
+    description,
     type: 'website',
     url: 'https://www.maplecalc.com'
   },

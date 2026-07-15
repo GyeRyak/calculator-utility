@@ -3,24 +3,27 @@ import BossChaseCalculator from '@/features/boss-chase/components/BossChaseCalcu
 import { StructuredData } from '@/components/StructuredData'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 
+const title = '메이플스토리 보스 물욕템 주간·월간 기댓값 계산기 | 메이플 계산기'
+const description = '캐릭터별 보스와 파티 인원, 아이템 드롭률, 경매장 수수료와 시세를 반영해 칠흑·여명·광휘 보스 세트, 반지 상자와 연마석의 주간·월간 기댓값을 계산합니다.'
+
 export const metadata: Metadata = {
-  title: '보스 물욕템 계산기 | 메이플 계산기',
-  description: '메이플스토리 보스 물욕템 드롭 기댓값을 계산합니다. 칠흑, 여명, 광휘 보스 세트와 반지 상자, 연마석 등의 주간/월간 기댓값을 분석할 수 있습니다.',
+  title,
+  description,
   keywords: '메이플스토리, 보스, 물욕템, 칠흑, 여명, 광휘, 반지상자, 연마석, 드롭률, 기댓값',
   alternates: {
     canonical: 'https://www.maplecalc.com/calculators/boss-chase'
   },
   openGraph: {
-    title: '보스 물욕템 계산기 | 메이플 계산기',
-    description: '메이플스토리 보스 물욕템 드롭 기댓값을 계산합니다. 칠흑, 여명, 광휘 보스 세트와 반지 상자, 연마석 등의 주간/월간 기댓값을 분석할 수 있습니다.',
+    title,
+    description,
     url: 'https://www.maplecalc.com/calculators/boss-chase',
     siteName: '메이플 계산기',
     type: 'website'
   },
   twitter: {
     card: 'summary',
-    title: '보스 물욕템 계산기 | 메이플 계산기',
-    description: '메이플스토리 보스 물욕템 드롭 기댓값을 계산합니다.'
+    title,
+    description,
   }
 }
 
@@ -29,7 +32,7 @@ export default function BossChasePage() {
     <>
       <StructuredData
         name="보스 물욕템 계산기"
-        description="메이플스토리 보스 물욕템 드롭 기댓값을 계산합니다. 칠흑, 여명, 광휘 보스 세트와 반지 상자, 연마석 등의 주간/월간 기댓값을 분석할 수 있습니다."
+        description={description}
         url="https://www.maplecalc.com/calculators/boss-chase"
         applicationCategory="UtilitiesApplication"
       />

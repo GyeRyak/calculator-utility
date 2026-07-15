@@ -80,6 +80,8 @@ jobs:
           NEXT_PUBLIC_GITHUB_OWNER: ${{ secrets.NEXT_PUBLIC_GITHUB_OWNER }}
           NEXT_PUBLIC_GITHUB_REPO: ${{ secrets.NEXT_PUBLIC_GITHUB_REPO }}
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
+      - name: Audit generated SEO metadata
+        run: npm run seo:audit
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -96,3 +98,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Checkout IndexNow submission script
+        uses: actions/checkout@v4
+      - name: Notify IndexNow
+        run: node scripts/submit-indexnow.mjs

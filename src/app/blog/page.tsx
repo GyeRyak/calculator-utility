@@ -2,14 +2,21 @@ import type { Metadata } from 'next'
 import { getAllBlogPosts } from '@/lib/blog'
 import { BlogPostList } from '@/components/blog/BlogPostList'
 
+const title = '블로그 | 메이플 계산기'
+const description = '메이플 계산기 개발 과정과 기술적 인사이트를 공유합니다.'
+
 export const metadata: Metadata = {
-  title: '블로그 | 메이플 계산기',
-  description: '메이플 계산기 개발 과정과 기술적 인사이트를 공유합니다.',
+  title,
+  description,
   keywords: ['블로그', '계산기', '개발'],
+  alternates: {
+    canonical: 'https://www.maplecalc.com/blog'
+  },
   openGraph: {
-    title: '블로그 | 메이플 계산기',
-    description: '메이플 계산기 개발 과정과 기술적 인사이트를 공유합니다.',
+    title,
+    description,
     type: 'website',
+    url: 'https://www.maplecalc.com/blog',
   },
 }
 

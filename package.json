@@ -9,6 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "next lint",
+    "seo:audit": "node scripts/audit-seo.mjs",
+    "indexnow:submit": "node scripts/submit-indexnow.mjs",
     "export": "next build",
     "deploy": "npm run export && npx gh-pages -d out"
   },

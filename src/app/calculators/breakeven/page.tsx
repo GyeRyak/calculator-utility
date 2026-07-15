@@ -3,16 +3,19 @@ import { StructuredData } from '@/components/StructuredData'
 import { AdSenseUnit } from '@/components/ads/AdSenseUnit'
 import type { Metadata } from 'next'
 
+const title = '메이플스토리 드메템 투자 회수·손익분기 계산기 | 메이플 계산기'
+const description = '드롭률·메소 획득량 잠재능력 아이템의 구매가와 판매가, 사냥 수익, 재물 획득의 비약과 메소 제한을 반영해 투자금 회수 기간과 손익분기 소재 수를 계산합니다.'
+
 export const metadata: Metadata = {
-  title: '드메템 손익분기 계산기',
-  description: '메이플스토리 드롭률/메소 획득량 증가 아이템 구매 손익분기점 계산',
+  title,
+  description,
   keywords: '메이플스토리, 드메템, 아드, 메획, 손익분기, 드롭률, 메소 획득량',
   alternates: {
     canonical: 'https://www.maplecalc.com/calculators/breakeven'
   },
   openGraph: {
-    title: '드메템 손익분기 계산기',
-    description: '메이플스토리 드롭률/메소 획득량 증가 아이템 구매 손익분기점 계산',
+    title,
+    description,
     type: 'website',
     url: 'https://www.maplecalc.com/calculators/breakeven'
   },
@@ -23,7 +26,7 @@ export default function BreakevenCalculatorPage() {
     <>
       <StructuredData
         name="드메템 손익분기 계산기"
-        description="메이플스토리 드롭률/메소 획득량 증가 아이템 구매 손익분기점 계산"
+        description={description}
         url="https://www.maplecalc.com/calculators/breakeven"
         applicationCategory="FinanceApplication"
       />
